@@ -1,31 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-export async function GET(request: NextRequest) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const users = await db.user.findMany({
-      select: { id: true, name: true, email: true, role: true, department: true, isActive: true, createdAt: true }
+    const data = await request.json()
+    const user = await db.user.update({
+      where: { id: params.id },
+      data: { name: data.name, email: data.email, role: data.role, department: data.department, isActive: data.isActive },
     })
-    return NextResponse.json(users)
+    return NextResponse.json(user)
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update user' }, { status: 500 })
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const data = await request.json()
-    const user = await db.user.create({
-      data: {
-        email: data.email,
-        name: data.name,
-        password: data.password,
-        role: data.role || 'VIEWER',
-        department: data.department,
-      }
-    })
-    return NextResponse.json({ id: user.id, name: user.name, email: user.email, role: user.role })
+    await db.user.delete({ where: { id: params.id } })
+    return NextResponse.json({ success: true })
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 })
   }
 }
