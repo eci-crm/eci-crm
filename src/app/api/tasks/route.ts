@@ -1,48 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-export async function GET(request: NextRequest) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status')
-    const priority = searchParams.get('priority')
-    
-    const where: Record<string, unknown> = {}
-    if (status) where.status = status
-    if (priority) where.priority = priority
-
-    const tasks = await db.task.findMany({
-      where,
-      include: { assignee: { select: { id: true, name: true, email: true, avatar: true } } },
-      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }]
+    const data = await request.json()
+    const task = await db.task.update({
+      where: { id: params.id },
+      data: { title: data.title, description: data.description, status: data.status, priority: data.priority },
     })
-
-    return NextResponse.json(tasks)
+    return NextResponse.json(task)
   } catch (error) {
-    console.error('Fetch tasks error:', error)
-    return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update task' }, { status: 500 })
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const data = await request.json()
-    
-    const task = await db.task.create({
-      data: {
-        title: data.title,
-        description: data.description,
-        status: data.status || 'TODO',
-        priority: data.priority || 'MEDIUM',
-        dueDate: data.dueDate ? new Date(data.dueDate) : null,
-        assigneeId: data.assigneeId
-      },
-      include: { assignee: { select: { id: true, name: true, email: true, avatar: true } } }
-    })
-
-    return NextResponse.json(task)
+    await db.task.delete({ where: { id: params.id } })
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Create task error:', error)
-    return NextResponse.json({ error: 'Failed to create task' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete task' }, { status: 500 })
   }
 }
