@@ -1,28 +1,30 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { ThemeProvider } from "next-themes";
+import './globals.css'
+import { Inter } from 'next/font/google'
+import { cn } from '@/lib/utils'
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ 
+  subsets: ['latin'],
+  variable: '--font-sans',
+})
 
-export const metadata: Metadata = {
-  title: "ECI CRM - Enterprise Customer Intelligence",
-  description: "Modern CRM system built by Irfan Munir",
-  authors: [{ name: "Irfan Munir" }],
-};
+export const metadata = {
+  title: 'ECI CRM | Intelligent Sales Workspace',
+  description: 'The complete SaaS platform for modern sales teams.',
+}
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
-        </ThemeProvider>
+      <body className={cn(
+        "min-h-screen bg-background font-sans antialiased",
+        inter.variable
+      )}>
+        {children}
       </body>
     </html>
-  );
+  )
 }
