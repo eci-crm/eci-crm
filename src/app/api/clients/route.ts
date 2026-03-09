@@ -3,7 +3,8 @@ import { db } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   try {
-    const clients = await db.client.findMany({
+    // CHANGED: db.client.findMany -> db.contact.findMany
+    const clients = await db.contact.findMany({
       include: { owner: { select: { id: true, name: true, email: true } }, proposals: true },
       orderBy: { createdAt: 'desc' }
     })
@@ -16,7 +17,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
-    const client = await db.client.create({
+    // CHANGED: db.client.create -> db.contact.create
+    const client = await db.contact.create({
       data: {
         name: data.name, email: data.email, phone: data.phone,
         company: data.company, position: data.position,
