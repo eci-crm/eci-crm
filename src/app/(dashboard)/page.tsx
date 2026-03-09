@@ -1,4 +1,6 @@
+// Triggering fresh build
 'use client'
+// ... rest of your code
 
 import { useAuthStore } from '@/lib/auth-store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
