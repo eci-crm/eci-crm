@@ -8,99 +8,103 @@ datasource db {
 }
 
 model User {
-  id            String        @id @default(cuid())
-  email         String        @unique
-  name          String
-  password      String
-  role          String        @default("VIEWER")
-  avatar        String?
-  phone         String?
-  department    String?
-  isActive      Boolean       @default(true)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  clients       Client[]
-  proposals     Proposal[]    @relation("OwnerProposals")
-  assignedProposals Proposal[] @relation("AssigneeProposals")
-  tasks         Task[]
-  activities    Activity[]
+  id                String      @id @default(cuid())
+  email             String      @unique
+  name              String
+  password          String
+  role              String      @default("VIEWER")
+  avatar            String?
+  phone             String?
+  department        String?
+  isActive          Boolean     @default(true)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  // Relations
+  clients           Client[]   
+  proposals         Proposal[]  @relation("OwnerProposals")
+  assignedProposals Proposal[]  @relation("AssigneeProposals")
+  tasks             Task[]
+  activities        Activity[]
+  remarks           Remark[]    
 }
 
 model Client {
-  id            String      @id @default(cuid())
-  name          String
-  email         String
-  phone         String?
-  company       String?
-  position      String?
-  status        String      @default("LEAD")
-  source        String?
-  notes         String?
-  rfpNumber     String?
-  ownerId       String
-  owner         User        @relation(fields: [ownerId], references: [id])
-  proposals     Proposal[]
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id          String      @id @default(cuid())
+  name        String
+  email       String
+  phone       String?
+  company     String?
+  position    String?
+  status      String      @default("LEAD")
+  source      String?
+  notes       String?
+  rfpNumber   String?
+  ownerId     String
+  owner       User        @relation(fields: [ownerId], references: [id])
+  proposals   Proposal[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 model Proposal {
-  id            String      @id @default(cuid())
-  title         String
-  description   String?
-  rfpNumber     String?
-  status        String      @default("DRAFT")
-  totalAmount   Float       @default(0)
-  currency      String      @default("USD")
-  deadline      DateTime?
-  assigneeId    String?
-  assignee      User?       @relation("AssigneeProposals", fields: [assigneeId], references: [id])
-  clientId      String
-  client        Client      @relation(fields: [clientId], references: [id])
-  ownerId       String
-  owner         User        @relation("OwnerProposals", fields: [ownerId], references: [id])
-  remarks       Remark[]
-  tasks         Task[]
-  budgets       Budget[]
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  rfpNumber   String?
+  status      String      @default("DRAFT")
+  totalAmount Float       @default(0)
+  currency    String      @default("USD")
+  deadline    DateTime?
+  assigneeId  String?
+  assignee    User?       @relation("AssigneeProposals", fields: [assigneeId], references: [id])
+  clientId    String      
+  client      Client      @relation(fields: [clientId], references: [id]) 
+  ownerId     String
+  owner       User        @relation("OwnerProposals", fields: [ownerId], references: [id])
+  remarks     Remark[]
+  tasks       Task[]
+  budgets     Budget[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 model Remark {
-  id            String      @id @default(cuid())
-  content       String
-  proposalId    String
-  proposal      Proposal    @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  userId        String
-  createdAt     DateTime    @default(now())
+  id          String      @id @default(cuid())
+  content     String
+  proposalId  String
+  proposal    Proposal    @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  createdAt   DateTime    @default(now())
 }
 
 model Budget {
-  id            String      @id @default(cuid())
-  name          String
-  description   String?
-  amount        Float       @default(0)
-  currency      String      @default("USD")
-  category      String?
-  proposalId    String
-  proposal      Proposal    @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  amount      Float       @default(0)
+  currency    String      @default("USD")
+  category    String?
+  proposalId  String
+  proposal    Proposal    @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 model Task {
-  id            String      @id @default(cuid())
-  title         String
-  description   String?
-  status        String      @default("TODO")
-  priority      String      @default("MEDIUM")
-  dueDate       DateTime?
-  assigneeId    String
-  assignee      User        @relation(fields: [assigneeId], references: [id])
-  proposalId    String?
-  proposal      Proposal?   @relation(fields: [proposalId], references: [id])
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  status      String      @default("TODO")
+  priority    String      @default("MEDIUM")
+  dueDate     DateTime?
+  assigneeId  String
+  assignee    User        @relation(fields: [assigneeId], references: [id])
+  proposalId  String?
+  proposal    Proposal?   @relation(fields: [proposalId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 model Activity {
