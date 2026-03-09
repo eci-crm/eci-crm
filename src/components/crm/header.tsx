@@ -3,7 +3,6 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Bell, Search, Menu, Moon, Sun } from 'lucide-react'
-import { useTheme } from 'next-themes'
 import { useAuthStore } from '@/lib/auth-store'
 
 interface HeaderProps {
@@ -12,7 +11,6 @@ interface HeaderProps {
 }
 
 export function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
-  const { theme, setTheme } = useTheme()
   const { user } = useAuthStore()
 
   return (
@@ -27,19 +25,15 @@ export function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
             <Input placeholder="Search..." className="pl-9 h-9 bg-slate-100 dark:bg-slate-800 border-0" />
           </div>
         </div>
-
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          <Button variant="ghost" size="sm">
+            <Moon className="h-5 w-5 dark:hidden" />
+            <Sun className="h-5 w-5 hidden dark:block" />
           </Button>
-
           <Button variant="ghost" size="sm" className="relative">
             <Bell className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
-              3
-            </span>
+            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">3</span>
           </Button>
-
           <div className="flex items-center gap-2 ml-2">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm font-medium">
               {user?.name?.[0] || 'U'}
