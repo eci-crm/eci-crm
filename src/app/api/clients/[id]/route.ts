@@ -4,7 +4,8 @@ import { db } from '@/lib/db'
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const data = await request.json()
-    const client = await db.client.update({
+    // CHANGED: db.client.update -> db.contact.update
+    const client = await db.contact.update({
       where: { id: params.id },
       data: { name: data.name, email: data.email, phone: data.phone, company: data.company, position: data.position, status: data.status, source: data.source, rfpNumber: data.rfpNumber },
     })
@@ -16,7 +17,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    await db.client.delete({ where: { id: params.id } })
+    // CHANGED: db.client.delete -> db.contact.delete
+    await db.contact.delete({ where: { id: params.id } })
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to delete client' }, { status: 500 })
