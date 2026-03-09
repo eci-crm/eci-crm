@@ -21,7 +21,7 @@ model User {
   updatedAt         DateTime    @updatedAt
   
   // Relations
-  clients           Client[]   
+  contacts          Contact[]   
   proposals         Proposal[]  @relation("OwnerProposals")
   assignedProposals Proposal[]  @relation("AssigneeProposals")
   tasks             Task[]
@@ -29,7 +29,7 @@ model User {
   remarks           Remark[]    
 }
 
-model Client {
+model Contact {
   id          String      @id @default(cuid())
   name        String
   email       String
@@ -58,8 +58,8 @@ model Proposal {
   deadline    DateTime?
   assigneeId  String?
   assignee    User?       @relation("AssigneeProposals", fields: [assigneeId], references: [id])
-  clientId    String      
-  client      Client      @relation(fields: [clientId], references: [id]) 
+  contactId   String      
+  contact     Contact     @relation(fields: [contactId], references: [id]) 
   ownerId     String
   owner       User        @relation("OwnerProposals", fields: [ownerId], references: [id])
   remarks     Remark[]
