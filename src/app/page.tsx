@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 
 export default function RootPage() {
-  // This is the "Magic Bridge"
-  // It sends users from / to the dashboard logic sitting in (dashboard)
-  redirect('/')
+  // This forces Next.js to handle the routing properly 
+  // without getting lost in the (dashboard) group
+  redirect('/login')
 }
