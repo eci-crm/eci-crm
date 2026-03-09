@@ -2,14 +2,11 @@ import './globals.css'
 import { Inter } from 'next/font/google'
 import { cn } from '@/lib/utils'
 
-const inter = Inter({ 
-  subsets: ['latin'],
-  variable: '--font-sans',
-})
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'ECI CRM | Intelligent Sales Workspace',
-  description: 'The complete SaaS platform for modern sales teams.',
+  title: 'ECI CRM | Enterprise Sales Workspace',
+  description: 'A complete SaaS platform for modern teams.',
 }
 
 export default function RootLayout({
@@ -19,10 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={cn(
-        "min-h-screen bg-background font-sans antialiased",
-        inter.variable
-      )}>
+      <body className={cn("min-h-screen bg-background antialiased", inter.className)}>
         {children}
       </body>
     </html>
