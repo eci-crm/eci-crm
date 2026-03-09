@@ -5,9 +5,9 @@ import { useAuthStore } from '@/lib/auth-store'
 import { 
   Search, 
   Bell, 
-  User as UserIcon, 
   LogOut, 
-  Settings,
+  User as UserIcon,
+  Shield,
   Menu
 } from 'lucide-react'
 import {
@@ -25,60 +25,68 @@ export default function Navbar() {
   const router = useRouter()
   const { user, logout } = useAuthStore()
 
-  const handleLogout = () => {
+  const onLogout = () => {
     logout()
     router.push('/login')
   }
 
   return (
-    <header className="h-16 border-b bg-white dark:bg-slate-900 flex items-center justify-between px-6 sticky top-0 z-10">
-      {/* Search Bar - Vital for CRM UX */}
-      <div className="flex items-center flex-1 max-w-md relative group">
-        <Search className="absolute left-3 h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+    <header className="h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b px-6 flex items-center justify-between sticky top-0 z-40">
+      {/* Mobile Menu Toggle (Visible only on small screens) */}
+      <Button variant="ghost" size="icon" className="lg:hidden mr-2">
+        <Menu className="h-5 w-5" />
+      </Button>
+
+      {/* Global Search */}
+      <div className="hidden md:flex flex-1 max-w-md relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
         <Input 
-          placeholder="Search clients, deals, or tasks..." 
-          className="pl-10 bg-slate-50 border-none focus-visible:ring-1 focus-visible:ring-primary h-9 w-full lg:w-[300px] transition-all"
+          type="search"
+          placeholder="Search records (Ctrl + K)"
+          className="pl-10 bg-slate-100/50 border-transparent focus:bg-white focus:border-primary/20 transition-all w-[300px]"
         />
       </div>
 
-      {/* Right Side Actions */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="relative text-slate-500">
+      {/* Action Icons */}
+      <div className="flex items-center gap-2 ml-auto">
+        <Button variant="ghost" size="icon" className="text-slate-500 relative">
           <Bell className="h-5 w-5" />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />
+          <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
         </Button>
 
-        <div className="h-6 w-px bg-slate-200 mx-2" />
+        <div className="h-8 w-[1px] bg-slate-200 mx-2" />
 
+        {/* User Profile Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-3 hover:bg-slate-50 pl-2">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs border border-primary/20">
+            <Button variant="ghost" className="relative h-9 w-auto flex items-center gap-2 pl-1 pr-2 hover:bg-slate-100 rounded-full transition-colors">
+              <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center text-[10px] font-bold text-white shadow-sm shadow-primary/30">
                 {user?.name?.charAt(0) || 'U'}
               </div>
-              <div className="hidden md:flex flex-col items-start text-left">
-                <span className="text-sm font-semibold leading-none">{user?.name}</span>
-                <span className="text-[10px] text-muted-foreground uppercase mt-1 tracking-tighter">
-                  {user?.role?.replace('_', ' ')}
-                </span>
+              <div className="hidden sm:block text-left">
+                <p className="text-xs font-bold leading-none">{user?.name}</p>
+                <p className="text-[9px] text-slate-400 font-medium uppercase mt-0.5">{user?.role}</p>
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+          <DropdownMenuContent className="w-56 mt-2" align="end">
+            <DropdownMenuLabel>Account Management</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer">
-              <UserIcon className="mr-2 h-4 w-4" /> Profile
+            <DropdownMenuItem className="cursor-pointer py-2">
+              <UserIcon className="mr-2 h-4 w-4 text-slate-500" />
+              <span>My Profile</span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer">
-              <Settings className="mr-2 h-4 w-4" /> Settings
+            <DropdownMenuItem className="cursor-pointer py-2">
+              <Shield className="mr-2 h-4 w-4 text-slate-500" />
+              <span>Privacy Settings</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
-              className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
-              onClick={handleLogout}
+              className="text-red-600 focus:bg-red-50 focus:text-red-600 cursor-pointer py-2"
+              onClick={onLogout}
             >
-              <LogOut className="mr-2 h-4 w-4" /> Sign out
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Sign Out</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
