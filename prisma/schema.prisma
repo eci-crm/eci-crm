@@ -8,21 +8,22 @@ datasource db {
 }
 
 model User {
-  id          String      @id @default(cuid())
-  email       String      @unique
-  name        String
-  password    String
-  role        String      @default("VIEWER")
-  avatar      String?
-  phone       String?
-  department  String?
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  clients     Client[]
-  proposals   Proposal[]
-  tasks       Task[]
-  activities  Activity[]
+  id            String        @id @default(cuid())
+  email         String        @unique
+  name          String
+  password      String
+  role          String        @default("VIEWER")
+  avatar        String?
+  phone         String?
+  department    String?
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  clients       Client[]
+  proposals     Proposal[]    @relation("OwnerProposals")
+  assignedProposals Proposal[] @relation("AssigneeProposals")
+  tasks         Task[]
+  activities    Activity[]
 }
 
 model Client {
@@ -53,11 +54,11 @@ model Proposal {
   currency      String      @default("USD")
   deadline      DateTime?
   assigneeId    String?
-  assignee      User?       @relation(fields: [assigneeId], references: [id])
+  assignee      User?       @relation("AssigneeProposals", fields: [assigneeId], references: [id])
   clientId      String
   client        Client      @relation(fields: [clientId], references: [id])
   ownerId       String
-  owner         User        @relation(fields: [ownerId], references: [id])
+  owner         User        @relation("OwnerProposals", fields: [ownerId], references: [id])
   remarks       Remark[]
   tasks         Task[]
   budgets       Budget[]
