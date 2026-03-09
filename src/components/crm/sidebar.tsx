@@ -3,8 +3,9 @@
 import { useAuthStore } from '@/lib/auth-store'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Users, FileText, CheckSquare, LogOut, ChevronLeft, ChevronRight, Building2 } from 'lucide-react'
-import type { TabType } from '@/app/page'
+import { LayoutDashboard, Users, FileText, CheckSquare, LogOut, ChevronLeft, ChevronRight, Building2, Calendar, BarChart3, Settings } from 'lucide-react'
+
+type TabType = 'dashboard' | 'contacts' | 'proposals' | 'tasks' | 'calendar' | 'reports' | 'settings'
 
 interface SidebarProps {
   activeTab: TabType
@@ -18,6 +19,9 @@ const menuItems = [
   { id: 'contacts' as TabType, label: 'Contacts', icon: Users },
   { id: 'proposals' as TabType, label: 'Proposals', icon: FileText },
   { id: 'tasks' as TabType, label: 'Tasks', icon: CheckSquare },
+  { id: 'calendar' as TabType, label: 'Calendar', icon: Calendar },
+  { id: 'reports' as TabType, label: 'Reports', icon: BarChart3 },
+  { id: 'settings' as TabType, label: 'Settings', icon: Settings },
 ]
 
 export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarProps) {
