@@ -48,7 +48,7 @@ const saveAuth = (user: User | null) => {
 export const useAuthStore = create<AuthState>()((set) => ({
   isAuthenticated: false,
   user: null,
-  login: (user) => {
+  login: (user: User) => {
     saveAuth(user)
     set({ isAuthenticated: true, user })
   },
@@ -60,4 +60,4 @@ export const useAuthStore = create<AuthState>()((set) => ({
     const stored = getStoredAuth()
     set(stored)
   },
-))
+}))
