@@ -3,12 +3,11 @@ import { db } from '@/lib/db'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params
     const user = await db.user.findUnique({
-      where: { id },
+      where: { id: params.id },
       select: { id: true, name: true, email: true, role: true, department: true, isActive: true }
     })
     if (!user) {
@@ -22,20 +21,13 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params
     const data = await request.json()
     const user = await db.user.update({
-      where: { id },
-      data: {
-        name: data.name,
-        email: data.email,
-        role: data.role,
-        department: data.department,
-        isActive: data.isActive
-      },
+      where: { id: params.id },
+      data: { name: data.name, email: data.email, role: data.role, department: data.department, isActive: data.isActive },
       select: { id: true, name: true, email: true, role: true, department: true, isActive: true }
     })
     return NextResponse.json(user)
@@ -46,11 +38,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params
-    await db.user.delete({ where: { id } })
+    await db.user.delete({ where: { id: params.id } })
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 })
