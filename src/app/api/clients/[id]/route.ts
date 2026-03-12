@@ -37,8 +37,7 @@ export async function PUT(
         position: data.position,
         status: data.status,
         rfpNumber: data.rfpNumber
-      },
-      include: { owner: { select: { id: true, name: true } } }
+      }
     })
     return NextResponse.json(client)
   } catch (error) {
