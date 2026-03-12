@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Building2, Eye, EyeOff, Loader2, LayoutDashboard, Users, FileText, CheckSquare, LogOut, ChevronLeft, ChevronRight, Moon, Sun, Bell, Menu, Search, BarChart3, Calendar, Plus, Trash2, Edit, Building, Clock, CheckCircle, Circle, TrendingUp, DollarSign, X, MessageSquare, UserPlus, Shield, Key, UserCog } from 'lucide-react'
+import { Building2, Eye, EyeOff, Loader2, LayoutDashboard, Users, FileText, CheckSquare, LogOut, ChevronLeft, ChevronRight, Moon, Sun, Bell, Menu, Search, BarChart3, Calendar, Plus, Trash2, Edit, CheckCircle, Circle, TrendingUp, DollarSign, UserPlus, Shield, UserCog } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type TabType = 'dashboard' | 'clients' | 'proposals' | 'tasks' | 'calendar' | 'reports' | 'settings' | 'users'
@@ -138,299 +138,129 @@ export default function Home() {
   }
 
   const handleCreateClient = async () => {
-    if (!newClient.name || !newClient.email) {
-      showToast('Name and Email are required', 'error')
-      return
-    }
+    if (!newClient.name || !newClient.email) { showToast('Name and Email are required', 'error'); return }
     try {
-      const response = await fetch('/api/clients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...newClient, ownerId: user?.id }),
-      })
+      const response = await fetch('/api/clients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...newClient, ownerId: user?.id }) })
       const data = await response.json()
-      if (response.ok) {
-        setClients([...clients, data])
-        setNewClient({ name: '', email: '', phone: '', company: '', position: '', status: 'LEAD', rfpNumber: '' })
-        setClientDialogOpen(false)
-        showToast('Client created successfully!')
-      } else {
-        showToast(data.error || 'Failed to create client', 'error')
-      }
-    } catch (e) {
-      showToast('Network error', 'error')
-    }
+      if (response.ok) { setClients([...clients, data]); setNewClient({ name: '', email: '', phone: '', company: '', position: '', status: 'LEAD', rfpNumber: '' }); setClientDialogOpen(false); showToast('Client created successfully!') }
+      else { showToast(data.error || 'Failed to create client', 'error') }
+    } catch (e) { showToast('Network error', 'error') }
   }
 
   const handleUpdateClient = async () => {
     if (!editingClient) return
     try {
-      const response = await fetch(`/api/clients/${editingClient.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingClient),
-      })
+      const response = await fetch(`/api/clients/${editingClient.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingClient) })
       const data = await response.json()
-      if (response.ok) {
-        setClients(clients.map(c => c.id === data.id ? data : c))
-        setEditClientDialogOpen(false)
-        setEditingClient(null)
-        showToast('Client updated successfully!')
-      }
-    } catch (e) {
-      showToast('Failed to update client', 'error')
-    }
+      if (response.ok) { setClients(clients.map(c => c.id === data.id ? data : c)); setEditClientDialogOpen(false); setEditingClient(null); showToast('Client updated successfully!') }
+    } catch (e) { showToast('Failed to update client', 'error') }
   }
 
   const handleDeleteClient = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this client?')) return
+    if (!confirm('Are you sure?')) return
     try {
       const response = await fetch(`/api/clients/${id}`, { method: 'DELETE' })
-      if (response.ok) {
-        setClients(clients.filter(c => c.id !== id))
-        showToast('Client deleted successfully!')
-      }
-    } catch (e) {
-      showToast('Failed to delete client', 'error')
-    }
+      if (response.ok) { setClients(clients.filter(c => c.id !== id)); showToast('Client deleted successfully!') }
+    } catch (e) { showToast('Failed to delete client', 'error') }
   }
 
   const handleCreateProposal = async () => {
-    if (!newProposal.title || !newProposal.clientId) {
-      showToast('Title and Client are required', 'error')
-      return
-    }
+    if (!newProposal.title || !newProposal.clientId) { showToast('Title and Client are required', 'error'); return }
     try {
-      const response = await fetch('/api/proposals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newProposal,
-          totalAmount: parseFloat(newProposal.totalAmount) || 0,
-          deadline: newProposal.deadline ? new Date(newProposal.deadline) : null,
-          ownerId: user?.id
-        }),
-      })
+      const response = await fetch('/api/proposals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...newProposal, totalAmount: parseFloat(newProposal.totalAmount) || 0, deadline: newProposal.deadline ? new Date(newProposal.deadline) : null, ownerId: user?.id }) })
       const data = await response.json()
-      if (response.ok) {
-        setProposals([...proposals, data])
-        setNewProposal({ title: '', description: '', rfpNumber: '', totalAmount: '', status: 'DRAFT', deadline: '', clientId: '', assigneeId: '' })
-        setProposalDialogOpen(false)
-        showToast('Proposal created successfully!')
-      } else {
-        showToast(data.error || 'Failed to create proposal', 'error')
-      }
-    } catch (e) {
-      showToast('Network error', 'error')
-    }
+      if (response.ok) { setProposals([...proposals, data]); setNewProposal({ title: '', description: '', rfpNumber: '', totalAmount: '', status: 'DRAFT', deadline: '', clientId: '', assigneeId: '' }); setProposalDialogOpen(false); showToast('Proposal created successfully!') }
+      else { showToast(data.error || 'Failed to create proposal', 'error') }
+    } catch (e) { showToast('Network error', 'error') }
   }
 
   const handleUpdateProposal = async () => {
     if (!editingProposal) return
     try {
-      const response = await fetch(`/api/proposals/${editingProposal.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...editingProposal,
-          deadline: editingProposal.deadline ? new Date(editingProposal.deadline) : null
-        }),
-      })
+      const response = await fetch(`/api/proposals/${editingProposal.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...editingProposal, deadline: editingProposal.deadline ? new Date(editingProposal.deadline) : null }) })
       const data = await response.json()
-      if (response.ok) {
-        setProposals(proposals.map(p => p.id === data.id ? data : p))
-        setEditProposalDialogOpen(false)
-        setEditingProposal(null)
-        showToast('Proposal updated successfully!')
-      }
-    } catch (e) {
-      showToast('Failed to update proposal', 'error')
-    }
+      if (response.ok) { setProposals(proposals.map(p => p.id === data.id ? data : p)); setEditProposalDialogOpen(false); setEditingProposal(null); showToast('Proposal updated successfully!') }
+    } catch (e) { showToast('Failed to update proposal', 'error') }
   }
 
   const handleDeleteProposal = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this proposal?')) return
+    if (!confirm('Are you sure?')) return
     try {
       const response = await fetch(`/api/proposals/${id}`, { method: 'DELETE' })
-      if (response.ok) {
-        setProposals(proposals.filter(p => p.id !== id))
-        showToast('Proposal deleted successfully!')
-      }
-    } catch (e) {
-      showToast('Failed to delete proposal', 'error')
-    }
+      if (response.ok) { setProposals(proposals.filter(p => p.id !== id)); showToast('Proposal deleted successfully!') }
+    } catch (e) { showToast('Failed to delete proposal', 'error') }
   }
 
   const handleAddRemark = async () => {
     if (!newRemark.trim() || !selectedProposal) return
     try {
-      const response = await fetch('/api/remarks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newRemark, proposalId: selectedProposal.id, userId: user?.id }),
-      })
+      const response = await fetch('/api/remarks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: newRemark, proposalId: selectedProposal.id, userId: user?.id }) })
       const data = await response.json()
-      if (response.ok) {
-        setRemarks([...remarks, data])
-        setNewRemark('')
-        showToast('Remark added!')
-      }
-    } catch (e) {
-      showToast('Failed to add remark', 'error')
-    }
+      if (response.ok) { setRemarks([...remarks, data]); setNewRemark(''); showToast('Remark added!') }
+    } catch (e) { showToast('Failed to add remark', 'error') }
   }
 
   const openProposalDetail = async (proposal: Proposal) => {
     setSelectedProposal(proposal)
-    try {
-      const res = await fetch(`/api/remarks?proposalId=${proposal.id}`)
-      const data = await res.json()
-      setRemarks(Array.isArray(data) ? data : [])
-    } catch (e) {
-      setRemarks([])
-    }
+    try { const res = await fetch(`/api/remarks?proposalId=${proposal.id}`); const data = await res.json(); setRemarks(Array.isArray(data) ? data : []) } catch (e) { setRemarks([]) }
     setProposalDetailOpen(true)
   }
 
   const handleCreateTask = async () => {
-    if (!newTask.title) {
-      showToast('Title is required', 'error')
-      return
-    }
+    if (!newTask.title) { showToast('Title is required', 'error'); return }
     try {
-      const response = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newTask,
-          dueDate: newTask.dueDate ? new Date(newTask.dueDate) : null,
-          assigneeId: newTask.assigneeId || user?.id
-        }),
-      })
+      const response = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...newTask, dueDate: newTask.dueDate ? new Date(newTask.dueDate) : null, assigneeId: newTask.assigneeId || user?.id }) })
       const data = await response.json()
-      if (response.ok) {
-        setTasks([...tasks, data])
-        setNewTask({ title: '', description: '', priority: 'MEDIUM', status: 'TODO', dueDate: '', assigneeId: '', proposalId: '' })
-        setTaskDialogOpen(false)
-        showToast('Task created successfully!')
-      } else {
-        showToast(data.error || 'Failed to create task', 'error')
-      }
-    } catch (e) {
-      showToast('Network error', 'error')
-    }
+      if (response.ok) { setTasks([...tasks, data]); setNewTask({ title: '', description: '', priority: 'MEDIUM', status: 'TODO', dueDate: '', assigneeId: '', proposalId: '' }); setTaskDialogOpen(false); showToast('Task created successfully!') }
+      else { showToast(data.error || 'Failed to create task', 'error') }
+    } catch (e) { showToast('Network error', 'error') }
   }
 
   const handleUpdateTask = async () => {
     if (!editingTask) return
     try {
-      const response = await fetch(`/api/tasks/${editingTask.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...editingTask,
-          dueDate: editingTask.dueDate ? new Date(editingTask.dueDate) : null
-        }),
-      })
+      const response = await fetch(`/api/tasks/${editingTask.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...editingTask, dueDate: editingTask.dueDate ? new Date(editingTask.dueDate) : null }) })
       const data = await response.json()
-      if (response.ok) {
-        setTasks(tasks.map(t => t.id === data.id ? data : t))
-        setEditTaskDialogOpen(false)
-        setEditingTask(null)
-        showToast('Task updated successfully!')
-      }
-    } catch (e) {
-      showToast('Failed to update task', 'error')
-    }
+      if (response.ok) { setTasks(tasks.map(t => t.id === data.id ? data : t)); setEditTaskDialogOpen(false); setEditingTask(null); showToast('Task updated successfully!') }
+    } catch (e) { showToast('Failed to update task', 'error') }
   }
 
   const handleDeleteTask = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this task?')) return
-    try {
-      const response = await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
-      if (response.ok) {
-        setTasks(tasks.filter(t => t.id !== id))
-        showToast('Task deleted successfully!')
-      }
-    } catch (e) {
-      showToast('Failed to delete task', 'error')
-    }
+    if (!confirm('Are you sure?')) return
+    try { const response = await fetch(`/api/tasks/${id}`, { method: 'DELETE' }); if (response.ok) { setTasks(tasks.filter(t => t.id !== id)); showToast('Task deleted successfully!') } } catch (e) { showToast('Failed to delete task', 'error') }
   }
 
   const toggleTaskStatus = async (task: Task) => {
     const newStatus = task.status === 'COMPLETED' ? 'TODO' : 'COMPLETED'
     try {
-      const response = await fetch(`/api/tasks/${task.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...task, status: newStatus }),
-      })
+      const response = await fetch(`/api/tasks/${task.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...task, status: newStatus }) })
       const data = await response.json()
-      if (response.ok) {
-        setTasks(tasks.map(t => t.id === data.id ? data : t))
-        showToast(newStatus === 'COMPLETED' ? 'Task completed!' : 'Task reopened!')
-      }
-    } catch (e) {
-      showToast('Failed to update task', 'error')
-    }
+      if (response.ok) { setTasks(tasks.map(t => t.id === data.id ? data : t)); showToast(newStatus === 'COMPLETED' ? 'Task completed!' : 'Task reopened!') }
+    } catch (e) { showToast('Failed to update task', 'error') }
   }
 
   const handleCreateUser = async () => {
-    if (!newUser.name || !newUser.email || !newUser.password) {
-      showToast('Name, Email and Password are required', 'error')
-      return
-    }
+    if (!newUser.name || !newUser.email || !newUser.password) { showToast('Name, Email and Password are required', 'error'); return }
     try {
-      const response = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newUser),
-      })
+      const response = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newUser) })
       const data = await response.json()
-      if (response.ok) {
-        setUsers([...users, data])
-        setNewUser({ name: '', email: '', password: '', role: 'VIEWER', department: '' })
-        setUserDialogOpen(false)
-        showToast('User created successfully!')
-      } else {
-        showToast(data.error || 'Failed to create user', 'error')
-      }
-    } catch (e) {
-      showToast('Network error', 'error')
-    }
+      if (response.ok) { setUsers([...users, data]); setNewUser({ name: '', email: '', password: '', role: 'VIEWER', department: '' }); setUserDialogOpen(false); showToast('User created successfully!') }
+      else { showToast(data.error || 'Failed to create user', 'error') }
+    } catch (e) { showToast('Network error', 'error') }
   }
 
   const handleUpdateUser = async () => {
     if (!editingUser) return
     try {
-      const response = await fetch(`/api/users/${editingUser.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingUser),
-      })
+      const response = await fetch(`/api/users/${editingUser.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingUser) })
       const data = await response.json()
-      if (response.ok) {
-        setUsers(users.map(u => u.id === data.id ? data : u))
-        setEditUserDialogOpen(false)
-        setEditingUser(null)
-        showToast('User updated successfully!')
-      }
-    } catch (e) {
-      showToast('Failed to update user', 'error')
-    }
+      if (response.ok) { setUsers(users.map(u => u.id === data.id ? data : u)); setEditUserDialogOpen(false); setEditingUser(null); showToast('User updated successfully!') }
+    } catch (e) { showToast('Failed to update user', 'error') }
   }
 
   const handleDeleteUser = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return
-    try {
-      const response = await fetch(`/api/users/${id}`, { method: 'DELETE' })
-      if (response.ok) {
-        setUsers(users.filter(u => u.id !== id))
-        showToast('User deleted successfully!')
-      }
-    } catch (e) {
-      showToast('Failed to delete user', 'error')
-    }
+    if (!confirm('Are you sure?')) return
+    try { const response = await fetch(`/api/users/${id}`, { method: 'DELETE' }); if (response.ok) { setUsers(users.filter(u => u.id !== id)); showToast('User deleted successfully!') } } catch (e) { showToast('Failed to delete user', 'error') }
   }
 
   if (!mounted) {
@@ -444,7 +274,6 @@ export default function Home() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%239C92AC%22%20fill-opacity%3D%220.05%22%3E%3Cpath%20d%3D%22M36%2034v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6%2034v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6%204V0H4v4H0v2h4v4h2V6h4V4H6z%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E')] opacity-20"></div>
         <div className="w-full max-w-md relative">
           <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-xl">
             <CardHeader className="text-center pb-2">
@@ -459,16 +288,16 @@ export default function Home() {
                 <form onSubmit={handleLogin} className="space-y-4">
                   {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input id="email" type="email" placeholder="Enter your email" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-11" />
+                    <Label>Email Address</Label>
+                    <Input type="email" placeholder="Enter your email" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-11" />
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="password">Password</Label>
+                      <Label>Password</Label>
                       <button type="button" onClick={() => setForgotPassword(true)} className="text-xs text-emerald-600 hover:text-emerald-700">Forgot password?</button>
                     </div>
                     <div className="relative">
-                      <Input id="password" type={showPassword ? 'text' : 'password'} placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} required className="h-11 pr-10" />
+                      <Input type={showPassword ? 'text' : 'password'} placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} required className="h-11 pr-10" />
                       <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3" onClick={() => setShowPassword(!showPassword)}>
                         {showPassword ? <EyeOff className="h-4 w-4 text-slate-400" /> : <Eye className="h-4 w-4 text-slate-400" />}
                       </Button>
@@ -482,15 +311,13 @@ export default function Home() {
                 <div className="space-y-4">
                   {resetSent ? (
                     <div className="text-center py-4">
-                      <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
-                        <CheckCircle className="h-6 w-6 text-emerald-600" />
-                      </div>
-                      <p className="text-slate-600">If an account exists with that email, you will receive password reset instructions.</p>
+                      <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4"><CheckCircle className="h-6 w-6 text-emerald-600" /></div>
+                      <p className="text-slate-600">If an account exists, you will receive password reset instructions.</p>
                       <Button variant="outline" className="mt-4" onClick={() => { setForgotPassword(false); setResetSent(false); }}>Back to Login</Button>
                     </div>
                   ) : (
                     <form onSubmit={handleForgotPassword} className="space-y-4">
-                      <p className="text-sm text-slate-600">Enter your email address and we'll send you instructions to reset your password.</p>
+                      <p className="text-sm text-slate-600">Enter your email to reset password.</p>
                       <div className="space-y-2">
                         <Label>Email Address</Label>
                         <Input type="email" placeholder="Enter your email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} required className="h-11" />
@@ -505,7 +332,7 @@ export default function Home() {
               )}
             </CardContent>
             <div className="px-6 pb-6 pt-2 border-t border-slate-100">
-              <p className="text-xs text-center text-slate-400">Built by <span className="font-medium text-slate-600">Irfan Munir</span> • © 2024 ECI CRM</p>
+              <p className="text-xs text-center text-slate-400">Built by <span className="font-medium text-slate-600">Irfan Munir</span></p>
             </div>
           </Card>
         </div>
@@ -524,20 +351,14 @@ export default function Home() {
     { id: 'settings' as TabType, label: 'Settings', icon: Building2 },
   ]
 
-  const statusColors: Record<string, string> = {
-    LEAD: 'bg-amber-100 text-amber-700', PROSPECT: 'bg-blue-100 text-blue-700', CUSTOMER: 'bg-emerald-100 text-emerald-700',
-    DRAFT: 'bg-slate-100 text-slate-700', SENT: 'bg-blue-100 text-blue-700', ACCEPTED: 'bg-emerald-100 text-emerald-700', REJECTED: 'bg-red-100 text-red-700',
-    TODO: 'bg-slate-100 text-slate-700', IN_PROGRESS: 'bg-amber-100 text-amber-700', COMPLETED: 'bg-emerald-100 text-emerald-700',
-    ADMIN: 'bg-purple-100 text-purple-700', MANAGER: 'bg-blue-100 text-blue-700', SALES_REP: 'bg-emerald-100 text-emerald-700', VIEWER: 'bg-slate-100 text-slate-700',
-  }
+  const statusColors: Record<string, string> = { LEAD: 'bg-amber-100 text-amber-700', PROSPECT: 'bg-blue-100 text-blue-700', CUSTOMER: 'bg-emerald-100 text-emerald-700', DRAFT: 'bg-slate-100 text-slate-700', SENT: 'bg-blue-100 text-blue-700', ACCEPTED: 'bg-emerald-100 text-emerald-700', REJECTED: 'bg-red-100 text-red-700', TODO: 'bg-slate-100 text-slate-700', IN_PROGRESS: 'bg-amber-100 text-amber-700', COMPLETED: 'bg-emerald-100 text-emerald-700', ADMIN: 'bg-purple-100 text-purple-700', MANAGER: 'bg-blue-100 text-blue-700', SALES_REP: 'bg-emerald-100 text-emerald-700', VIEWER: 'bg-slate-100 text-slate-700' }
   const priorityColors: Record<string, string> = { LOW: 'bg-slate-100 text-slate-700', MEDIUM: 'bg-blue-100 text-blue-700', HIGH: 'bg-orange-100 text-orange-700', URGENT: 'bg-red-100 text-red-700' }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       {toast && <div className={cn('fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg', toast.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white')}>{toast.message}</div>}
-      
       <div className="flex h-screen overflow-hidden">
-        <aside className={cn('fixed md:relative z-40 h-screen bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-all duration-300', sidebarOpen ? 'w-64' : 'w-0 md:w-16 overflow-hidden md:overflow-visible')}>
+        <aside className={cn('fixed md:relative z-40 h-screen bg-white border-r border-slate-200 transition-all duration-300', sidebarOpen ? 'w-64' : 'w-0 md:w-16 overflow-hidden md:overflow-visible')}>
           <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200">
             {sidebarOpen && <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center"><Building2 className="w-4 h-4 text-white" /></div><div><h1 className="font-bold text-slate-900 text-sm">ECI CRM</h1><p className="text-xs text-slate-500">by Irfan Munir</p></div></div>}
             <Button variant="ghost" size="sm" className="hidden md:flex" onClick={() => setSidebarOpen(!sidebarOpen)}>{sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</Button>
@@ -545,7 +366,6 @@ export default function Home() {
           <nav className="flex-1 p-2 space-y-1 mt-4">{menuItems.map((item) => (<Button key={item.id} variant="ghost" className={cn('w-full justify-start gap-3 h-10', activeTab === item.id ? 'bg-emerald-50 text-emerald-600' : 'text-slate-600 hover:bg-slate-100')} onClick={() => setActiveTab(item.id)}><item.icon className="h-5 w-5" />{sidebarOpen && <span>{item.label}</span>}</Button>))}</nav>
           {sidebarOpen && <div className="p-4 border-t border-slate-200"><div className="flex items-center gap-3 mb-3"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm font-medium">{user?.name?.[0] || 'U'}</div><div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{user?.name}</p><p className="text-xs text-slate-500 truncate">{user?.role}</p></div></div><Button variant="outline" size="sm" className="w-full" onClick={logout}><LogOut className="h-4 w-4 mr-2" />Sign Out</Button></div>}
         </aside>
-
         <div className="flex-1 flex flex-col overflow-hidden">
           <header className="h-16 border-b border-slate-200 bg-white/80 backdrop-blur-xl sticky top-0 z-30">
             <div className="h-full px-4 flex items-center justify-between gap-4">
@@ -554,27 +374,25 @@ export default function Home() {
                 <div className="hidden sm:flex items-center relative w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" /><Input placeholder="Search..." className="pl-9 h-9 bg-slate-100 border-0" /></div>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm"><Moon className="h-5 w-5 dark:hidden" /><Sun className="h-5 w-5 hidden dark:block" /></Button>
+                <Button variant="ghost" size="sm"><Moon className="h-5 w-5" /></Button>
                 <Button variant="ghost" size="sm" className="relative"><Bell className="h-5 w-5" /><span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">{tasks.filter(t => t.status !== 'COMPLETED').length}</span></Button>
                 <div className="flex items-center gap-2 ml-2"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm font-medium">{user?.name?.[0] || 'U'}</div><div className="hidden md:block"><p className="text-sm font-medium">{user?.name}</p><p className="text-xs text-slate-500">{user?.role}</p></div></div>
               </div>
             </div>
           </header>
-
           <main className="flex-1 overflow-auto p-4 md:p-6">
             {activeTab === 'dashboard' && (
               <div className="space-y-6">
-                <Card className="border-0 bg-gradient-to-r from-emerald-500 to-teal-600 text-white"><CardContent className="p-6"><h2 className="text-2xl font-bold">Welcome back, {user?.name?.split(' ')[0]}!</h2><p className="text-emerald-100 mt-1">Here's what's happening with your business today.</p></CardContent></Card>
+                <Card className="border-0 bg-gradient-to-r from-emerald-500 to-teal-600 text-white"><CardContent className="p-6"><h2 className="text-2xl font-bold">Welcome back, {user?.name?.split(' ')[0]}!</h2><p className="text-emerald-100 mt-1">Here is what is happening with your business today.</p></CardContent></Card>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {[{ title: 'Total Clients', value: clients.length, icon: Users, color: 'from-emerald-500 to-teal-600' }, { title: 'Active Proposals', value: proposals.filter(p => !['REJECTED', 'CLOSED'].includes(p.status)).length, icon: FileText, color: 'from-blue-500 to-indigo-600' }, { title: 'Pending Tasks', value: tasks.filter(t => t.status !== 'COMPLETED').length, icon: CheckSquare, color: 'from-amber-500 to-orange-600' }, { title: 'Revenue', value: `$${proposals.filter(p => p.status === 'ACCEPTED').reduce((sum, p) => sum + (p.totalAmount || 0), 0).toLocaleString()}`, icon: DollarSign, color: 'from-purple-500 to-pink-600' }].map((stat, i) => (<Card key={i} className="border-0 shadow-lg"><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-slate-500">{stat.title}</p><p className="text-2xl font-bold mt-1">{stat.value}</p></div><div className={cn('w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center', stat.color)}><stat.icon className="h-6 w-6 text-white" /></div></div></CardContent></Card>))}
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Card className="border-0 shadow-lg"><CardHeader><CardTitle>Upcoming Deadlines</CardTitle></CardHeader><CardContent><div className="space-y-3">{proposals.filter(p => p.deadline && new Date(p.deadline) > new Date()).slice(0, 5).map(p => <div key={p.id} className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center text-sm"><Calendar className="h-4 w-4" /></div><div className="flex-1"><p className="text-sm font-medium">{p.title}</p><p className="text-xs text-slate-500">Due: {new Date(p.deadline!).toLocaleDateString()}</p></div></div>)}{proposals.filter(p => p.deadline && new Date(p.deadline) > new Date()).length === 0 && <p className="text-sm text-slate-500">No upcoming deadlines</p>}</div></CardContent></Card>
+                  <Card className="border-0 shadow-lg"><CardHeader><CardTitle>Upcoming Deadlines</CardTitle></CardHeader><CardContent><div className="space-y-3">{proposals.filter(p => p.deadline && new Date(p.deadline) > new Date()).slice(0, 5).map(p => <div key={p.id} className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center"><Calendar className="h-4 w-4" /></div><div className="flex-1"><p className="text-sm font-medium">{p.title}</p><p className="text-xs text-slate-500">Due: {new Date(p.deadline!).toLocaleDateString()}</p></div></div>)}{proposals.filter(p => p.deadline && new Date(p.deadline) > new Date()).length === 0 && <p className="text-sm text-slate-500">No upcoming deadlines</p>}</div></CardContent></Card>
                   <Card className="border-0 shadow-lg"><CardHeader><CardTitle>Recent Tasks</CardTitle></CardHeader><CardContent><div className="space-y-3">{tasks.filter(t => t.status !== 'COMPLETED').slice(0, 5).map(t => <div key={t.id} className="flex items-center gap-3"><Circle className="h-4 w-4 text-slate-400" /><div className="flex-1"><p className="text-sm font-medium">{t.title}</p><p className="text-xs text-slate-500">{t.priority} priority</p></div><span className={cn('px-2 py-0.5 rounded text-xs', priorityColors[t.priority])}>{t.priority}</span></div>)}{tasks.filter(t => t.status !== 'COMPLETED').length === 0 && <p className="text-sm text-slate-500">No pending tasks</p>}</div></CardContent></Card>
                 </div>
               </div>
             )}
-
             {activeTab === 'clients' && (
               <Card className="border-0 shadow-lg">
                 <CardHeader className="border-b"><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"><CardTitle>Clients ({clients.length})</CardTitle>
@@ -595,11 +413,11 @@ export default function Home() {
                   </Dialog>
                 </div></CardHeader>
                 <CardContent className="p-0">
-                  {loading ? <div className="p-8 text-center text-slate-500">Loading...</div> : clients.length === 0 ? <div className="p-8 text-center text-slate-500">No clients yet. Click "Add Client" to create one.</div> :
+                  {loading ? <div className="p-8 text-center text-slate-500">Loading...</div> : clients.length === 0 ? <div className="p-8 text-center text-slate-500">No clients yet. Click Add Client to create one.</div> :
                   <div className="divide-y">{clients.map((client) => (
                     <div key={client.id} className="flex items-center gap-4 p-4 hover:bg-slate-50">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-medium">{client.name[0]}</div>
-                      <div className="flex-1"><p className="font-medium">{client.name}</p><p className="text-sm text-slate-500">{client.email} {client.company && `• ${client.company}`} {client.rfpNumber && `• RFP: ${client.rfpNumber}`}</p></div>
+                      <div className="flex-1"><p className="font-medium">{client.name}</p><p className="text-sm text-slate-500">{client.email} {client.company && `- ${client.company}`}</p></div>
                       <span className={cn('px-2 py-1 rounded-full text-xs font-medium', statusColors[client.status])}>{client.status}</span>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="sm" onClick={() => { setEditingClient(client); setEditClientDialogOpen(true); }}><Edit className="h-4 w-4" /></Button>
@@ -610,7 +428,6 @@ export default function Home() {
                 </CardContent>
               </Card>
             )}
-
             {activeTab === 'proposals' && (
               <Card className="border-0 shadow-lg">
                 <CardHeader className="border-b"><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"><CardTitle>Proposals ({proposals.length})</CardTitle>
@@ -621,21 +438,10 @@ export default function Home() {
                       <div className="space-y-3 py-4">
                         <div><Label>Title *</Label><Input value={newProposal.title} onChange={(e) => setNewProposal({ ...newProposal, title: e.target.value })} placeholder="Proposal title" /></div>
                         <div><Label>RFP Number</Label><Input value={newProposal.rfpNumber} onChange={(e) => setNewProposal({ ...newProposal, rfpNumber: e.target.value })} placeholder="RFP-2024-001" /></div>
-                        <div><Label>Description</Label><Input value={newProposal.description} onChange={(e) => setNewProposal({ ...newProposal, description: e.target.value })} placeholder="Brief description" /></div>
-                        <div><Label>Client *</Label>
-                          <select className="w-full h-10 rounded-md border border-slate-200 bg-white px-3" value={newProposal.clientId} onChange={(e) => setNewProposal({ ...newProposal, clientId: e.target.value })}>
-                            <option value="">Select Client</option>
-                            {clients.map(c => <option key={c.id} value={c.id}>{c.name} {c.company && `(${c.company})`}</option>)}
-                          </select>
-                        </div>
+                        <div><Label>Client *</Label><select className="w-full h-10 rounded-md border border-slate-200 bg-white px-3" value={newProposal.clientId} onChange={(e) => setNewProposal({ ...newProposal, clientId: e.target.value })}><option value="">Select Client</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
                         <div><Label>Amount ($)</Label><Input value={newProposal.totalAmount} onChange={(e) => setNewProposal({ ...newProposal, totalAmount: e.target.value })} placeholder="0.00" type="number" /></div>
                         <div><Label>Deadline</Label><Input value={newProposal.deadline} onChange={(e) => setNewProposal({ ...newProposal, deadline: e.target.value })} type="date" /></div>
-                        <div><Label>Assigned To</Label>
-                          <select className="w-full h-10 rounded-md border border-slate-200 bg-white px-3" value={newProposal.assigneeId} onChange={(e) => setNewProposal({ ...newProposal, assigneeId: e.target.value })}>
-                            <option value="">Unassigned</option>
-                            {users.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
-                          </select>
-                        </div>
+                        <div><Label>Assigned To</Label><select className="w-full h-10 rounded-md border border-slate-200 bg-white px-3" value={newProposal.assigneeId} onChange={(e) => setNewProposal({ ...newProposal, assigneeId: e.target.value })}><option value="">Unassigned</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div>
                         <div><Label>Status</Label><select className="w-full h-10 rounded-md border border-slate-200 bg-white px-3" value={newProposal.status} onChange={(e) => setNewProposal({ ...newProposal, status: e.target.value })}><option value="DRAFT">Draft</option><option value="SENT">Sent</option><option value="ACCEPTED">Accepted</option><option value="REJECTED">Rejected</option></select></div>
                       </div>
                       <DialogFooter><Button onClick={handleCreateProposal} className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white">Create Proposal</Button></DialogFooter>
@@ -643,13 +449,13 @@ export default function Home() {
                   </Dialog>
                 </div></CardHeader>
                 <CardContent className="p-0">
-                  {loading ? <div className="p-8 text-center text-slate-500">Loading...</div> : proposals.length === 0 ? <div className="p-8 text-center text-slate-500">No proposals yet. Click "New Proposal" to create one.</div> :
+                  {loading ? <div className="p-8 text-center text-slate-500">Loading...</div> : proposals.length === 0 ? <div className="p-8 text-center text-slate-500">No proposals yet.</div> :
                   <div className="divide-y">{proposals.map((proposal) => (
                     <div key={proposal.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 cursor-pointer" onClick={() => openProposalDetail(proposal)}>
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white"><FileText className="h-5 w-5" /></div>
-                      <div className="flex-1"><p className="font-medium">{proposal.title}</p><p className="text-sm text-slate-500">{proposal.client?.name || 'Unknown'} {proposal.rfpNumber && `• RFP: ${proposal.rfpNumber}`}</p></div>
+                      <div className="flex-1"><p className="font-medium">{proposal.title}</p><p className="text-sm text-slate-500">{proposal.client?.name || 'Unknown'}</p></div>
                       <span className="text-lg font-semibold text-emerald-600">${(proposal.totalAmount || 0).toLocaleString()}</span>
-                      {proposal.deadline && <span className={cn('text-xs', new Date(proposal.deadline) < new Date() ? 'text-red-500' : 'text-slate-500')}>{new Date(proposal.deadline).toLocaleDateString()}</span>}
+                      {proposal.deadline && <span className="text-xs text-slate-500">{new Date(proposal.deadline).toLocaleDateString()}</span>}
                       <span className={cn('px-2 py-1 rounded-full text-xs font-medium', statusColors[proposal.status])}>{proposal.status}</span>
                       <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                         <Button variant="ghost" size="sm" onClick={() => { setEditingProposal(proposal); setEditProposalDialogOpen(true); }}><Edit className="h-4 w-4" /></Button>
@@ -660,7 +466,6 @@ export default function Home() {
                 </CardContent>
               </Card>
             )}
-
             {activeTab === 'tasks' && (
               <Card className="border-0 shadow-lg">
                 <CardHeader className="border-b"><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"><CardTitle>Tasks ({tasks.length})</CardTitle>
@@ -670,19 +475,8 @@ export default function Home() {
                       <DialogHeader><DialogTitle>Add New Task</DialogTitle></DialogHeader>
                       <div className="space-y-3 py-4">
                         <div><Label>Title *</Label><Input value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} placeholder="Task title" /></div>
-                        <div><Label>Description</Label><Input value={newTask.description} onChange={(e) => setNewTask({ ...newTask, description: e.target.value })} placeholder="Task description" /></div>
-                        <div><Label>Linked Proposal</Label>
-                          <select className="w-full h-10 rounded-md border border-slate-200 bg-white px-3" value={newTask.proposalId} onChange={(e) => setNewTask({ ...newTask, proposalId: e.target.value })}>
-                            <option value="">None</option>
-                            {proposals.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-                          </select>
-                        </div>
-                        <div><Label>Assigned To</Label>
-                          <select className="w-full h-10 rounded-md border border-slate-200 bg-white px-3" value={newTask.assigneeId} onChange={(e) => setNewTask({ ...newTask, assigneeId: e.target.value })}>
-                            <option value="">Assign to me</option>
-                            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                          </select>
-                        </div>
+                        <div><Label>Linked Proposal</Label><select className="w-full h-10 rounded-md border border-slate-200 bg-white px-3" value={newTask.proposalId} onChange={(e) => setNewTask({ ...newTask, proposalId: e.target.value })}><option value="">None</option>{proposals.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}</select></div>
+                        <div><Label>Assigned To</Label><select className="w-full h-10 rounded-md border border-slate-200 bg-white px-3" value={newTask.assigneeId} onChange={(e) => setNewTask({ ...newTask, assigneeId: e.target.value })}><option value="">Assign to me</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div>
                         <div><Label>Due Date</Label><Input value={newTask.dueDate} onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })} type="date" /></div>
                         <div><Label>Priority</Label><select className="w-full h-10 rounded-md border border-slate-200 bg-white px-3" value={newTask.priority} onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option><option value="URGENT">Urgent</option></select></div>
                       </div>
@@ -695,7 +489,7 @@ export default function Home() {
                   <div className="divide-y">{tasks.map((task) => (
                     <div key={task.id} className="flex items-center gap-4 p-4 hover:bg-slate-50">
                       <button onClick={() => toggleTaskStatus(task)}>{task.status === 'COMPLETED' ? <CheckCircle className="h-5 w-5 text-emerald-500" /> : <Circle className="h-5 w-5 text-slate-400" />}</button>
-                      <div className="flex-1"><p className={cn('font-medium', task.status === 'COMPLETED' && 'line-through text-slate-400')}>{task.title}</p><p className="text-sm text-slate-500">{task.description || ''} {task.proposal?.title && `• ${task.proposal.title}`}</p></div>
+                      <div className="flex-1"><p className={cn('font-medium', task.status === 'COMPLETED' && 'line-through text-slate-400')}>{task.title}</p><p className="text-sm text-slate-500">{task.proposal?.title && `Proposal: ${task.proposal.title}`}</p></div>
                       {task.dueDate && <span className="text-xs text-slate-500">{new Date(task.dueDate).toLocaleDateString()}</span>}
                       <span className={cn('px-2 py-1 rounded-full text-xs', priorityColors[task.priority])}>{task.priority}</span>
                       <div className="flex gap-1">
@@ -707,19 +501,17 @@ export default function Home() {
                 </CardContent>
               </Card>
             )}
-
             {activeTab === 'calendar' && (
               <Card className="border-0 shadow-lg">
                 <CardHeader><CardTitle>Calendar</CardTitle><CardDescription>Proposal deadlines and task due dates</CardDescription></CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    <div><h3 className="font-medium mb-3">Proposal Deadlines</h3><div className="space-y-3">{proposals.filter(p => p.deadline).map(p => (<div key={p.id} className="flex items-center gap-4 p-3 border border-slate-200 rounded-lg"><div className={cn('w-10 h-10 rounded-lg flex items-center justify-center text-white', new Date(p.deadline!) < new Date() ? 'bg-red-500' : 'bg-emerald-500')}><Calendar className="h-5 w-5" /></div><div className="flex-1"><p className="font-medium">{p.title}</p><p className="text-sm text-slate-500">{p.client?.name || 'Unknown'} • Due: {new Date(p.deadline!).toLocaleDateString()}</p></div><span className={cn('px-2 py-1 rounded text-xs', statusColors[p.status])}>{p.status}</span></div>))}{proposals.filter(p => p.deadline).length === 0 && <p className="text-sm text-slate-500">No deadlines</p>}</div></div>
+                    <div><h3 className="font-medium mb-3">Proposal Deadlines</h3><div className="space-y-3">{proposals.filter(p => p.deadline).map(p => (<div key={p.id} className="flex items-center gap-4 p-3 border border-slate-200 rounded-lg"><div className={cn('w-10 h-10 rounded-lg flex items-center justify-center text-white', new Date(p.deadline!) < new Date() ? 'bg-red-500' : 'bg-emerald-500')}><Calendar className="h-5 w-5" /></div><div className="flex-1"><p className="font-medium">{p.title}</p><p className="text-sm text-slate-500">Due: {new Date(p.deadline!).toLocaleDateString()}</p></div><span className={cn('px-2 py-1 rounded text-xs', statusColors[p.status])}>{p.status}</span></div>))}{proposals.filter(p => p.deadline).length === 0 && <p className="text-sm text-slate-500">No deadlines</p>}</div></div>
                     <div><h3 className="font-medium mb-3">Task Due Dates</h3><div className="space-y-3">{tasks.filter(t => t.dueDate && t.status !== 'COMPLETED').map(t => (<div key={t.id} className="flex items-center gap-4 p-3 border border-slate-200 rounded-lg"><div className={cn('w-10 h-10 rounded-lg flex items-center justify-center text-white', new Date(t.dueDate!) < new Date() ? 'bg-red-500' : 'bg-blue-500')}><CheckSquare className="h-5 w-5" /></div><div className="flex-1"><p className="font-medium">{t.title}</p><p className="text-sm text-slate-500">Due: {new Date(t.dueDate!).toLocaleDateString()}</p></div><span className={cn('px-2 py-1 rounded text-xs', priorityColors[t.priority])}>{t.priority}</span></div>))}{tasks.filter(t => t.dueDate && t.status !== 'COMPLETED').length === 0 && <p className="text-sm text-slate-500">No pending tasks with due dates</p>}</div></div>
                   </div>
                 </CardContent>
               </Card>
             )}
-
             {activeTab === 'reports' && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -730,7 +522,6 @@ export default function Home() {
                 <Card className="border-0 shadow-lg"><CardHeader><CardTitle>Sales Pipeline</CardTitle></CardHeader><CardContent><div className="space-y-3">{['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED'].map(status => <div key={status} className="flex items-center gap-4"><span className="w-20 text-sm text-slate-500">{status}</span><div className="flex-1 h-6 bg-slate-100 rounded-full overflow-hidden"><div className={cn('h-full rounded-full', status === 'ACCEPTED' ? 'bg-emerald-500' : status === 'SENT' ? 'bg-blue-500' : status === 'REJECTED' ? 'bg-red-500' : 'bg-slate-400')} style={{ width: `${proposals.length > 0 ? (proposals.filter(p => p.status === status).length / proposals.length) * 100 : 0}%` }} /></div><span className="text-sm font-medium w-8">{proposals.filter(p => p.status === status).length}</span></div>)}</div></CardContent></Card>
               </div>
             )}
-
             {activeTab === 'users' && isAdmin && (
               <Card className="border-0 shadow-lg">
                 <CardHeader className="border-b"><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"><CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5" />User Management</CardTitle>
@@ -754,7 +545,7 @@ export default function Home() {
                   <div className="divide-y">{users.map((u) => (
                     <div key={u.id} className="flex items-center gap-4 p-4 hover:bg-slate-50">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-medium">{u.name[0]}</div>
-                      <div className="flex-1"><p className="font-medium">{u.name}</p><p className="text-sm text-slate-500">{u.email} {u.department && `• ${u.department}`}</p></div>
+                      <div className="flex-1"><p className="font-medium">{u.name}</p><p className="text-sm text-slate-500">{u.email}</p></div>
                       <span className={cn('px-2 py-1 rounded-full text-xs font-medium', statusColors[u.role])}>{u.role}</span>
                       <span className={cn('px-2 py-1 rounded text-xs', u.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700')}>{u.isActive ? 'Active' : 'Inactive'}</span>
                       <div className="flex gap-1">
@@ -766,28 +557,17 @@ export default function Home() {
                 </CardContent>
               </Card>
             )}
-
             {activeTab === 'settings' && (
               <div className="space-y-6">
                 <Card className="border-0 shadow-lg">
-                  <CardHeader><CardTitle>Profile Settings</CardTitle><CardDescription>Manage your account</CardDescription></CardHeader>
+                  <CardHeader><CardTitle>Profile Settings</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-center gap-4"><div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-2xl font-medium">{user?.name?.[0] || 'U'}</div><div><p className="text-lg font-medium">{user?.name}</p><p className="text-sm text-slate-500">{user?.email}</p><p className="text-xs text-emerald-600 mt-1">{user?.role}</p></div></div>
-                    <div className="grid gap-4"><div><Label>Full Name</Label><Input defaultValue={user?.name} /></div><div><Label>Email</Label><Input defaultValue={user?.email} type="email" /></div><Button className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white">Save Changes</Button></div>
-                  </CardContent>
-                </Card>
-                <Card className="border-0 shadow-lg">
-                  <CardHeader><CardTitle>Change Password</CardTitle></CardHeader>
-                  <CardContent className="space-y-4">
-                    <div><Label>Current Password</Label><Input type="password" placeholder="••••••••" /></div>
-                    <div><Label>New Password</Label><Input type="password" placeholder="••••••••" /></div>
-                    <div><Label>Confirm Password</Label><Input type="password" placeholder="••••••••" /></div>
-                    <Button variant="outline" className="w-full">Update Password</Button>
                   </CardContent>
                 </Card>
                 <Card className="border-0 shadow-lg">
                   <CardHeader><CardTitle>About</CardTitle></CardHeader>
-                  <CardContent><p className="text-sm text-slate-500">ECI CRM - Enterprise Customer Intelligence</p><p className="text-sm text-slate-500 mt-1">Built by <span className="font-semibold">Irfan Munir</span></p><p className="text-xs text-slate-400 mt-2">Version 2.0.0 - Professional Edition</p></CardContent>
+                  <CardContent><p className="text-sm text-slate-500">ECI CRM - Enterprise Customer Intelligence</p><p className="text-sm text-slate-500 mt-1">Built by <span className="font-semibold">Irfan Munir</span></p></CardContent>
                 </Card>
               </div>
             )}
@@ -802,7 +582,6 @@ export default function Home() {
           <div><Label>Email</Label><Input value={editingClient.email} onChange={(e) => setEditingClient({ ...editingClient, email: e.target.value })} /></div>
           <div><Label>Phone</Label><Input value={editingClient.phone || ''} onChange={(e) => setEditingClient({ ...editingClient, phone: e.target.value })} /></div>
           <div><Label>Company</Label><Input value={editingClient.company || ''} onChange={(e) => setEditingClient({ ...editingClient, company: e.target.value })} /></div>
-          <div><Label>RFP Number</Label><Input value={editingClient.rfpNumber || ''} onChange={(e) => setEditingClient({ ...editingClient, rfpNumber: e.target.value })} /></div>
           <div><Label>Status</Label><select className="w-full h-10 rounded-md border border-slate-200 bg-white px-3" value={editingClient.status} onChange={(e) => setEditingClient({ ...editingClient, status: e.target.value })}><option value="LEAD">Lead</option><option value="PROSPECT">Prospect</option><option value="CUSTOMER">Customer</option></select></div>
         </div>}
         <DialogFooter><Button onClick={handleUpdateClient} className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white">Save</Button></DialogFooter>
@@ -813,7 +592,6 @@ export default function Home() {
         <DialogContent className="max-w-lg"><DialogHeader><DialogTitle>Edit Proposal</DialogTitle></DialogHeader>
         {editingProposal && <div className="space-y-3 py-4">
           <div><Label>Title</Label><Input value={editingProposal.title} onChange={(e) => setEditingProposal({ ...editingProposal, title: e.target.value })} /></div>
-          <div><Label>RFP Number</Label><Input value={editingProposal.rfpNumber || ''} onChange={(e) => setEditingProposal({ ...editingProposal, rfpNumber: e.target.value })} /></div>
           <div><Label>Amount</Label><Input value={editingProposal.totalAmount} onChange={(e) => setEditingProposal({ ...editingProposal, totalAmount: parseFloat(e.target.value) || 0 })} type="number" /></div>
           <div><Label>Deadline</Label><Input value={editingProposal.deadline ? new Date(editingProposal.deadline).toISOString().split('T')[0] : ''} onChange={(e) => setEditingProposal({ ...editingProposal, deadline: e.target.value })} type="date" /></div>
           <div><Label>Status</Label><select className="w-full h-10 rounded-md border border-slate-200 bg-white px-3" value={editingProposal.status} onChange={(e) => setEditingProposal({ ...editingProposal, status: e.target.value })}><option value="DRAFT">Draft</option><option value="SENT">Sent</option><option value="ACCEPTED">Accepted</option><option value="REJECTED">Rejected</option></select></div>
@@ -839,7 +617,6 @@ export default function Home() {
         {editingUser && <div className="space-y-3 py-4">
           <div><Label>Name</Label><Input value={editingUser.name} onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })} /></div>
           <div><Label>Email</Label><Input value={editingUser.email} onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })} /></div>
-          <div><Label>Department</Label><Input value={editingUser.department || ''} onChange={(e) => setEditingUser({ ...editingUser, department: e.target.value })} /></div>
           <div><Label>Role</Label><select className="w-full h-10 rounded-md border border-slate-200 bg-white px-3" value={editingUser.role} onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}><option value="VIEWER">Viewer</option><option value="SALES_REP">Sales Rep</option><option value="MANAGER">Manager</option><option value="ADMIN">Admin</option></select></div>
           <div className="flex items-center gap-2"><input type="checkbox" checked={editingUser.isActive} onChange={(e) => setEditingUser({ ...editingUser, isActive: e.target.checked })} className="rounded" /><Label>Active</Label></div>
         </div>}
@@ -858,9 +635,8 @@ export default function Home() {
             <div><p className="text-sm text-slate-500">Status</p><span className={cn('px-2 py-1 rounded-full text-xs font-medium', statusColors[selectedProposal.status])}>{selectedProposal.status}</span></div>
             <div><p className="text-sm text-slate-500">Assigned To</p><p className="font-medium">{selectedProposal.assignee?.name || 'Unassigned'}</p></div>
           </div>
-          <div><p className="text-sm text-slate-500 mb-2">Description</p><p className="text-sm">{selectedProposal.description || 'No description'}</p></div>
           <div className="border-t pt-4"><h4 className="font-medium mb-2">Linked Tasks</h4><div className="space-y-2">{tasks.filter(t => t.proposalId === selectedProposal.id).map(t => <div key={t.id} className="flex items-center gap-2 text-sm"><Circle className="h-3 w-3" /><span>{t.title}</span><span className={cn('px-2 py-0.5 rounded text-xs', priorityColors[t.priority])}>{t.priority}</span></div>)}{tasks.filter(t => t.proposalId === selectedProposal.id).length === 0 && <p className="text-sm text-slate-500">No tasks linked</p>}</div></div>
-          <div className="border-t pt-4"><h4 className="font-medium mb-2">Remarks</h4><div className="space-y-2 max-h-40 overflow-y-auto">{remarks.map(r => <div key={r.id} className="p-2 bg-slate-50 rounded"><p className="text-sm">{r.content}</p><p className="text-xs text-slate-400 mt-1">{r.user?.name} • {new Date(r.createdAt).toLocaleString()}</p></div>)}{remarks.length === 0 && <p className="text-sm text-slate-500">No remarks</p>}</div>
+          <div className="border-t pt-4"><h4 className="font-medium mb-2">Remarks</h4><div className="space-y-2 max-h-40 overflow-y-auto">{remarks.map(r => <div key={r.id} className="p-2 bg-slate-50 rounded"><p className="text-sm">{r.content}</p><p className="text-xs text-slate-400 mt-1">{r.user?.name} - {new Date(r.createdAt).toLocaleString()}</p></div>)}{remarks.length === 0 && <p className="text-sm text-slate-500">No remarks</p>}</div>
           <div className="flex gap-2 mt-2"><Input value={newRemark} onChange={(e) => setNewRemark(e.target.value)} placeholder="Add a remark..." /><Button onClick={handleAddRemark} size="sm">Add</Button></div></div>
         </div>}
         <DialogFooter><Button variant="outline" onClick={() => setProposalDetailOpen(false)}>Close</Button></DialogFooter>
