@@ -1,24 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest) {
   try {
-    const data = await request.json()
-    const task = await db.task.update({
-      where: { id: params.id },
-      data: { title: data.title, description: data.description, status: data.status, priority: data.priority },
+    const { searchParams } = new URL(request.url)
+    const status = searchParams.get('status')
+    const assigneeId = searchParams.get('assigneeId')
+    
+    const where: any = {}
+    if (status) where.status = status
+    if (assigneeId) where.assigneeId = assigneeId
+    
+    const tasks = await db.task.findMany({
+      where,
+      include: {
+        assignee: true,
+        proposal: true
+      },
+      orderBy: { createdAt: 'desc' }
     })
-    return NextResponse.json(task)
+    
+    return NextResponse.json(tasks)
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to update task' }, { status: 500 })
+    console.error('GET tasks error:', error)
+    return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 })
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest) {
   try {
-    await db.task.delete({ where: { id: params.id } })
-    return NextResponse.json({ success: true })
+    const data = await request.json()
+    
+    if (!data.title) {
+      return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+    }
+    
+    if (!data.assigneeId) {
+      return NextResponse.json({ error: 'Assignee is required' }, { status: 400 })
+    }
+    
+    const task = await db.task.create({
+      data: {
+        title: data.title,
+        description: data.description || '',
+        status: data.status || 'TODO',
+        priority: data.priority || 'MEDIUM',
+        dueDate: data.dueDate ? new Date(data.dueDate) : null,
+        assigneeId: data.assigneeId,
+        proposalId: data.proposalId || null
+      },
+      include: { assignee: true, proposal: true }
+    })
+    
+    return NextResponse.json(task)
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to delete task' }, { status: 500 })
+    console.error('POST task error:', error)
+    return NextResponse.json({ error: 'Failed to create task', details: String(error) }, { status: 500 })
   }
 }
