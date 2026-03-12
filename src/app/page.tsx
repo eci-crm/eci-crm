@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuthStore } from '@/lib/auth-store'
+import { useAuthStore, useHydration } from '@/lib/auth-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,6 +21,13 @@ interface Remark { id: string; content: string; userId: string; user?: User; cre
 
 export default function Home() {
   const { isAuthenticated, user, login, logout } = useAuthStore()
+  const hasHydrated = useHydration()
+  const [mounted, setMounted] = useState(false)
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const [activeTab, setActiveTab] = useState<TabType>('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [email, setEmail] = useState('')
@@ -131,7 +138,6 @@ export default function Home() {
     e.preventDefault()
     setIsLoading(true)
     try {
-      // In production, this would send an email
       await new Promise(resolve => setTimeout(resolve, 1500))
       setResetSent(true)
     } catch (err) {
@@ -438,6 +444,15 @@ export default function Home() {
     } catch (e) {
       showToast('Failed to delete user', 'error')
     }
+  }
+
+  // Show loading spinner during hydration
+  if (!mounted || !hasHydrated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
   }
 
   // Login Screen
