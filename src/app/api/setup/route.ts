@@ -4,31 +4,67 @@ import bcrypt from 'bcryptjs'
 
 export async function GET() {
   try {
-    const existingUsers = await db.user.count()
-    if (existingUsers > 0) {
-      return NextResponse.json({ message: 'Database already seeded', usersCount: existingUsers })
-    }
-
-    const hashedPassword = await bcrypt.hash('password123', 10)
+    // Delete existing users first
+    await db.user.deleteMany({})
+    
+    // Create fresh users with properly hashed passwords
+    const hashedPassword = await bcrypt.hash('password123', 12)
 
     const users = await Promise.all([
       db.user.create({
-        data: { email: 'admin@crm.com', name: 'Admin User', password: hashedPassword, role: 'ADMIN', department: 'Management' }
+        data: { 
+          id: 'user-admin',
+          email: 'admin@crm.com', 
+          name: 'Admin User', 
+          password: hashedPassword, 
+          role: 'ADMIN', 
+          department: 'Management',
+          isActive: true 
+        }
       }),
       db.user.create({
-        data: { email: 'manager@crm.com', name: 'Manager User', password: hashedPassword, role: 'MANAGER', department: 'Sales' }
+        data: { 
+          id: 'user-manager',
+          email: 'manager@crm.com', 
+          name: 'Manager User', 
+          password: hashedPassword, 
+          role: 'MANAGER', 
+          department: 'Sales',
+          isActive: true 
+        }
       }),
       db.user.create({
-        data: { email: 'sales@crm.com', name: 'Sales Rep', password: hashedPassword, role: 'SALES_REP', department: 'Sales' }
+        data: { 
+          id: 'user-sales',
+          email: 'sales@crm.com', 
+          name: 'Sales Rep', 
+          password: hashedPassword, 
+          role: 'SALES_REP', 
+          department: 'Sales',
+          isActive: true 
+        }
       }),
       db.user.create({
-        data: { email: 'viewer@crm.com', name: 'Viewer User', password: hashedPassword, role: 'VIEWER', department: 'Operations' }
+        data: { 
+          id: 'user-viewer',
+          email: 'viewer@crm.com', 
+          name: 'Viewer User', 
+          password: hashedPassword, 
+          role: 'VIEWER', 
+          department: 'Operations',
+          isActive: true 
+        }
       })
     ])
 
+    // Verify password works
+    const testUser = await db.user.findUnique({ where: { email: 'admin@crm.com' } })
+    const passwordTest = testUser ? await bcrypt.compare('password123', testUser.password) : false
+
     return NextResponse.json({ 
-      message: 'Database seeded successfully', 
-      users: users.map(u => ({ email: u.email, role: u.role }))
+      message: 'Database reset and seeded successfully', 
+      users: users.map(u => ({ email: u.email, role: u.role })),
+      passwordTest: passwordTest ? 'OK' : 'FAILED'
     })
   } catch (error) {
     console.error('Setup error:', error)
