@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await db.user.findUnique({
-      where: { email: email.toLowerCase() }
+      where: { email: email.toLowerCase().trim() }
     })
 
     if (!user) {
