@@ -1,13 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id } = await params
+    const client = await db.contact.findUnique({
+      where: { id },
+      include: { owner: { select: { id: true, name: true, email: true } }, proposals: true }
+    })
+    if (!client) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+    return NextResponse.json(client)
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to fetch client' }, { status: 500 })
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
     const data = await request.json()
-    // CHANGED: db.client.update -> db.contact.update
     const client = await db.contact.update({
-      where: { id: params.id },
-      data: { name: data.name, email: data.email, phone: data.phone, company: data.company, position: data.position, status: data.status, source: data.source, rfpNumber: data.rfpNumber },
+      where: { id },
+      data: {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        company: data.company,
+        position: data.position,
+        status: data.status,
+        rfpNumber: data.rfpNumber
+      },
+      include: { owner: { select: { id: true, name: true } } }
     })
     return NextResponse.json(client)
   } catch (error) {
@@ -15,10 +46,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    // CHANGED: db.client.delete -> db.contact.delete
-    await db.contact.delete({ where: { id: params.id } })
+    const { id } = await params
+    await db.contact.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to delete client' }, { status: 500 })
