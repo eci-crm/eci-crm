@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
 
 export type UserRole = 'ADMIN' | 'MANAGER' | 'SALES_REP' | 'VIEWER'
 
@@ -16,34 +15,49 @@ export interface User {
 interface AuthState {
   isAuthenticated: boolean
   user: User | null
-  _hasHydrated: boolean
-  setHasHydrated: (state: boolean) => void
   login: (user: User) => void
   logout: () => void
+  hydrate: () => void
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      isAuthenticated: false,
-      user: null,
-      _hasHydrated: false,
-      setHasHydrated: (state) => set({ _hasHydrated: state }),
-      login: (user) => set({ isAuthenticated: true, user }),
-      logout: () => set({ isAuthenticated: false, user: null }),
-    }),
-    {
-      name: 'eci-crm-auth',
-      storage: createJSONStorage(() => localStorage),
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true)
-      },
+const getStoredAuth = (): { isAuthenticated: boolean; user: User | null } => {
+  if (typeof window === 'undefined') {
+    return { isAuthenticated: false, user: null }
+  }
+  try {
+    const stored = localStorage.getItem('eci-crm-auth')
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      return { isAuthenticated: true, user: parsed.user }
     }
-  )
-)
-
-// Hook to check hydration
-export const useHydration = () => {
-  const hasHydrated = useAuthStore((state) => state._hasHydrated)
-  return hasHydrated
+  } catch (e) {
+    console.error('Failed to parse stored auth', e)
+  }
+  return { isAuthenticated: false, user: null }
 }
+
+const saveAuth = (user: User | null) => {
+  if (typeof window === 'undefined') return
+  if (user) {
+    localStorage.setItem('eci-crm-auth', JSON.stringify({ user }))
+  } else {
+    localStorage.removeItem('eci-crm-auth')
+  }
+}
+
+export const useAuthStore = create<AuthState>()((set) => ({
+  isAuthenticated: false,
+  user: null,
+  login: (user) => {
+    saveAuth(user)
+    set({ isAuthenticated: true, user })
+  },
+  logout: () => {
+    saveAuth(null)
+    set({ isAuthenticated: false, user: null })
+  },
+  hydrate: () => {
+    const stored = getStoredAuth()
+    set(stored)
+  },
+))
