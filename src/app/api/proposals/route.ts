@@ -1,8 +1,6 @@
-// src/app/api/proposals/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-// GET all proposals
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -28,7 +26,6 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' }
     })
     
-    // Map contactId to clientId for frontend compatibility
     const mappedProposals = proposals.map(p => ({
       ...p,
       clientId: p.contactId,
@@ -42,18 +39,22 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create new proposal
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
     
-    console.log('Received proposal data:', data)
-    
-    // Map clientId to contactId (frontend sends clientId, DB uses contactId)
     const contactId = data.clientId || data.contactId
+    
+    if (!data.title) {
+      return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+    }
     
     if (!contactId) {
       return NextResponse.json({ error: 'Client is required' }, { status: 400 })
+    }
+    
+    if (!data.ownerId) {
+      return NextResponse.json({ error: 'Owner is required' }, { status: 400 })
     }
     
     const proposal = await db.proposal.create({
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
         currency: data.currency || 'USD',
         deadline: data.deadline ? new Date(data.deadline) : null,
         assigneeId: data.assigneeId || null,
-        contactId: contactId,  // This is the fix - use contactId for DB
+        contactId: contactId,
         ownerId: data.ownerId,
       },
       include: {
@@ -76,14 +77,11 @@ export async function POST(request: NextRequest) {
       }
     })
     
-    // Return with clientId for frontend
-    const response = {
+    return NextResponse.json({
       ...proposal,
       clientId: proposal.contactId,
       client: proposal.contact
-    }
-    
-    return NextResponse.json(response)
+    })
   } catch (error) {
     console.error('POST proposal error:', error)
     return NextResponse.json({ error: 'Failed to create proposal', details: String(error) }, { status: 500 })
