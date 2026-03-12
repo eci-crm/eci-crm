@@ -27,17 +27,34 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { createdAt: 'desc' }
     })
-    return NextResponse.json(proposals)
+    
+    // Map contactId to clientId for frontend compatibility
+    const mappedProposals = proposals.map(p => ({
+      ...p,
+      clientId: p.contactId,
+      client: p.contact
+    }))
+    
+    return NextResponse.json(mappedProposals)
   } catch (error) {
     console.error('GET proposals error:', error)
-    return NextResponse.json({ error: 'Failed to fetch proposals' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch proposals', details: String(error) }, { status: 500 })
   }
 }
 
-// POST - Create new proposal (THIS WAS MISSING!)
+// POST - Create new proposal
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
+    
+    console.log('Received proposal data:', data)
+    
+    // Map clientId to contactId (frontend sends clientId, DB uses contactId)
+    const contactId = data.clientId || data.contactId
+    
+    if (!contactId) {
+      return NextResponse.json({ error: 'Client is required' }, { status: 400 })
+    }
     
     const proposal = await db.proposal.create({
       data: {
@@ -49,7 +66,7 @@ export async function POST(request: NextRequest) {
         currency: data.currency || 'USD',
         deadline: data.deadline ? new Date(data.deadline) : null,
         assigneeId: data.assigneeId || null,
-        contactId: data.contactId,
+        contactId: contactId,  // This is the fix - use contactId for DB
         ownerId: data.ownerId,
       },
       include: {
@@ -59,7 +76,14 @@ export async function POST(request: NextRequest) {
       }
     })
     
-    return NextResponse.json(proposal)
+    // Return with clientId for frontend
+    const response = {
+      ...proposal,
+      clientId: proposal.contactId,
+      client: proposal.contact
+    }
+    
+    return NextResponse.json(response)
   } catch (error) {
     console.error('POST proposal error:', error)
     return NextResponse.json({ error: 'Failed to create proposal', details: String(error) }, { status: 500 })
