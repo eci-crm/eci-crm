@@ -20,7 +20,6 @@ model User {
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
   
-  // Relations
   contacts          Contact[]   
   proposals         Proposal[]  @relation("OwnerProposals")
   assignedProposals Proposal[]  @relation("AssigneeProposals")
@@ -58,8 +57,8 @@ model Proposal {
   deadline    DateTime?
   assigneeId  String?
   assignee    User?       @relation("AssigneeProposals", fields: [assigneeId], references: [id])
-  contactId   String      
-  contact     Contact     @relation(fields: [contactId], references: [id]) 
+  contactId   String?     
+  contact     Contact?    @relation(fields: [contactId], references: [id]) 
   ownerId     String
   owner       User        @relation("OwnerProposals", fields: [ownerId], references: [id])
   remarks     Remark[]
