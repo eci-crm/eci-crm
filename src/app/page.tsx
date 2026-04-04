@@ -212,7 +212,8 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
   const [authData, setAuthData] = useState<{ user: User } | null>(null)
   const [activeTab, setActiveTab] = useState('dashboard')
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   
   // Data states
   const [clients, setClients] = useState<Client[]>([])
@@ -298,6 +299,22 @@ export default function Home() {
     if (auth) {
       setAuthData(auth)
     }
+  }, [])
+
+  // Detect mobile screen
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 1024
+      setIsMobile(mobile)
+      if (!mobile) {
+        setSidebarOpen(true)
+      } else {
+        setSidebarOpen(false)
+      }
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
   // Fetch all data
@@ -929,28 +946,56 @@ export default function Home() {
 
   // Main Dashboard
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex pattern-bg">
-      {/* Sidebar */}
-      <aside className={`${sidebarOpen ? 'w-72' : 'w-20'} bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transition-all duration-300 flex flex-col fixed h-full z-20 shadow-2xl`}>
-        <div className="p-4 flex items-center justify-between border-b border-slate-700/50">
-          {sidebarOpen && (
-            <div className="flex items-center gap-3 animate-fade-in">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-                <Building2 className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <span className="font-bold text-lg bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">ECI CRM</span>
-                <p className="text-[10px] text-slate-400">Enterprise Intelligence</p>
-              </div>
-            </div>
-          )}
-          <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)} 
-            className="text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all">
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 pattern-bg">
+      {/* Mobile Header */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-xl border-b border-slate-200 z-30 flex items-center justify-between px-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(true)} className="p-2">
+            <Menu className="w-6 h-6 text-slate-700" />
           </Button>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md">
+              <Building2 className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-bold text-lg bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">ECI CRM</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md">
+            <span className="text-white font-bold text-xs">{authData.user.name?.charAt(0) || 'U'}</span>
+          </div>
+        </div>
+      </header>
+
+      {/* Sidebar Backdrop for Mobile */}
+      {isMobile && sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transition-transform duration-300 flex flex-col z-50 shadow-2xl`}>
+        <div className="p-4 flex items-center justify-between border-b border-slate-700/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+              <Building2 className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <span className="font-bold text-lg bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">ECI CRM</span>
+              <p className="text-[10px] text-slate-400">Enterprise Intelligence</p>
+            </div>
+          </div>
+          {isMobile && (
+            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)} 
+              className="text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all">
+              <X className="w-5 h-5" />
+            </Button>
+          )}
         </div>
         
-        <nav className="flex-1 p-3 space-y-1.5">
+        <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto">
           {[
             { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', color: 'emerald' },
             { id: 'clients', icon: Users, label: 'Clients', color: 'sky' },
@@ -960,7 +1005,7 @@ export default function Home() {
             { id: 'users', icon: Users, label: 'Users', color: 'teal' },
             { id: 'resources', icon: FolderOpen, label: 'Resources', color: 'orange' },
           ].map(item => (
-            <button key={item.id} onClick={() => setActiveTab(item.id)}
+            <button key={item.id} onClick={() => { setActiveTab(item.id); if (isMobile) setSidebarOpen(false); }}
               className={`sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ${
                 activeTab === item.id 
                   ? `bg-gradient-to-r from-${item.color}-500/20 to-${item.color}-600/10 text-white border border-${item.color}-500/30` 
@@ -973,7 +1018,7 @@ export default function Home() {
               }`}>
                 <item.icon className="w-4 h-4" />
               </div>
-              {sidebarOpen && <span className="font-medium">{item.label}</span>}
+              <span className="font-medium">{item.label}</span>
             </button>
           ))}
         </nav>
@@ -983,25 +1028,21 @@ export default function Home() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
               <span className="text-white font-bold text-sm">{authData.user.name?.charAt(0) || 'U'}</span>
             </div>
-            {sidebarOpen && (
-              <>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">{authData.user.name}</p>
-                  <p className="text-xs text-slate-400 truncate">{authData.user.email}</p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={handleLogout} 
-                  className="text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
-                  <LogOut className="w-4 h-4" />
-                </Button>
-              </>
-            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold truncate">{authData.user.name}</p>
+              <p className="text-xs text-slate-400 truncate">{authData.user.email}</p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={handleLogout} 
+              className="text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
+              <LogOut className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className={`flex-1 overflow-auto ${sidebarOpen ? 'ml-72' : 'ml-20'} transition-all duration-300`}>
-        <div className="p-6">
+      <main className="flex-1 overflow-auto lg:ml-72 pt-16 lg:pt-0 min-h-screen">
+        <div className="p-4 sm:p-6">
           {dataLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="relative">
@@ -1014,21 +1055,21 @@ export default function Home() {
               {/* Dashboard Tab */}
               {activeTab === 'dashboard' && (
                 <div className="space-y-6 animate-fade-in">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                      <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
                         Dashboard Overview
                       </h1>
                       <p className="text-slate-500 mt-1">Welcome back, {authData.user.name}!</p>
                     </div>
                     <Button variant="outline" size="sm" onClick={fetchAllData}
-                      className="border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 transition-all">
+                      className="border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 transition-all w-full sm:w-auto">
                       <RefreshCw className="w-4 h-4 mr-2" /> Refresh
                     </Button>
                   </div>
                   
                   {/* Summary Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
                     <Card className="stat-card card-hover border-0 shadow-lg shadow-emerald-500/5 bg-gradient-to-br from-white to-emerald-50/30 overflow-hidden">
                       <CardContent className="p-5">
                         <div className="flex items-center justify-between">
@@ -1220,9 +1261,9 @@ export default function Home() {
               {/* Clients Tab */}
               {activeTab === 'clients' && (
                 <div className="space-y-6 animate-fade-in">
-                  <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                      <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
                         Clients
                       </h1>
                       <p className="text-slate-500 mt-1">Manage your client relationships</p>
@@ -1231,12 +1272,12 @@ export default function Home() {
                       setEditingClient(null)
                       setClientForm({ name: '', email: '', phone: '', company: '', position: '', sector: '', status: 'LEAD', source: '', notes: '', rfpNumber: '', website: '', address: '' })
                       setShowClientModal(true)
-                    }} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/30">
+                    }} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/30 w-full sm:w-auto">
                       <Plus className="w-4 h-4 mr-2" /> Add Client
                     </Button>
                   </div>
                   
-                  <div className="relative max-w-md">
+                  <div className="relative w-full sm:max-w-md">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <Input placeholder="Search clients..." value={clientSearch} 
                       onChange={(e) => setClientSearch(e.target.value)} 
@@ -1246,26 +1287,27 @@ export default function Home() {
                   <div className="grid gap-4">
                     {filteredClients.map(client => (
                       <Card key={client.id} className="card-hover border-0 shadow-lg bg-gradient-to-r from-white to-slate-50/50">
-                        <CardContent className="p-5">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                                <span className="text-white font-bold text-lg">{client.name.charAt(0)}</span>
+                        <CardContent className="p-4 sm:p-5">
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                            <div className="flex items-center gap-3 sm:gap-4">
+                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
+                                <span className="text-white font-bold text-base sm:text-lg">{client.name.charAt(0)}</span>
                               </div>
-                              <div>
-                                <p className="font-semibold text-slate-800 text-lg">{client.name}</p>
-                                <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-slate-500">
-                                  {client.company && <span className="flex items-center gap-1"><Building2 className="w-4 h-4" />{client.company}</span>}
-                                  {client.email && <span className="flex items-center gap-1"><Mail className="w-4 h-4" />{client.email}</span>}
-                                  {client.phone && <span className="flex items-center gap-1"><Phone className="w-4 h-4" />{client.phone}</span>}
+                              <div className="min-w-0">
+                                <p className="font-semibold text-slate-800 text-base sm:text-lg truncate">{client.name}</p>
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1 text-xs sm:text-sm text-slate-500">
+                                  {client.company && <span className="flex items-center gap-1 truncate"><Building2 className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" /><span className="truncate">{client.company}</span></span>}
+                                  {client.email && <span className="flex items-center gap-1 truncate"><Mail className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" /><span className="truncate">{client.email}</span></span>}
                                 </div>
-                                {client.sector && (
-                                  <Badge variant="outline" className="mt-2 border-slate-200">{client.sector}</Badge>
-                                )}
+                                <div className="flex flex-wrap items-center gap-2 mt-2">
+                                  {client.sector && (
+                                    <Badge variant="outline" className="border-slate-200 text-xs">{client.sector}</Badge>
+                                  )}
+                                  <Badge className={`${statusColors[client.status] || 'bg-slate-100'} text-xs`}>{client.status}</Badge>
+                                </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Badge className={statusColors[client.status] || 'bg-slate-100'}>{client.status}</Badge>
+                            <div className="flex items-center gap-2 self-end sm:self-auto">
                               <Button variant="ghost" size="sm" onClick={() => {
                                 setEditingClient(client)
                                 setClientForm({
@@ -1304,9 +1346,9 @@ export default function Home() {
               {/* Proposals Tab */}
               {activeTab === 'proposals' && (
                 <div className="space-y-6 animate-fade-in">
-                  <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                      <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
                         Proposals
                       </h1>
                       <p className="text-slate-500 mt-1">Track and manage your proposals</p>
@@ -1315,20 +1357,20 @@ export default function Home() {
                       setEditingProposal(null)
                       setProposalForm({ title: '', description: '', rfpNumber: '', valuePKR: 0, valueUSD: 0, currency: 'PKR', status: 'DRAFT', stage: 'NEW', submissionDate: '', deadline: '', submissionMethod: '', ownerId: '', assigneeId: '', contactId: '', internalRemarks: '', externalRemarks: '', sector: '' })
                       setShowProposalModal(true)
-                    }} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/30">
+                    }} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/30 w-full sm:w-auto">
                       <Plus className="w-4 h-4 mr-2" /> Add Proposal
                     </Button>
                   </div>
                   
-                  <div className="flex flex-wrap gap-4">
-                    <div className="relative flex-1 min-w-[200px]">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="relative flex-1">
                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <Input placeholder="Search proposals..." value={proposalSearch} 
                         onChange={(e) => setProposalSearch(e.target.value)} 
                         className="pl-12 h-12 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20" />
                     </div>
                     <Select value={proposalFilter} onValueChange={setProposalFilter}>
-                      <SelectTrigger className="w-48 h-12 border-slate-200">
+                      <SelectTrigger className="w-full sm:w-48 h-12 border-slate-200">
                         <SelectValue placeholder="Filter by stage" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1347,26 +1389,26 @@ export default function Home() {
                   <div className="grid gap-4">
                     {filteredProposals.map(proposal => (
                       <Card key={proposal.id} className="card-hover border-0 shadow-lg bg-gradient-to-r from-white to-slate-50/50">
-                        <CardContent className="p-5">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3">
-                                <p className="font-semibold text-slate-800 text-lg">{proposal.title}</p>
-                                <Badge className={stageColors[proposal.stage] || 'bg-slate-100'}>{proposal.stage}</Badge>
+                        <CardContent className="p-4 sm:p-5">
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-semibold text-slate-800 text-base sm:text-lg">{proposal.title}</p>
+                                <Badge className={`${stageColors[proposal.stage] || 'bg-slate-100'} text-xs`}>{proposal.stage}</Badge>
                               </div>
-                              <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-slate-500">
-                                {proposal.contact?.company && <span className="flex items-center gap-1"><Building2 className="w-4 h-4" />{proposal.contact.company}</span>}
-                                {proposal.rfpNumber && <span className="flex items-center gap-1"><FileText className="w-4 h-4" />{proposal.rfpNumber}</span>}
-                                {proposal.valuePKR > 0 && <span className="flex items-center gap-1 text-emerald-600 font-medium"><DollarSign className="w-4 h-4" />{formatCurrency(proposal.valuePKR)}</span>}
+                              <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 text-xs sm:text-sm text-slate-500">
+                                {proposal.contact?.company && <span className="flex items-center gap-1 truncate"><Building2 className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" /><span className="truncate">{proposal.contact.company}</span></span>}
+                                {proposal.rfpNumber && <span className="flex items-center gap-1 truncate"><FileText className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" /><span className="truncate">{proposal.rfpNumber}</span></span>}
+                                {proposal.valuePKR > 0 && <span className="flex items-center gap-1 text-emerald-600 font-medium"><DollarSign className="w-3 h-3 sm:w-4 sm:h-4" />{formatCurrency(proposal.valuePKR)}</span>}
                               </div>
                               {proposal.deadline && (
-                                <div className="flex items-center gap-1 mt-2 text-sm text-amber-600">
-                                  <Clock className="w-4 h-4" />
+                                <div className="flex items-center gap-1 mt-2 text-xs sm:text-sm text-amber-600">
+                                  <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
                                   <span>Deadline: {formatDate(proposal.deadline)}</span>
                                 </div>
                               )}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 self-end sm:self-auto">
                               <Button variant="ghost" size="sm" onClick={() => {
                                 setEditingProposal(proposal)
                                 setProposalForm({
@@ -1411,9 +1453,9 @@ export default function Home() {
               {/* Tasks Tab */}
               {activeTab === 'tasks' && (
                 <div className="space-y-6 animate-fade-in">
-                  <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                      <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
                         Tasks
                       </h1>
                       <p className="text-slate-500 mt-1">Manage your team's tasks</p>
@@ -1422,12 +1464,12 @@ export default function Home() {
                       setEditingTask(null)
                       setTaskForm({ title: '', description: '', status: 'TODO', priority: 'MEDIUM', dueDate: '', assigneeId: '', proposalId: '' })
                       setShowTaskModal(true)
-                    }} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/30">
+                    }} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/30 w-full sm:w-auto">
                       <Plus className="w-4 h-4 mr-2" /> Add Task
                     </Button>
                   </div>
                   
-                  <div className="relative max-w-md">
+                  <div className="relative w-full sm:max-w-md">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <Input placeholder="Search tasks..." value={taskSearch} 
                       onChange={(e) => setTaskSearch(e.target.value)} 
@@ -1437,27 +1479,27 @@ export default function Home() {
                   <div className="grid gap-4">
                     {filteredTasks.map(task => (
                       <Card key={task.id} className="card-hover border-0 shadow-lg bg-gradient-to-r from-white to-slate-50/50">
-                        <CardContent className="p-5">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                        <CardContent className="p-4 sm:p-5">
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                            <div className="flex items-center gap-3 sm:gap-4">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                                 task.status === 'COMPLETED' ? 'bg-gradient-to-br from-emerald-500 to-teal-600' :
                                 task.status === 'IN_PROGRESS' ? 'bg-gradient-to-br from-sky-500 to-blue-600' :
                                 'bg-gradient-to-br from-slate-400 to-slate-500'
                               } shadow-lg`}>
                                 <CheckSquare className="w-5 h-5 text-white" />
                               </div>
-                              <div>
-                                <p className="font-semibold text-slate-800">{task.title}</p>
-                                <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-slate-500">
-                                  {task.assignee && <span className="flex items-center gap-1"><Users className="w-4 h-4" />{task.assignee.name}</span>}
-                                  {task.dueDate && <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{formatDate(task.dueDate)}</span>}
+                              <div className="min-w-0">
+                                <p className="font-semibold text-slate-800 text-sm sm:text-base">{task.title}</p>
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1 text-xs sm:text-sm text-slate-500">
+                                  {task.assignee && <span className="flex items-center gap-1"><Users className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" /><span className="truncate">{task.assignee.name}</span></span>}
+                                  {task.dueDate && <span className="flex items-center gap-1"><Clock className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />{formatDate(task.dueDate)}</span>}
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Badge className={taskStatusColors[task.status] || 'bg-slate-100'}>{task.status}</Badge>
-                              <Badge className={priorityColors[task.priority] || 'bg-slate-100'}>{task.priority}</Badge>
+                            <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+                              <Badge className={`${taskStatusColors[task.status] || 'bg-slate-100'} text-xs`}>{task.status}</Badge>
+                              <Badge className={`${priorityColors[task.priority] || 'bg-slate-100'} text-xs`}>{task.priority}</Badge>
                               <Button variant="ghost" size="sm" onClick={() => {
                                 setEditingTask(task)
                                 setTaskForm({
@@ -1495,15 +1537,15 @@ export default function Home() {
               {activeTab === 'reports' && (
                 <div className="space-y-6 animate-fade-in">
                   <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                    <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
                       Reports
                     </h1>
                     <p className="text-slate-500 mt-1">Generate insightful reports</p>
                   </div>
                   
-                  <div className="flex flex-wrap gap-4">
+                  <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
                     <Select value={activeReportType} onValueChange={setActiveReportType}>
-                      <SelectTrigger className="w-48 h-12 border-slate-200">
+                      <SelectTrigger className="w-full sm:w-48 h-12 border-slate-200">
                         <SelectValue placeholder="Report type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1513,7 +1555,7 @@ export default function Home() {
                       </SelectContent>
                     </Select>
                     <Select value={reportPeriod} onValueChange={setReportPeriod}>
-                      <SelectTrigger className="w-48 h-12 border-slate-200">
+                      <SelectTrigger className="w-full sm:w-48 h-12 border-slate-200">
                         <SelectValue placeholder="Period" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1524,7 +1566,7 @@ export default function Home() {
                       </SelectContent>
                     </Select>
                     <Select value={reportYear} onValueChange={setReportYear}>
-                      <SelectTrigger className="w-36 h-12 border-slate-200">
+                      <SelectTrigger className="w-full sm:w-36 h-12 border-slate-200">
                         <SelectValue placeholder="Year" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1534,7 +1576,7 @@ export default function Home() {
                       </SelectContent>
                     </Select>
                     <Button onClick={fetchReportData} disabled={loadingReport}
-                      className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/30">
+                      className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/30 w-full sm:w-auto">
                       {loadingReport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BarChart3 className="w-4 h-4 mr-2" />}
                       Generate Report
                     </Button>
@@ -1549,7 +1591,7 @@ export default function Home() {
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <pre className="text-sm text-slate-600 overflow-auto max-h-96 p-4 bg-slate-50 rounded-xl">
+                        <pre className="text-xs sm:text-sm text-slate-600 overflow-auto max-h-96 p-4 bg-slate-50 rounded-xl">
                           {JSON.stringify(reportData, null, 2)}
                         </pre>
                       </CardContent>
@@ -1561,9 +1603,9 @@ export default function Home() {
               {/* Users Tab */}
               {activeTab === 'users' && (
                 <div className="space-y-6 animate-fade-in">
-                  <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                      <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
                         Users
                       </h1>
                       <p className="text-slate-500 mt-1">Manage team members</p>
@@ -1572,7 +1614,7 @@ export default function Home() {
                       setEditingUser(null)
                       setUserForm({ name: '', email: '', password: '', role: 'VIEWER', department: '', phone: '' })
                       setShowUserModal(true)
-                    }} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/30">
+                    }} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/30 w-full sm:w-auto">
                       <Plus className="w-4 h-4 mr-2" /> Add User
                     </Button>
                   </div>
@@ -1580,22 +1622,22 @@ export default function Home() {
                   <div className="grid gap-4">
                     {users.map(user => (
                       <Card key={user.id} className="card-hover border-0 shadow-lg bg-gradient-to-r from-white to-slate-50/50">
-                        <CardContent className="p-5">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                                <span className="text-white font-bold text-lg">{user.name.charAt(0)}</span>
+                        <CardContent className="p-4 sm:p-5">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3 sm:gap-4">
+                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
+                                <span className="text-white font-bold text-base sm:text-lg">{user.name.charAt(0)}</span>
                               </div>
-                              <div>
-                                <p className="font-semibold text-slate-800 text-lg">{user.name}</p>
-                                <div className="flex items-center gap-3 mt-1 text-sm text-slate-500">
-                                  <span className="flex items-center gap-1"><Mail className="w-4 h-4" />{user.email}</span>
-                                  {user.department && <span className="flex items-center gap-1"><Building2 className="w-4 h-4" />{user.department}</span>}
+                              <div className="min-w-0">
+                                <p className="font-semibold text-slate-800 text-base sm:text-lg">{user.name}</p>
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1 text-xs sm:text-sm text-slate-500">
+                                  <span className="flex items-center gap-1 truncate"><Mail className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" /><span className="truncate">{user.email}</span></span>
+                                  {user.department && <span className="flex items-center gap-1 truncate"><Building2 className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" /><span className="truncate">{user.department}</span></span>}
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="border-slate-200">{user.role}</Badge>
+                            <div className="flex items-center gap-2 self-end sm:self-auto">
+                              <Badge variant="outline" className="border-slate-200 text-xs">{user.role}</Badge>
                               <Button variant="ghost" size="sm" onClick={() => {
                                 setEditingUser(user)
                                 setUserForm({
@@ -1630,18 +1672,18 @@ export default function Home() {
               {/* Resources Tab */}
               {activeTab === 'resources' && (
                 <div className="space-y-6 animate-fade-in">
-                  <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex flex-col gap-4">
                     <div>
-                      <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                      <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
                         Resource Materials
                       </h1>
                       <p className="text-slate-500 mt-1">Manage documents and templates</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <Button variant="outline" onClick={() => {
                         setCategoryForm({ name: '', slug: '', description: '' })
                         setShowCategoryModal(true)
-                      }} className="border-slate-200 hover:border-emerald-300 hover:bg-emerald-50">
+                      }} className="border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 w-full sm:w-auto">
                         <Plus className="w-4 h-4 mr-2" /> Add Category
                       </Button>
                       <Button onClick={() => {
@@ -1649,13 +1691,13 @@ export default function Home() {
                         setResourceForm({ title: '', description: '', categoryId: '', tags: '', isTemplate: false })
                         setPendingFiles([])
                         setShowResourceModal(true)
-                      }} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/30">
+                      }} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/30 w-full sm:w-auto">
                         <Upload className="w-4 h-4 mr-2" /> Add Resource
                       </Button>
                     </div>
                   </div>
                   
-                  <div className="relative max-w-md">
+                  <div className="relative w-full sm:max-w-md">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <Input placeholder="Search resources..." value={resourceSearch} 
                       onChange={(e) => setResourceSearch(e.target.value)} 
@@ -1671,49 +1713,49 @@ export default function Home() {
                           <CardHeader className="pb-3 bg-gradient-to-r from-emerald-500/5 to-teal-500/5">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/30 shrink-0">
                                   <FolderOpen className="w-5 h-5 text-white" />
                                 </div>
-                                <div>
-                                  <CardTitle className="text-lg">{category.name}</CardTitle>
+                                <div className="min-w-0">
+                                  <CardTitle className="text-base sm:text-lg truncate">{category.name}</CardTitle>
                                   {category.description && (
-                                    <CardDescription>{category.description}</CardDescription>
+                                    <CardDescription className="text-xs sm:text-sm truncate">{category.description}</CardDescription>
                                   )}
                                 </div>
                               </div>
-                              <Badge variant="secondary" className="bg-slate-100">{categoryMaterials.length} items</Badge>
+                              <Badge variant="secondary" className="bg-slate-100 text-xs shrink-0">{categoryMaterials.length} items</Badge>
                             </div>
                           </CardHeader>
-                          <CardContent className="p-5">
+                          <CardContent className="p-4 sm:p-5">
                             {categoryMaterials.length > 0 ? (
                               <div className="grid gap-4">
                                 {categoryMaterials.map(material => (
-                                  <div key={material.id} className="p-4 rounded-xl border border-slate-100 bg-gradient-to-r from-white to-slate-50/50 hover:border-emerald-200 transition-all">
-                                    <div className="flex items-start justify-between">
+                                  <div key={material.id} className="p-3 sm:p-4 rounded-xl border border-slate-100 bg-gradient-to-r from-white to-slate-50/50 hover:border-emerald-200 transition-all">
+                                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                                       <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 ${
                                           material.isTemplate 
                                             ? 'bg-gradient-to-br from-sky-500 to-blue-600 shadow-sky-500/30' 
                                             : 'bg-gradient-to-br from-violet-500 to-purple-600 shadow-violet-500/30'
                                         }`}>
                                           {material.isTemplate ? <Star className="w-5 h-5 text-white" /> : <File className="w-5 h-5 text-white" />}
                                         </div>
-                                        <div>
-                                          <p className="font-semibold text-slate-800">{material.title}</p>
+                                        <div className="min-w-0">
+                                          <p className="font-semibold text-slate-800 text-sm sm:text-base">{material.title}</p>
                                           {material.description && (
-                                            <p className="text-sm text-slate-500 mt-0.5">{material.description}</p>
+                                            <p className="text-xs sm:text-sm text-slate-500 mt-0.5 truncate">{material.description}</p>
                                           )}
                                           {material.tags && (
-                                            <div className="flex gap-1 mt-2">
+                                            <div className="flex flex-wrap gap-1 mt-2">
                                               {material.tags.split(',').map((tag, i) => (
-                                                <Badge key={i} variant="outline" className="text-xs border-slate-200">{tag.trim()}</Badge>
+                                                <Badge key={i} variant="outline" className="text-[10px] sm:text-xs border-slate-200">{tag.trim()}</Badge>
                                               ))}
                                             </div>
                                           )}
                                         </div>
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        {material.isTemplate && <Badge className="bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/30">Template</Badge>}
+                                      <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+                                        {material.isTemplate && <Badge className="bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/30 text-xs">Template</Badge>}
                                         <Button variant="ghost" size="sm" onClick={() => {
                                           setEditingResource(material)
                                           setResourceForm({
