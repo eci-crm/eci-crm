@@ -878,7 +878,7 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5"></div>
             
             <CardHeader className="text-center pb-2 relative">
-              <div className="mx-auto w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-500 to-emerald-600 flex items-center justify-center mb-4 shadow-xl shadow-emerald-500/30 animate-float">
+              <div className="mx-auto w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-500 to-emerald-600 flex items-center justify-center mb-4 shadow-xl shadow-emerald-500/30">
                 <Building2 className="w-10 h-10 text-white" />
               </div>
               <CardTitle className="text-3xl font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 bg-clip-text text-transparent">
@@ -946,7 +946,7 @@ export default function Home() {
 
   // Main Dashboard
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 pattern-bg flex">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 pattern-bg">
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-xl border-b border-slate-200 z-30 flex items-center justify-between px-4 shadow-sm">
         <div className="flex items-center gap-3">
@@ -976,7 +976,7 @@ export default function Home() {
       )}
 
       {/* Sidebar */}
-      <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transition-transform duration-300 flex flex-col z-50 shadow-2xl shrink-0`}>
+      <aside className={`fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transition-transform duration-300 flex flex-col z-50 shadow-2xl shrink-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         <div className="p-4 flex items-center justify-between border-b border-slate-700/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
@@ -1041,8 +1041,8 @@ export default function Home() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 min-h-screen lg:ml-72 pt-16 lg:pt-0 overflow-x-hidden">
-        <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
+      <main className="flex-1 min-h-screen lg:ml-72 pt-16 lg:pt-0 overflow-x-hidden w-full">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-full overflow-x-hidden w-full box-border">
           {dataLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="relative">
@@ -1853,7 +1853,7 @@ export default function Home() {
 
       {/* Client Modal */}
       <Dialog open={showClientModal} onOpenChange={setShowClientModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100%-2rem)]">
           <DialogHeader>
             <DialogTitle className="text-xl">{editingClient ? 'Edit Client' : 'Add Client'}</DialogTitle>
           </DialogHeader>
@@ -1958,7 +1958,7 @@ export default function Home() {
 
       {/* Proposal Modal */}
       <Dialog open={showProposalModal} onOpenChange={setShowProposalModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100%-2rem)]">
           <DialogHeader>
             <DialogTitle className="text-xl">{editingProposal ? 'Edit Proposal' : 'Add Proposal'}</DialogTitle>
           </DialogHeader>
@@ -2062,7 +2062,7 @@ export default function Home() {
 
       {/* Task Modal */}
       <Dialog open={showTaskModal} onOpenChange={setShowTaskModal}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)]">
           <DialogHeader>
             <DialogTitle className="text-xl">{editingTask ? 'Edit Task' : 'Add Task'}</DialogTitle>
           </DialogHeader>
@@ -2132,7 +2132,7 @@ export default function Home() {
 
       {/* User Modal */}
       <Dialog open={showUserModal} onOpenChange={setShowUserModal}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)]">
           <DialogHeader>
             <DialogTitle className="text-xl">{editingUser ? 'Edit User' : 'Add User'}</DialogTitle>
           </DialogHeader>
@@ -2185,7 +2185,7 @@ export default function Home() {
 
       {/* Resource Modal */}
       <Dialog open={showResourceModal} onOpenChange={setShowResourceModal}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl">{editingResource ? 'Edit Resource' : 'Add Resource'}</DialogTitle>
           </DialogHeader>
@@ -2297,7 +2297,7 @@ export default function Home() {
 
       {/* Category Modal */}
       <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md w-[calc(100%-2rem)]">
           <DialogHeader>
             <DialogTitle className="text-xl">Add Resource Category</DialogTitle>
           </DialogHeader>
