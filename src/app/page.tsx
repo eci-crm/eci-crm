@@ -946,7 +946,7 @@ export default function Home() {
 
   // Main Dashboard
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 pattern-bg">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 pattern-bg flex">
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-xl border-b border-slate-200 z-30 flex items-center justify-between px-4 shadow-sm">
         <div className="flex items-center gap-3">
@@ -976,7 +976,7 @@ export default function Home() {
       )}
 
       {/* Sidebar */}
-      <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transition-transform duration-300 flex flex-col z-50 shadow-2xl`}>
+      <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transition-transform duration-300 flex flex-col z-50 shadow-2xl shrink-0`}>
         <div className="p-4 flex items-center justify-between border-b border-slate-700/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
@@ -1041,8 +1041,8 @@ export default function Home() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto lg:ml-72 pt-16 lg:pt-0 min-h-screen">
-        <div className="p-4 sm:p-6">
+      <main className="flex-1 min-h-screen lg:ml-72 pt-16 lg:pt-0 overflow-x-hidden">
+        <div className="p-4 sm:p-6 max-w-full overflow-x-hidden">
           {dataLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="relative">
@@ -1069,74 +1069,74 @@ export default function Home() {
                   </div>
                   
                   {/* Summary Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                     <Card className="stat-card card-hover border-0 shadow-lg shadow-emerald-500/5 bg-gradient-to-br from-white to-emerald-50/30 overflow-hidden">
-                      <CardContent className="p-5">
+                      <CardContent className="p-4 sm:p-5">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-slate-500 font-medium">Total Proposals</p>
-                            <p className="text-3xl font-bold text-slate-800 mt-1">{dashboardStats.totalProposals}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-slate-500 font-medium">Total Proposals</p>
+                            <p className="text-2xl sm:text-3xl font-bold text-slate-800 mt-1">{dashboardStats.totalProposals}</p>
                             <div className="flex items-center gap-1 mt-2 text-emerald-600">
-                              <TrendingUp className="w-4 h-4" />
+                              <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />
                               <span className="text-xs font-medium">Active pipeline</span>
                             </div>
                           </div>
-                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-xl shadow-emerald-500/30">
-                            <FileText className="w-7 h-7 text-white" />
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-xl shadow-emerald-500/30 shrink-0">
+                            <FileText className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
                     
                     <Card className="stat-card card-hover border-0 shadow-lg shadow-amber-500/5 bg-gradient-to-br from-white to-amber-50/30 overflow-hidden">
-                      <CardContent className="p-5">
+                      <CardContent className="p-4 sm:p-5">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-slate-500 font-medium">Total Value (PKR)</p>
-                            <p className="text-2xl font-bold text-slate-800 mt-1">{formatCurrency(dashboardStats.totalValuePKR)}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-slate-500 font-medium">Total Value (PKR)</p>
+                            <p className="text-xl sm:text-2xl font-bold text-slate-800 mt-1 truncate">{formatCurrency(dashboardStats.totalValuePKR)}</p>
                             <div className="flex items-center gap-1 mt-2 text-amber-600">
-                              <DollarSign className="w-4 h-4" />
+                              <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" />
                               <span className="text-xs font-medium">Pipeline value</span>
                             </div>
                           </div>
-                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-xl shadow-amber-500/30">
-                            <DollarSign className="w-7 h-7 text-white" />
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-xl shadow-amber-500/30 shrink-0">
+                            <DollarSign className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
                     
                     <Card className="stat-card card-hover border-0 shadow-lg shadow-emerald-500/5 bg-gradient-to-br from-white to-emerald-50/30 overflow-hidden">
-                      <CardContent className="p-5">
+                      <CardContent className="p-4 sm:p-5">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-slate-500 font-medium">Won Value (PKR)</p>
-                            <p className="text-2xl font-bold text-emerald-600 mt-1">{formatCurrency(dashboardStats.wonValuePKR)}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-slate-500 font-medium">Won Value (PKR)</p>
+                            <p className="text-xl sm:text-2xl font-bold text-emerald-600 mt-1 truncate">{formatCurrency(dashboardStats.wonValuePKR)}</p>
                             <div className="flex items-center gap-1 mt-2 text-emerald-600">
-                              <Award className="w-4 h-4" />
+                              <Award className="w-3 h-3 sm:w-4 sm:h-4" />
                               <span className="text-xs font-medium">Revenue won</span>
                             </div>
                           </div>
-                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-xl shadow-emerald-500/30">
-                            <TrendingUp className="w-7 h-7 text-white" />
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-xl shadow-emerald-500/30 shrink-0">
+                            <TrendingUp className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
                     
                     <Card className="stat-card card-hover border-0 shadow-lg shadow-violet-500/5 bg-gradient-to-br from-white to-violet-50/30 overflow-hidden">
-                      <CardContent className="p-5">
+                      <CardContent className="p-4 sm:p-5">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-slate-500 font-medium">Win Rate</p>
-                            <p className="text-3xl font-bold text-slate-800 mt-1">{dashboardStats.winRate}%</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-slate-500 font-medium">Win Rate</p>
+                            <p className="text-2xl sm:text-3xl font-bold text-slate-800 mt-1">{dashboardStats.winRate}%</p>
                             <div className="flex items-center gap-1 mt-2 text-violet-600">
-                              <Target className="w-4 h-4" />
+                              <Target className="w-3 h-3 sm:w-4 sm:h-4" />
                               <span className="text-xs font-medium">Success rate</span>
                             </div>
                           </div>
-                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-xl shadow-violet-500/30">
-                            <PieChart className="w-7 h-7 text-white" />
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-xl shadow-violet-500/30 shrink-0">
+                            <PieChart className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                           </div>
                         </div>
                       </CardContent>
@@ -1144,58 +1144,58 @@ export default function Home() {
                   </div>
                   
                   {/* Second Row */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                    <Card className="card-hover border-0 shadow-lg shadow-sky-500/5 bg-gradient-to-br from-white to-sky-50/30">
-                      <CardContent className="p-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <Card className="card-hover border-0 shadow-lg shadow-sky-500/5 bg-gradient-to-br from-white to-sky-50/30 overflow-hidden">
+                      <CardContent className="p-4 sm:p-5">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-slate-500 font-medium">Total Clients</p>
-                            <p className="text-3xl font-bold text-slate-800 mt-1">{dashboardStats.totalClients}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-slate-500 font-medium">Total Clients</p>
+                            <p className="text-2xl sm:text-3xl font-bold text-slate-800 mt-1">{dashboardStats.totalClients}</p>
                           </div>
-                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shadow-xl shadow-sky-500/30">
-                            <Users className="w-7 h-7 text-white" />
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shadow-xl shadow-sky-500/30 shrink-0">
+                            <Users className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
                     
-                    <Card className="card-hover border-0 shadow-lg shadow-orange-500/5 bg-gradient-to-br from-white to-orange-50/30">
-                      <CardContent className="p-5">
+                    <Card className="card-hover border-0 shadow-lg shadow-orange-500/5 bg-gradient-to-br from-white to-orange-50/30 overflow-hidden">
+                      <CardContent className="p-4 sm:p-5">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-slate-500 font-medium">Pending Tasks</p>
-                            <p className="text-3xl font-bold text-slate-800 mt-1">{dashboardStats.pendingTasks}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-slate-500 font-medium">Pending Tasks</p>
+                            <p className="text-2xl sm:text-3xl font-bold text-slate-800 mt-1">{dashboardStats.pendingTasks}</p>
                           </div>
-                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-xl shadow-orange-500/30">
-                            <CheckSquare className="w-7 h-7 text-white" />
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-xl shadow-orange-500/30 shrink-0">
+                            <CheckSquare className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
                     
-                    <Card className="card-hover border-0 shadow-lg shadow-red-500/5 bg-gradient-to-br from-white to-red-50/30">
-                      <CardContent className="p-5">
+                    <Card className="card-hover border-0 shadow-lg shadow-red-500/5 bg-gradient-to-br from-white to-red-50/30 overflow-hidden">
+                      <CardContent className="p-4 sm:p-5">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-slate-500 font-medium">Overdue Tasks</p>
-                            <p className="text-3xl font-bold text-red-600 mt-1">{dashboardStats.overdueTasks}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-slate-500 font-medium">Overdue Tasks</p>
+                            <p className="text-2xl sm:text-3xl font-bold text-red-600 mt-1">{dashboardStats.overdueTasks}</p>
                           </div>
-                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-xl shadow-red-500/30">
-                            <AlertCircle className="w-7 h-7 text-white" />
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-xl shadow-red-500/30 shrink-0">
+                            <AlertCircle className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
                     
-                    <Card className="card-hover border-0 shadow-lg shadow-emerald-500/5 bg-gradient-to-br from-white to-emerald-50/30">
-                      <CardContent className="p-5">
+                    <Card className="card-hover border-0 shadow-lg shadow-emerald-500/5 bg-gradient-to-br from-white to-emerald-50/30 overflow-hidden">
+                      <CardContent className="p-4 sm:p-5">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-slate-500 font-medium">Accepted</p>
-                            <p className="text-3xl font-bold text-emerald-600 mt-1">{dashboardStats.acceptedProposals}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-slate-500 font-medium">Accepted</p>
+                            <p className="text-2xl sm:text-3xl font-bold text-emerald-600 mt-1">{dashboardStats.acceptedProposals}</p>
                           </div>
-                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-xl shadow-emerald-500/30">
-                            <Award className="w-7 h-7 text-white" />
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-xl shadow-emerald-500/30 shrink-0">
+                            <Award className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                           </div>
                         </div>
                       </CardContent>
@@ -1203,16 +1203,16 @@ export default function Home() {
                   </div>
 
                   {/* Quick Stats */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <Card className="border-0 shadow-xl bg-gradient-to-br from-white to-slate-50/50">
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
+                    <Card className="border-0 shadow-xl bg-gradient-to-br from-white to-slate-50/50 overflow-hidden">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          <Activity className="w-5 h-5 text-emerald-500" />
+                        <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                          <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
                           Proposals by Stage
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                           {[
                             { label: 'New', count: proposals.filter(p => p.stage === 'NEW').length, color: 'sky' },
                             { label: 'Draft', count: proposals.filter(p => p.stage === 'DRAFT').length, color: 'slate' },
@@ -1221,31 +1221,31 @@ export default function Home() {
                             { label: 'Evaluation', count: proposals.filter(p => p.stage === 'UNDER_EVALUATION').length, color: 'orange' },
                             { label: 'Accepted', count: proposals.filter(p => p.stage === 'ACCEPTED').length, color: 'emerald' },
                           ].map(item => (
-                            <div key={item.label} className="text-center p-4 rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-100 hover:border-slate-200 transition-all card-hover">
-                              <p className="text-2xl font-bold text-slate-800">{item.count}</p>
-                              <p className="text-xs text-slate-500 mt-1">{item.label}</p>
+                            <div key={item.label} className="text-center p-3 sm:p-4 rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-100 hover:border-slate-200 transition-all">
+                              <p className="text-xl sm:text-2xl font-bold text-slate-800">{item.count}</p>
+                              <p className="text-[10px] sm:text-xs text-slate-500 mt-1">{item.label}</p>
                             </div>
                           ))}
                         </div>
                       </CardContent>
                     </Card>
                     
-                    <Card className="border-0 shadow-xl bg-gradient-to-br from-white to-slate-50/50">
+                    <Card className="border-0 shadow-xl bg-gradient-to-br from-white to-slate-50/50 overflow-hidden">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          <Clock className="w-5 h-5 text-violet-500" />
+                        <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                          <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-violet-500" />
                           Recent Proposals
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="space-y-3 max-h-64 overflow-y-auto">
+                        <div className="space-y-2 sm:space-y-3 max-h-64 overflow-y-auto">
                           {proposals.slice(0, 5).map(p => (
-                            <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-slate-50 to-white border border-slate-100 hover:border-emerald-200 transition-all">
-                              <div>
-                                <p className="font-medium text-slate-800">{p.title}</p>
-                                <p className="text-xs text-slate-500">{p.contact?.company || 'No client'}</p>
+                            <div key={p.id} className="flex items-center justify-between p-2 sm:p-3 rounded-xl bg-gradient-to-r from-slate-50 to-white border border-slate-100 hover:border-emerald-200 transition-all">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-slate-800 text-sm sm:text-base truncate">{p.title}</p>
+                                <p className="text-xs text-slate-500 truncate">{p.contact?.company || 'No client'}</p>
                               </div>
-                              <Badge className={stageColors[p.stage] || 'bg-slate-100'}>{p.stage}</Badge>
+                              <Badge className={`${stageColors[p.stage] || 'bg-slate-100'} text-[10px] sm:text-xs shrink-0`}>{p.stage}</Badge>
                             </div>
                           ))}
                           {proposals.length === 0 && (
