@@ -99,6 +99,16 @@ interface ResourceCategory {
   materials?: ResourceMaterial[]
 }
 
+interface Attachment {
+  id: string
+  name: string
+  originalName: string
+  mimeType: string
+  size: number
+  url: string
+  createdAt: string
+}
+
 interface ResourceMaterial {
   id: string
   title: string
@@ -107,6 +117,7 @@ interface ResourceMaterial {
   category?: ResourceCategory
   tags?: string
   isTemplate: boolean
+  attachments?: Attachment[]
   createdAt: string
 }
 
@@ -253,6 +264,10 @@ export default function Home() {
   const [categoryForm, setCategoryForm] = useState({
     name: '', slug: '', description: ''
   })
+
+  // Pending files for resource upload
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [uploadingFiles, setUploadingFiles] = useState(false)
 
   // Loading states
   const [dataLoading, setDataLoading] = useState(true)
@@ -655,22 +670,49 @@ export default function Home() {
       return
     }
     setSaving(true)
+    setUploadingFiles(true)
     try {
+      // First create or update the resource
       const url = editingResource ? `/api/resource-materials/${editingResource.id}` : '/api/resource-materials'
       const method = editingResource ? 'PUT' : 'POST'
-      
+
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...resourceForm, createdBy: authData?.user?.id })
       })
-      
+
       if (res.ok) {
+        const savedResource = await res.json()
+
+        // Upload pending files linked to this resource
+        if (pendingFiles.length > 0) {
+          for (const file of pendingFiles) {
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('resourceId', savedResource.id)
+            formData.append('uploadedBy', authData?.user?.id || 'system')
+
+            try {
+              const uploadRes = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+              })
+              if (!uploadRes.ok) {
+                console.error('Failed to upload file:', file.name)
+              }
+            } catch (uploadErr) {
+              console.error('Upload error for file:', file.name, uploadErr)
+            }
+          }
+        }
+
         fetchResourceMaterials()
         fetchResourceCategories()
         setShowResourceModal(false)
         setEditingResource(null)
         setResourceForm({ title: '', description: '', categoryId: '', tags: '', isTemplate: false })
+        setPendingFiles([])
       } else {
         const err = await res.json()
         alert(`Failed to save resource: ${err.error}${err.details ? ' - ' + err.details : ''}`)
@@ -679,6 +721,7 @@ export default function Home() {
       alert('Failed to save resource: Network error')
     } finally {
       setSaving(false)
+      setUploadingFiles(false)
     }
   }
 
@@ -1633,6 +1676,7 @@ export default function Home() {
                       <Button onClick={() => {
                         setEditingResource(null)
                         setResourceForm({ title: '', description: '', categoryId: '', tags: '', isTemplate: false })
+                        setPendingFiles([])
                         setShowResourceModal(true)
                       }}>
                         <Upload className="w-4 h-4 mr-2" /> Add Resource
@@ -1667,42 +1711,100 @@ export default function Home() {
                             {categoryMaterials.length > 0 ? (
                               <div className="grid gap-3">
                                 {categoryMaterials.map(material => (
-                                  <div key={material.id} className="flex items-center justify-between p-3 rounded-lg border bg-gray-50">
-                                    <div className="flex items-center gap-3">
-                                      <File className="w-5 h-5 text-gray-400" />
-                                      <div>
-                                        <p className="font-medium">{material.title}</p>
-                                        {material.description && (
-                                          <p className="text-sm text-gray-500">{material.description}</p>
-                                        )}
-                                        {material.tags && (
-                                          <div className="flex gap-1 mt-1">
-                                            {material.tags.split(',').map((tag, i) => (
-                                              <Badge key={i} variant="outline" className="text-xs">{tag.trim()}</Badge>
-                                            ))}
-                                          </div>
-                                        )}
+                                  <div key={material.id} className="p-3 rounded-lg border bg-gray-50">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-3">
+                                        <File className="w-5 h-5 text-gray-400" />
+                                        <div>
+                                          <p className="font-medium">{material.title}</p>
+                                          {material.description && (
+                                            <p className="text-sm text-gray-500">{material.description}</p>
+                                          )}
+                                          {material.tags && (
+                                            <div className="flex gap-1 mt-1">
+                                              {material.tags.split(',').map((tag, i) => (
+                                                <Badge key={i} variant="outline" className="text-xs">{tag.trim()}</Badge>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        {material.isTemplate && <Badge className="bg-blue-100 text-blue-800">Template</Badge>}
+                                        <Button variant="ghost" size="sm" onClick={() => {
+                                          setEditingResource(material)
+                                          setResourceForm({
+                                            title: material.title,
+                                            description: material.description || '',
+                                            categoryId: material.categoryId,
+                                            tags: material.tags || '',
+                                            isTemplate: material.isTemplate
+                                          })
+                                          setPendingFiles([])
+                                          setShowResourceModal(true)
+                                        }}>
+                                          <Edit className="w-4 h-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="sm" onClick={() => handleDeleteResource(material.id)} className="text-red-600 hover:text-red-700">
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                      {material.isTemplate && <Badge className="bg-blue-100 text-blue-800">Template</Badge>}
-                                      <Button variant="ghost" size="sm" onClick={() => {
-                                        setEditingResource(material)
-                                        setResourceForm({
-                                          title: material.title,
-                                          description: material.description || '',
-                                          categoryId: material.categoryId,
-                                          tags: material.tags || '',
-                                          isTemplate: material.isTemplate
-                                        })
-                                        setShowResourceModal(true)
-                                      }}>
-                                        <Edit className="w-4 h-4" />
-                                      </Button>
-                                      <Button variant="ghost" size="sm" onClick={() => handleDeleteResource(material.id)} className="text-red-600 hover:text-red-700">
-                                        <Trash2 className="w-4 h-4" />
-                                      </Button>
-                                    </div>
+                                    {/* Attachments Section */}
+                                    {material.attachments && material.attachments.length > 0 && (
+                                      <div className="mt-3 pt-3 border-t border-gray-200">
+                                        <p className="text-xs text-gray-500 mb-2">Attached Files ({material.attachments.length})</p>
+                                        <div className="flex flex-wrap gap-2">
+                                          {material.attachments.map(attachment => (
+                                            <div key={attachment.id} className="flex items-center gap-2 px-3 py-2 bg-white rounded border text-sm">
+                                              <File className="w-4 h-4 text-blue-500" />
+                                              <span className="truncate max-w-[150px]" title={attachment.originalName}>
+                                                {attachment.originalName}
+                                              </span>
+                                              <span className="text-xs text-gray-400">
+                                                ({(attachment.size / 1024).toFixed(1)}KB)
+                                              </span>
+                                              <div className="flex gap-1 ml-2">
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-6 px-2 text-blue-600 hover:text-blue-700"
+                                                  onClick={() => {
+                                                    // View file - open in new tab
+                                                    if (attachment.url.startsWith('data:')) {
+                                                      const win = window.open()
+                                                      if (win) {
+                                                        win.document.write(`<iframe src="${attachment.url}" style="width:100%;height:100%;border:none;"></iframe>`)
+                                                      }
+                                                    } else {
+                                                      window.open(attachment.url, '_blank')
+                                                    }
+                                                  }}
+                                                >
+                                                  View
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-6 px-2 text-green-600 hover:text-green-700"
+                                                  onClick={() => {
+                                                    // Download file
+                                                    const link = document.createElement('a')
+                                                    link.href = attachment.url
+                                                    link.download = attachment.originalName
+                                                    document.body.appendChild(link)
+                                                    link.click()
+                                                    document.body.removeChild(link)
+                                                  }}
+                                                >
+                                                  <Download className="w-3 h-3" />
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -2088,44 +2190,64 @@ export default function Home() {
               <Input value={resourceForm.tags} onChange={(e) => setResourceForm({...resourceForm, tags: e.target.value})} placeholder="template, guide, reference" />
             </div>
             <div className="space-y-2">
-              <Label>Upload File</Label>
+              <Label>Upload Files</Label>
               <div className="border-2 border-dashed rounded-lg p-4 text-center">
-                <input 
-                  type="file" 
-                  id="fileUpload" 
-                  className="hidden" 
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0]
-                    if (file) {
-                      const formData = new FormData()
-                      formData.append('file', file)
-                      formData.append('uploadedBy', authData?.user?.id || 'system')
-                      
-                      try {
-                        const res = await fetch('/api/upload', {
-                          method: 'POST',
-                          body: formData
-                        })
-                        const data = await res.json()
-                        if (res.ok) {
-                          alert(`File "${data.attachment.originalName}" uploaded successfully!`)
-                          fetchResourceMaterials()
-                        } else {
-                          alert(`Failed to upload file: ${data.error}${data.details ? ' - ' + data.details : ''}`)
-                        }
-                      } catch (err) {
-                        console.error('Upload error:', err)
-                        alert('Failed to upload file: Network error')
-                      }
+                <input
+                  type="file"
+                  id="fileUpload"
+                  className="hidden"
+                  multiple
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || [])
+                    if (files.length > 0) {
+                      setPendingFiles(prev => [...prev, ...files])
                     }
+                    e.target.value = '' // Reset input
                   }}
                 />
                 <label htmlFor="fileUpload" className="cursor-pointer">
                   <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-600">Click to upload or drag and drop</p>
-                  <p className="text-xs text-gray-400 mt-1">PDF, DOC, XLS, Images (max 500KB for preview)</p>
+                  <p className="text-sm text-gray-600">Click to select files</p>
+                  <p className="text-xs text-gray-400 mt-1">PDF, DOC, XLS, Images (max 4MB each)</p>
                 </label>
               </div>
+              {/* Show pending files */}
+              {pendingFiles.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-sm font-medium text-gray-700">Files to upload ({pendingFiles.length})</p>
+                  <div className="flex flex-wrap gap-2">
+                    {pendingFiles.map((file, index) => (
+                      <div key={index} className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded border text-sm">
+                        <File className="w-4 h-4 text-blue-500" />
+                        <span className="truncate max-w-[150px]">{file.name}</span>
+                        <span className="text-xs text-gray-400">({(file.size / 1024).toFixed(1)}KB)</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 text-red-500"
+                          onClick={() => setPendingFiles(prev => prev.filter((_, i) => i !== index))}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Show existing attachments when editing */}
+              {editingResource?.attachments && editingResource.attachments.length > 0 && (
+                <div className="mt-3 pt-3 border-t">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Existing Files</p>
+                  <div className="flex flex-wrap gap-2">
+                    {editingResource.attachments.map(attachment => (
+                      <div key={attachment.id} className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded border text-sm">
+                        <File className="w-4 h-4 text-green-500" />
+                        <span className="truncate max-w-[120px]">{attachment.originalName}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <input type="checkbox" id="isTemplate" checked={resourceForm.isTemplate} onChange={(e) => setResourceForm({...resourceForm, isTemplate: e.target.checked})} className="rounded" />
@@ -2133,10 +2255,13 @@ export default function Home() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowResourceModal(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => {
+              setPendingFiles([])
+              setShowResourceModal(false)
+            }}>Cancel</Button>
             <Button onClick={handleSaveResource} disabled={saving}>
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {editingResource ? 'Update' : 'Create'}
+              {uploadingFiles ? 'Uploading files...' : (editingResource ? 'Update' : 'Create')}
             </Button>
           </DialogFooter>
         </DialogContent>
