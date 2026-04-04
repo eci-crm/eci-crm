@@ -3,14 +3,5 @@
   "buildCommand": "bun run db:generate && next build",
   "devCommand": "bun run dev",
   "installCommand": "bun install",
-  "framework": "nextjs",
-  "regions": ["iad1"],
-  "env": {
-    "DATABASE_URL": "@database_url"
-  },
-  "build": {
-    "env": {
-      "DATABASE_URL": "@database_url"
-    }
-  }
+  "framework": "nextjs"
 }
