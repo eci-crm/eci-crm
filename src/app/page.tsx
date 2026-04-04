@@ -2106,15 +2106,16 @@ export default function Home() {
                           method: 'POST',
                           body: formData
                         })
+                        const data = await res.json()
                         if (res.ok) {
-                          const data = await res.json()
                           alert(`File "${data.attachment.originalName}" uploaded successfully!`)
                           fetchResourceMaterials()
                         } else {
-                          alert('Failed to upload file')
+                          alert(`Failed to upload file: ${data.error}${data.details ? ' - ' + data.details : ''}`)
                         }
                       } catch (err) {
-                        alert('Failed to upload file')
+                        console.error('Upload error:', err)
+                        alert('Failed to upload file: Network error')
                       }
                     }
                   }}
