@@ -946,7 +946,7 @@ export default function Home() {
 
   // Main Dashboard
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 pattern-bg">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 pattern-bg relative">
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-xl border-b border-slate-200 z-30 flex items-center justify-between px-4 shadow-sm">
         <div className="flex items-center gap-3">
@@ -1041,8 +1041,8 @@ export default function Home() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 min-h-screen lg:ml-72 pt-16 lg:pt-0 overflow-x-hidden w-full">
-        <div className="p-4 sm:p-6 lg:p-8 max-w-full overflow-x-hidden w-full box-border">
+      <main className="min-h-screen lg:pl-72 pt-16 lg:pt-0">
+        <div className="p-4 sm:p-6 lg:p-8 w-full box-border">
           {dataLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="relative">
