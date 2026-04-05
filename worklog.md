@@ -42,3 +42,55 @@ Stage Summary:
 - Global CSS updated with mobile-first responsive utilities
 - Touch device optimizations added for better mobile experience
 - Safe area insets supported for modern mobile devices
+
+---
+## Task ID: refactor-1 - refactor-expert
+### Work Task
+Refactor /home/z/my-project/src/app/page.tsx to fix responsive design issues by using the new DashboardLayout component and updating responsive classes.
+
+### Work Summary
+Successfully refactored the main page.tsx to use the new DashboardLayout component and fixed all responsive design issues:
+
+**1. Dashboard Layout Refactoring:**
+- Added import for `DashboardLayout` component from `@/components/layout/DashboardLayout`
+- Removed unused icon imports: `LayoutDashboard`, `LogOut`, `Menu`, `X`, `Phone`, `MapPin`, `ChevronRight`, `Zap`
+- Replaced entire inline sidebar and mobile header structure with `<DashboardLayout>` component wrapper
+- DashboardLayout now handles: mobile header, sidebar backdrop, sidebar navigation, and user section
+
+**2. State Management Cleanup:**
+- Removed `sidebarOpen` and `setSidebarOpen` state (now handled by DashboardLayout)
+- Removed `isMobile` and `setIsMobile` state (now handled by DashboardLayout)
+- Removed mobile detection `useEffect` hook (now handled by DashboardLayout)
+
+**3. Grid Layout Fixes:**
+- Updated stats cards grid: `grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4` → `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`
+- This adds intermediate breakpoint for better tablet/laptop responsiveness
+
+**4. Form Grid Fixes:**
+- Updated modal form grids: `grid grid-cols-1 md:grid-cols-2` → `grid grid-cols-1 lg:grid-cols-2`
+- Updated full-width form field spans: `md:col-span-2` → `lg:col-span-2`
+- Consistent use of `lg:` breakpoint for larger screens
+
+**5. Modal Width Consistency:**
+- Client Modal: `max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100%-2rem)]` ✓
+- Proposal Modal: `max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100%-2rem)]` ✓
+- Task Modal: `max-w-lg w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto` (added overflow classes)
+- User Modal: `max-w-lg w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto` (added overflow classes)
+- Resource Modal: `max-w-xl w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto` ✓
+- Category Modal: `max-w-md w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto` (added overflow classes)
+
+**6. Action Button Containers:**
+- Updated action button containers from `flex items-center gap-2 self-end sm:self-auto` to use `action-buttons` utility class from globals.css
+- This ensures consistent button layout with proper mobile stacking
+
+**7. Code Structure:**
+- Wrapped entire dashboard return with React fragment (`<>...</>`) to allow modals to be siblings of DashboardLayout
+- Modals are now rendered outside DashboardLayout but inside the fragment for proper portal behavior
+
+**Files Modified:**
+- `/home/z/my-project/src/app/page.tsx` - Main refactoring
+
+**Verification:**
+- ESLint passes with no errors
+- All responsive breakpoints are consistent (lg: for larger screens)
+- Modal widths and overflow handling are uniform

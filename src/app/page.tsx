@@ -23,15 +23,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { 
-  Building2, Eye, EyeOff, Loader2, LayoutDashboard, Users, FileText, 
-  CheckSquare, BarChart3, LogOut, Plus, Edit, Trash2, 
+import {
+  Building2, Eye, EyeOff, Loader2, Users, FileText,
+  CheckSquare, BarChart3, Plus, Edit, Trash2,
   Search, DollarSign, TrendingUp, AlertCircle, FolderOpen,
-  Menu, X, Calendar, Download, RefreshCw, Upload, File,
+  Calendar, Download, RefreshCw, Upload, File,
   ArrowUpRight, Target, Award, Clock, Sparkles, Zap,
-  FileCheck, Briefcase, Globe, Phone, Mail, MapPin,
-  ChevronRight, Star, Activity, PieChart, LineChart
+  FileCheck, Briefcase, Globe, Mail,
+  Star, Activity, PieChart, LineChart
 } from 'lucide-react'
+import { DashboardLayout } from '@/components/layout/DashboardLayout'
 
 // Types
 interface User {
@@ -212,8 +213,6 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
   const [authData, setAuthData] = useState<{ user: User } | null>(null)
   const [activeTab, setActiveTab] = useState('dashboard')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
   
   // Data states
   const [clients, setClients] = useState<Client[]>([])
@@ -299,22 +298,6 @@ export default function Home() {
     if (auth) {
       setAuthData(auth)
     }
-  }, [])
-
-  // Detect mobile screen
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobile = window.innerWidth < 1024
-      setIsMobile(mobile)
-      if (!mobile) {
-        setSidebarOpen(true)
-      } else {
-        setSidebarOpen(false)
-      }
-    }
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
   // Fetch all data
@@ -946,104 +929,14 @@ export default function Home() {
 
   // Main Dashboard
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 pattern-bg relative">
-      {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-xl border-b border-slate-200 z-30 flex items-center justify-between px-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(true)} className="p-2">
-            <Menu className="w-6 h-6 text-slate-700" />
-          </Button>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md">
-              <Building2 className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-lg bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">ECI CRM</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md">
-            <span className="text-white font-bold text-xs">{authData.user.name?.charAt(0) || 'U'}</span>
-          </div>
-        </div>
-      </header>
-
-      {/* Sidebar Backdrop for Mobile */}
-      {isMobile && sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transition-transform duration-300 flex flex-col z-50 shadow-2xl shrink-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
-        <div className="p-4 flex items-center justify-between border-b border-slate-700/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-              <Building2 className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <span className="font-bold text-lg bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">ECI CRM</span>
-              <p className="text-[10px] text-slate-400">Enterprise Intelligence</p>
-            </div>
-          </div>
-          {isMobile && (
-            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)} 
-              className="text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all">
-              <X className="w-5 h-5" />
-            </Button>
-          )}
-        </div>
-        
-        <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto">
-          {[
-            { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', color: 'emerald' },
-            { id: 'clients', icon: Users, label: 'Clients', color: 'sky' },
-            { id: 'proposals', icon: FileText, label: 'Proposals', color: 'violet' },
-            { id: 'tasks', icon: CheckSquare, label: 'Tasks', color: 'amber' },
-            { id: 'reports', icon: BarChart3, label: 'Reports', color: 'rose' },
-            { id: 'users', icon: Users, label: 'Users', color: 'teal' },
-            { id: 'resources', icon: FolderOpen, label: 'Resources', color: 'orange' },
-          ].map(item => (
-            <button key={item.id} onClick={() => { setActiveTab(item.id); if (isMobile) setSidebarOpen(false); }}
-              className={`sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ${
-                activeTab === item.id 
-                  ? `bg-gradient-to-r from-${item.color}-500/20 to-${item.color}-600/10 text-white border border-${item.color}-500/30` 
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
-              }`}>
-              <div className={`p-2 rounded-lg transition-all ${
-                activeTab === item.id 
-                  ? `bg-gradient-to-br from-${item.color}-500 to-${item.color}-600 shadow-lg shadow-${item.color}-500/30` 
-                  : 'bg-slate-700/50'
-              }`}>
-                <item.icon className="w-4 h-4" />
-              </div>
-              <span className="font-medium">{item.label}</span>
-            </button>
-          ))}
-        </nav>
-        
-        <div className="p-4 border-t border-slate-700/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-              <span className="text-white font-bold text-sm">{authData.user.name?.charAt(0) || 'U'}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate">{authData.user.name}</p>
-              <p className="text-xs text-slate-400 truncate">{authData.user.email}</p>
-            </div>
-            <Button variant="ghost" size="sm" onClick={handleLogout} 
-              className="text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
-              <LogOut className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="min-h-screen lg:pl-72 pt-16 lg:pt-0">
-        <div className="p-4 sm:p-6 lg:p-8 w-full box-border">
-          {dataLoading ? (
+    <>
+      <DashboardLayout
+        user={authData.user}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onLogout={handleLogout}
+      >
+        {dataLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="relative">
                 <Loader2 className="w-12 h-12 animate-spin text-emerald-500" />
@@ -1069,7 +962,7 @@ export default function Home() {
                   </div>
                   
                   {/* Summary Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     <Card className="stat-card card-hover border-0 shadow-lg shadow-emerald-500/5 bg-gradient-to-br from-white to-emerald-50/30 overflow-hidden">
                       <CardContent className="p-4 sm:p-5">
                         <div className="flex items-center justify-between">
@@ -1144,7 +1037,7 @@ export default function Home() {
                   </div>
                   
                   {/* Second Row */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     <Card className="card-hover border-0 shadow-lg shadow-sky-500/5 bg-gradient-to-br from-white to-sky-50/30 overflow-hidden">
                       <CardContent className="p-4 sm:p-5">
                         <div className="flex items-center justify-between">
@@ -1307,7 +1200,7 @@ export default function Home() {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 self-end sm:self-auto">
+                            <div className="action-buttons self-end sm:self-auto">
                               <Button variant="ghost" size="sm" onClick={() => {
                                 setEditingClient(client)
                                 setClientForm({
@@ -1408,7 +1301,7 @@ export default function Home() {
                                 </div>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 self-end sm:self-auto">
+                            <div className="action-buttons self-end sm:self-auto">
                               <Button variant="ghost" size="sm" onClick={() => {
                                 setEditingProposal(proposal)
                                 setProposalForm({
@@ -1636,7 +1529,7 @@ export default function Home() {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 self-end sm:self-auto">
+                            <div className="action-buttons self-end sm:self-auto">
                               <Badge variant="outline" className="border-slate-200 text-xs">{user.role}</Badge>
                               <Button variant="ghost" size="sm" onClick={() => {
                                 setEditingUser(user)
@@ -1848,8 +1741,7 @@ export default function Home() {
               )}
             </>
           )}
-        </div>
-      </main>
+      </DashboardLayout>
 
       {/* Client Modal */}
       <Dialog open={showClientModal} onOpenChange={setShowClientModal}>
@@ -1857,7 +1749,7 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle className="text-xl">{editingClient ? 'Edit Client' : 'Add Client'}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
               <Label>Name *</Label>
               <Input value={clientForm.name} onChange={(e) => setClientForm({...clientForm, name: e.target.value})} 
@@ -1934,12 +1826,12 @@ export default function Home() {
               <Input value={clientForm.rfpNumber} onChange={(e) => setClientForm({...clientForm, rfpNumber: e.target.value})} 
                 className="border-slate-200 focus:border-emerald-500" />
             </div>
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2 lg:col-span-2">
               <Label>Address</Label>
               <Input value={clientForm.address} onChange={(e) => setClientForm({...clientForm, address: e.target.value})} 
                 className="border-slate-200 focus:border-emerald-500" />
             </div>
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2 lg:col-span-2">
               <Label>Notes</Label>
               <Textarea value={clientForm.notes} onChange={(e) => setClientForm({...clientForm, notes: e.target.value})} 
                 className="border-slate-200 focus:border-emerald-500" />
@@ -1962,13 +1854,13 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle className="text-xl">{editingProposal ? 'Edit Proposal' : 'Add Proposal'}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-            <div className="space-y-2 md:col-span-2">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 py-4">
+            <div className="space-y-2 lg:col-span-2">
               <Label>Title *</Label>
               <Input value={proposalForm.title} onChange={(e) => setProposalForm({...proposalForm, title: e.target.value})} 
                 className="border-slate-200 focus:border-emerald-500" />
             </div>
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2 lg:col-span-2">
               <Label>Description</Label>
               <Textarea value={proposalForm.description} onChange={(e) => setProposalForm({...proposalForm, description: e.target.value})} 
                 className="border-slate-200 focus:border-emerald-500" />
@@ -2038,12 +1930,12 @@ export default function Home() {
               <Input type="date" value={proposalForm.deadline} onChange={(e) => setProposalForm({...proposalForm, deadline: e.target.value})} 
                 className="border-slate-200 focus:border-emerald-500" />
             </div>
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2 lg:col-span-2">
               <Label>Internal Remarks</Label>
               <Textarea value={proposalForm.internalRemarks} onChange={(e) => setProposalForm({...proposalForm, internalRemarks: e.target.value})} 
                 className="border-slate-200 focus:border-emerald-500" />
             </div>
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2 lg:col-span-2">
               <Label>External Remarks</Label>
               <Textarea value={proposalForm.externalRemarks} onChange={(e) => setProposalForm({...proposalForm, externalRemarks: e.target.value})} 
                 className="border-slate-200 focus:border-emerald-500" />
@@ -2062,7 +1954,7 @@ export default function Home() {
 
       {/* Task Modal */}
       <Dialog open={showTaskModal} onOpenChange={setShowTaskModal}>
-        <DialogContent className="max-w-lg w-[calc(100%-2rem)]">
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl">{editingTask ? 'Edit Task' : 'Add Task'}</DialogTitle>
           </DialogHeader>
@@ -2132,7 +2024,7 @@ export default function Home() {
 
       {/* User Modal */}
       <Dialog open={showUserModal} onOpenChange={setShowUserModal}>
-        <DialogContent className="max-w-lg w-[calc(100%-2rem)]">
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl">{editingUser ? 'Edit User' : 'Add User'}</DialogTitle>
           </DialogHeader>
@@ -2297,7 +2189,7 @@ export default function Home() {
 
       {/* Category Modal */}
       <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
-        <DialogContent className="max-w-md w-[calc(100%-2rem)]">
+        <DialogContent className="max-w-md w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl">Add Resource Category</DialogTitle>
           </DialogHeader>
@@ -2328,6 +2220,6 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }
