@@ -29,8 +29,8 @@ import {
   Search, DollarSign, TrendingUp, AlertCircle, FolderOpen,
   Calendar, Download, RefreshCw, Upload, File,
   ArrowUpRight, Target, Award, Clock, Sparkles,
-  Briefcase, Globe, Mail, ChevronRight,
-  TrendingDown, Minus, Activity
+  Briefcase, Globe, Mail, ChevronRight, ArrowRight,
+  TrendingDown, Minus, Activity, MoreHorizontal
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 
@@ -171,46 +171,46 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-// Premium refined color system - subtle and professional
+// Premium refined status colors
 const statusColors: Record<string, string> = {
-  LEAD: 'bg-sky-50 text-sky-700 border-sky-200',
-  PROSPECT: 'bg-violet-50 text-violet-700 border-violet-200',
-  CLIENT: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  CUSTOMER: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  INACTIVE: 'bg-slate-50 text-slate-600 border-slate-200',
+  LEAD: 'badge-info',
+  PROSPECT: 'badge-primary',
+  CLIENT: 'badge-success',
+  CUSTOMER: 'badge-success',
+  INACTIVE: 'badge-neutral',
 }
 
 const stageColors: Record<string, string> = {
-  NEW: 'bg-sky-50 text-sky-700 border-sky-200',
-  DRAFT: 'bg-slate-50 text-slate-600 border-slate-200',
-  IN_PROGRESS: 'bg-amber-50 text-amber-700 border-amber-200',
-  SUBMITTED: 'bg-violet-50 text-violet-700 border-violet-200',
-  UNDER_EVALUATION: 'bg-orange-50 text-orange-700 border-orange-200',
-  ACCEPTED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  REJECTED: 'bg-red-50 text-red-700 border-red-200',
+  NEW: 'badge-info',
+  DRAFT: 'badge-neutral',
+  IN_PROGRESS: 'badge-warning',
+  SUBMITTED: 'badge-primary',
+  UNDER_EVALUATION: 'badge-warning',
+  ACCEPTED: 'badge-success',
+  REJECTED: 'badge-error',
 }
 
-const stageDotColors: Record<string, string> = {
-  NEW: 'bg-sky-500',
-  DRAFT: 'bg-slate-400',
-  IN_PROGRESS: 'bg-amber-500',
-  SUBMITTED: 'bg-violet-500',
-  UNDER_EVALUATION: 'bg-orange-500',
-  ACCEPTED: 'bg-emerald-500',
-  REJECTED: 'bg-red-500',
+const stageProgressColors: Record<string, string> = {
+  NEW: '#0284c7',
+  DRAFT: '#737373',
+  IN_PROGRESS: '#d97706',
+  SUBMITTED: '#0d9488',
+  UNDER_EVALUATION: '#ea580c',
+  ACCEPTED: '#059669',
+  REJECTED: '#dc2626',
 }
 
 const taskStatusColors: Record<string, string> = {
-  TODO: 'bg-slate-50 text-slate-600 border-slate-200',
-  IN_PROGRESS: 'bg-sky-50 text-sky-700 border-sky-200',
-  COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  TODO: 'badge-neutral',
+  IN_PROGRESS: 'badge-info',
+  COMPLETED: 'badge-success',
 }
 
 const priorityColors: Record<string, string> = {
-  LOW: 'bg-slate-50 text-slate-600 border-slate-200',
-  MEDIUM: 'bg-amber-50 text-amber-700 border-amber-200',
-  HIGH: 'bg-orange-50 text-orange-700 border-orange-200',
-  URGENT: 'bg-red-50 text-red-700 border-red-200',
+  LOW: 'badge-neutral',
+  MEDIUM: 'badge-info',
+  HIGH: 'badge-warning',
+  URGENT: 'badge-error',
 }
 
 export default function Home() {
@@ -852,68 +852,66 @@ export default function Home() {
     (r.tags && r.tags.toLowerCase().includes(resourceSearch.toLowerCase()))
   )
 
+  // Get time-based greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours()
+    if (hour < 12) return 'Good morning'
+    if (hour < 18) return 'Good afternoon'
+    return 'Good evening'
+  }
+
   // Login screen
   if (!authData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 p-4">
-        <div className="w-full max-w-md">
-          <Card className="border-0 shadow-2xl shadow-slate-200/50 bg-white/95 backdrop-blur-xl overflow-hidden">
-            <CardHeader className="text-center pb-4 pt-8">
-              <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center mb-4 shadow-lg shadow-teal-500/20">
-                <Building2 className="w-8 h-8 text-white" />
-              </div>
-              <CardTitle className="text-2xl font-bold text-slate-900">
-                ECI CRM
-              </CardTitle>
-              <CardDescription className="text-slate-500">
-                Enterprise Customer Intelligence
-              </CardDescription>
-            </CardHeader>
-            
-            <CardContent className="px-8 pb-8">
-              <form onSubmit={handleLogin} className="space-y-4">
-                {error && (
-                  <div className="p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" />
-                    {error}
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <Label className="text-slate-700 text-sm font-medium">Email Address</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input type="email" placeholder="Enter your email" value={email} 
-                      onChange={(e) => setEmail(e.target.value)} required 
-                      className="h-11 pl-10 border-slate-200 focus:border-teal-500 focus:ring-teal-500/20 rounded-lg" />
-                  </div>
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)] p-4">
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[var(--primary)] text-white mb-4">
+              <Building2 className="w-6 h-6" />
+            </div>
+            <h1 className="text-xl font-semibold text-[var(--text-primary)]">ECI CRM</h1>
+            <p className="text-sm text-[var(--text-tertiary)] mt-1">Enterprise Customer Intelligence</p>
+          </div>
+          
+          <div className="card-premium p-6">
+            <form onSubmit={handleLogin} className="space-y-4">
+              {error && (
+                <div className="p-3 rounded-lg bg-[var(--error-bg)] text-[var(--error-text)] text-sm flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  {error}
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-slate-700 text-sm font-medium">Password</Label>
-                  <div className="relative">
-                    <Input type={showPassword ? 'text' : 'password'} placeholder="Enter your password" 
-                      value={password} onChange={(e) => setPassword(e.target.value)} required 
-                      className="h-11 pr-10 border-slate-200 focus:border-teal-500 focus:ring-teal-500/20 rounded-lg" />
-                    <Button type="button" variant="ghost" size="sm" 
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent" 
-                      onClick={() => setShowPassword(!showPassword)}>
-                      {showPassword ? <EyeOff className="h-4 w-4 text-slate-400" /> : <Eye className="h-4 w-4 text-slate-400" />}
-                    </Button>
-                  </div>
-                </div>
-                <Button type="submit" 
-                  className="w-full h-11 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white font-medium shadow-lg shadow-teal-500/20 transition-all"
-                  disabled={isLoading}>
-                  {isLoading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Signing in...</>) : 'Sign In'}
-                </Button>
-              </form>
-              <div className="mt-4 p-3 rounded-lg bg-slate-50 border border-slate-100">
-                <p className="text-xs text-center text-slate-500 flex items-center justify-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Demo: admin@ecicrm.com / password123
-                </p>
+              )}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-[var(--text-secondary)]">Email</Label>
+                <Input type="email" placeholder="Enter your email" value={email} 
+                  onChange={(e) => setEmail(e.target.value)} required 
+                  className="h-9 text-sm border-[var(--border-2)] focus:border-[var(--primary)] rounded-lg" />
               </div>
-            </CardContent>
-          </Card>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-[var(--text-secondary)]">Password</Label>
+                <div className="relative">
+                  <Input type={showPassword ? 'text' : 'password'} placeholder="Enter your password" 
+                    value={password} onChange={(e) => setPassword(e.target.value)} required 
+                    className="h-9 text-sm pr-9 border-[var(--border-2)] focus:border-[var(--primary)] rounded-lg" />
+                  <Button type="button" variant="ghost" size="sm" 
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent" 
+                    onClick={() => setShowPassword(!showPassword)}>
+                    {showPassword ? <EyeOff className="h-4 w-4 text-[var(--text-muted)]" /> : <Eye className="h-4 w-4 text-[var(--text-muted)]" />}
+                  </Button>
+                </div>
+              </div>
+              <Button type="submit" 
+                className="w-full h-9 text-sm font-medium bg-[var(--primary)] hover:bg-[#0f766e] text-white rounded-lg"
+                disabled={isLoading}>
+                {isLoading ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Signing in...</>) : 'Sign in'}
+              </Button>
+            </form>
+            <div className="mt-4 p-2.5 rounded-lg bg-[var(--surface-2)]">
+              <p className="text-xs text-center text-[var(--text-tertiary)]">
+                Demo: admin@ecicrm.com / password123
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -939,308 +937,302 @@ export default function Home() {
     >
       {dataLoading ? (
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
+          <Loader2 className="w-6 h-6 animate-spin text-[var(--primary)]" />
         </div>
       ) : (
         <React.Fragment>
           {/* Dashboard Tab */}
           {activeTab === 'dashboard' && (
-            <div className="space-y-6">
+            <div className="max-w-7xl mx-auto">
               {/* Premium Header */}
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2">
-                <div>
-                  <h1 className="text-xl font-semibold text-slate-900">
-                    Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {authData.user.name?.split(' ')[0]}!
-                  </h1>
-                  <p className="text-sm text-slate-500 mt-0.5">Here's what's happening with your proposals today.</p>
+              <div className="mb-8">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h1 className="text-display">
+                      {getGreeting()}, {authData.user.name?.split(' ')[0]}
+                    </h1>
+                    <p className="text-body mt-1">
+                      Here's an overview of your proposals and pipeline activity.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={fetchAllData}
+                    className="btn-ghost hidden sm:flex"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Refresh
+                  </button>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchAllData}
-                  className="border-slate-200 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 transition-colors h-9">
-                  <RefreshCw className="w-4 h-4 mr-2" /> Refresh Data
-                </Button>
               </div>
               
-              {/* Primary KPI Cards - Compact & Elegant */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Total Proposals */}
-                <Card className="group border border-slate-200/60 bg-white hover:border-teal-200 hover:shadow-md transition-all duration-200">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Total Proposals</p>
-                        <p className="text-2xl font-semibold text-slate-900">{dashboardStats.totalProposals}</p>
-                        <p className="text-xs text-slate-400">Active in pipeline</p>
-                      </div>
-                      <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center group-hover:bg-teal-100 transition-colors">
-                        <FileText className="w-5 h-5 text-teal-600" />
-                      </div>
+              {/* Premium KPI Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div className="card-metric animate-slide-up stagger-1">
+                  <div className="flex items-start justify-between mb-3">
+                    <span className="text-label">Proposals</span>
+                    <div className="metric-icon">
+                      <FileText className="w-4 h-4" />
                     </div>
-                  </CardContent>
-                </Card>
-
-                {/* Pipeline Value */}
-                <Card className="group border border-slate-200/60 bg-white hover:border-amber-200 hover:shadow-md transition-all duration-200">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Pipeline Value</p>
-                        <p className="text-2xl font-semibold text-slate-900">{formatShortCurrency(dashboardStats.totalValuePKR)}</p>
-                        <p className="text-xs text-slate-400">PKR total value</p>
-                      </div>
-                      <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
-                        <DollarSign className="w-5 h-5 text-amber-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Won Value */}
-                <Card className="group border border-slate-200/60 bg-white hover:border-emerald-200 hover:shadow-md transition-all duration-200">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Won Revenue</p>
-                        <p className="text-2xl font-semibold text-emerald-600">{formatShortCurrency(dashboardStats.wonValuePKR)}</p>
-                        <p className="text-xs text-slate-400">PKR closed won</p>
-                      </div>
-                      <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
-                        <TrendingUp className="w-5 h-5 text-emerald-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Win Rate */}
-                <Card className="group border border-slate-200/60 bg-white hover:border-violet-200 hover:shadow-md transition-all duration-200">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Win Rate</p>
-                        <p className="text-2xl font-semibold text-slate-900">{dashboardStats.winRate}%</p>
-                        <p className="text-xs text-slate-400">Success ratio</p>
-                      </div>
-                      <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center group-hover:bg-violet-100 transition-colors">
-                        <Target className="w-5 h-5 text-violet-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Secondary Stats Row */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-white border border-slate-200/60 rounded-lg p-3 hover:border-sky-200 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-sky-500"></div>
-                    <span className="text-xs text-slate-500">Clients</span>
                   </div>
-                  <p className="text-lg font-semibold text-slate-900 mt-1">{dashboardStats.totalClients}</p>
+                  <div className="text-metric mb-1">{dashboardStats.totalProposals}</div>
+                  <div className="text-label-sm">Active in pipeline</div>
                 </div>
-                <div className="bg-white border border-slate-200/60 rounded-lg p-3 hover:border-orange-200 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                    <span className="text-xs text-slate-500">Pending Tasks</span>
+
+                <div className="card-metric animate-slide-up stagger-2">
+                  <div className="flex items-start justify-between mb-3">
+                    <span className="text-label">Pipeline Value</span>
+                    <div className="metric-icon amber">
+                      <DollarSign className="w-4 h-4" />
+                    </div>
                   </div>
-                  <p className="text-lg font-semibold text-slate-900 mt-1">{dashboardStats.pendingTasks}</p>
+                  <div className="text-metric mb-1">{formatShortCurrency(dashboardStats.totalValuePKR)}</div>
+                  <div className="text-label-sm">Total potential</div>
                 </div>
-                <div className="bg-white border border-slate-200/60 rounded-lg p-3 hover:border-red-200 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                    <span className="text-xs text-slate-500">Overdue</span>
+
+                <div className="card-metric animate-slide-up stagger-3">
+                  <div className="flex items-start justify-between mb-3">
+                    <span className="text-label">Won Revenue</span>
+                    <div className="metric-icon emerald">
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
                   </div>
-                  <p className="text-lg font-semibold text-red-600 mt-1">{dashboardStats.overdueTasks}</p>
+                  <div className="text-metric mb-1" style={{ color: 'var(--success)' }}>{formatShortCurrency(dashboardStats.wonValuePKR)}</div>
+                  <div className="text-label-sm">Closed won</div>
                 </div>
-                <div className="bg-white border border-slate-200/60 rounded-lg p-3 hover:border-emerald-200 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                    <span className="text-xs text-slate-500">Accepted</span>
+
+                <div className="card-metric animate-slide-up stagger-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <span className="text-label">Win Rate</span>
+                    <div className="metric-icon violet">
+                      <Target className="w-4 h-4" />
+                    </div>
                   </div>
-                  <p className="text-lg font-semibold text-emerald-600 mt-1">{dashboardStats.acceptedProposals}</p>
+                  <div className="text-metric mb-1">{dashboardStats.winRate}%</div>
+                  <div className="text-label-sm">Success ratio</div>
                 </div>
               </div>
 
-              {/* Widgets Section */}
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {/* Proposals by Stage Widget */}
-                <Card className="border border-slate-200/60 bg-white">
-                  <CardHeader className="pb-3 pt-5 px-5">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-teal-600" />
-                        Proposals by Stage
-                      </CardTitle>
-                      <span className="text-xs text-slate-400">{proposals.length} total</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="px-5 pb-5">
-                    <div className="grid grid-cols-3 gap-3">
-                      {proposalStages.map((stage) => (
-                        <div 
-                          key={stage.key}
-                          className="relative bg-slate-50 hover:bg-slate-100 rounded-lg p-3 transition-colors group cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className={`w-2 h-2 rounded-full ${stageDotColors[stage.key]}`}></div>
-                            <span className="text-xs font-medium text-slate-600">{stage.label}</span>
-                          </div>
-                          <p className="text-xl font-semibold text-slate-900">{stage.count}</p>
-                          {proposals.length > 0 && (
-                            <p className="text-xs text-slate-400 mt-0.5">
-                              {Math.round((stage.count / proposals.length) * 100)}%
-                            </p>
-                          )}
+              {/* Quick Stats Bar */}
+              <div className="flex flex-wrap gap-2 mb-8">
+                <div className="badge-dot success">
+                  {dashboardStats.acceptedProposals} Accepted
+                </div>
+                <div className="badge-dot primary">
+                  {dashboardStats.totalClients} Clients
+                </div>
+                <div className="badge-dot warning">
+                  {dashboardStats.pendingTasks} Pending Tasks
+                </div>
+                {dashboardStats.overdueTasks > 0 && (
+                  <div className="badge-dot error">
+                    {dashboardStats.overdueTasks} Overdue
+                  </div>
+                )}
+              </div>
+
+              {/* Main Content Grid */}
+              <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+                {/* Proposals by Stage - Takes 2 columns */}
+                <div className="xl:col-span-2">
+                  <div className="card-premium overflow-hidden animate-slide-up stagger-5">
+                    <div className="p-5 border-b border-[var(--border-1)]">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h2 className="text-title-2">Pipeline Stages</h2>
+                          <p className="text-body-sm mt-0.5">Distribution across stages</p>
                         </div>
-                      ))}
+                        <span className="text-label-sm">{proposals.length} total</span>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="p-4">
+                      <div className="space-y-2">
+                        {proposalStages.map((stage) => {
+                          const percentage = proposals.length > 0 
+                            ? Math.round((stage.count / proposals.length) * 100) 
+                            : 0
+                          return (
+                            <div 
+                              key={stage.key}
+                              className="group flex items-center gap-3 p-2.5 rounded-lg hover:bg-[var(--surface-1)] transition-colors cursor-pointer"
+                            >
+                              <div 
+                                className="w-2 h-2 rounded-full shrink-0"
+                                style={{ backgroundColor: stageProgressColors[stage.key] }}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-sm font-medium text-[var(--text-primary)]">{stage.label}</span>
+                                  <span className="text-sm font-semibold text-[var(--text-primary)] tabular-nums">{stage.count}</span>
+                                </div>
+                                <div className="progress-bar">
+                                  <div 
+                                    className="progress-bar-fill"
+                                    style={{ 
+                                      width: `${percentage}%`,
+                                      backgroundColor: stageProgressColors[stage.key]
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                              <span className="text-xs text-[var(--text-muted)] tabular-nums w-8 text-right">
+                                {percentage}%
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-                {/* Recent Proposals Widget */}
-                <Card className="border border-slate-200/60 bg-white">
-                  <CardHeader className="pb-3 pt-5 px-5">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-violet-600" />
-                        Recent Proposals
-                      </CardTitle>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-7 text-xs text-slate-500 hover:text-slate-700"
-                        onClick={() => setActiveTab('proposals')}
-                      >
-                        View all <ChevronRight className="w-3 h-3 ml-1" />
-                      </Button>
+                {/* Recent Proposals - Takes 3 columns */}
+                <div className="xl:col-span-3">
+                  <div className="card-premium overflow-hidden animate-slide-up stagger-6">
+                    <div className="p-5 border-b border-[var(--border-1)]">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h2 className="text-title-2">Recent Proposals</h2>
+                          <p className="text-body-sm mt-0.5">Latest activity in your pipeline</p>
+                        </div>
+                        <button 
+                          onClick={() => setActiveTab('proposals')}
+                          className="btn-ghost"
+                        >
+                          View all
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  </CardHeader>
-                  <CardContent className="px-5 pb-5">
-                    <div className="space-y-2">
+                    <div className="divide-y divide-[var(--border-1)]">
                       {proposals.slice(0, 5).map((proposal) => (
                         <div 
                           key={proposal.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer group"
+                          className="group flex items-center gap-4 p-4 hover:bg-[var(--surface-1)] transition-colors cursor-pointer"
                         >
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-slate-900 truncate">{proposal.title}</p>
-                            <div className="flex items-center gap-3 mt-1">
-                              <span className="text-xs text-slate-500 truncate">
-                                {proposal.contact?.company || 'No client'}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-medium text-[var(--text-primary)] truncate">
+                                {proposal.title}
                               </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-[var(--text-tertiary)]">
+                              <span className="truncate">{proposal.contact?.company || 'No client'}</span>
                               {proposal.valuePKR > 0 && (
-                                <span className="text-xs text-teal-600 font-medium">
-                                  {formatShortCurrency(proposal.valuePKR)}
-                                </span>
+                                <>
+                                  <span className="text-[var(--border-2)]">·</span>
+                                  <span className="text-[var(--primary)] font-medium">
+                                    {formatShortCurrency(proposal.valuePKR)}
+                                  </span>
+                                </>
+                              )}
+                              {proposal.deadline && (
+                                <>
+                                  <span className="text-[var(--border-2)]">·</span>
+                                  <span>Due {formatDate(proposal.deadline)}</span>
+                                </>
                               )}
                             </div>
                           </div>
-                          <Badge 
-                            variant="outline"
-                            className={`${stageColors[proposal.stage]} text-xs font-medium shrink-0 ml-3`}
-                          >
+                          <span className={`badge ${stageColors[proposal.stage]}`}>
                             {proposal.stage.replace('_', ' ')}
-                          </Badge>
+                          </span>
                         </div>
                       ))}
                       {proposals.length === 0 && (
-                        <div className="py-8 text-center">
-                          <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                          <p className="text-sm text-slate-500">No proposals yet</p>
-                          <Button 
-                            variant="link" 
-                            size="sm" 
-                            className="mt-2 text-teal-600"
+                        <div className="p-8 text-center">
+                          <div className="w-10 h-10 rounded-full bg-[var(--surface-2)] flex items-center justify-center mx-auto mb-3">
+                            <FileText className="w-5 h-5 text-[var(--text-muted)]" />
+                          </div>
+                          <p className="text-sm text-[var(--text-secondary)] mb-2">No proposals yet</p>
+                          <button 
                             onClick={() => setActiveTab('proposals')}
+                            className="text-sm text-[var(--primary)] font-medium hover:underline"
                           >
                             Create your first proposal
-                          </Button>
+                          </button>
                         </div>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               </div>
             </div>
           )}
           
           {/* Clients Tab */}
           {activeTab === 'clients' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-xl font-semibold text-slate-900">Clients</h1>
-                  <p className="text-sm text-slate-500 mt-0.5">Manage your client relationships</p>
+                  <h1 className="text-title-1">Clients</h1>
+                  <p className="text-body-sm mt-1">Manage your client relationships</p>
                 </div>
-                <Button onClick={() => {
+                <button onClick={() => {
                   setEditingClient(null)
                   setClientForm({ name: '', email: '', phone: '', company: '', position: '', sector: '', status: 'LEAD', source: '', notes: '', rfpNumber: '', website: '', address: '' })
                   setShowClientModal(true)
-                }} className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm">
-                  <Plus className="w-4 h-4 mr-2" /> Add Client
-                </Button>
+                }} className="btn-primary">
+                  <Plus className="w-4 h-4" /> Add Client
+                </button>
               </div>
               
-              <div className="relative w-full sm:max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <div className="relative w-full max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
                 <Input placeholder="Search clients..." value={clientSearch} 
                   onChange={(e) => setClientSearch(e.target.value)} 
-                  className="pl-9 h-10 border-slate-200 focus:border-teal-500 focus:ring-teal-500/20 rounded-lg" />
+                  className="pl-9 h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
               
-              <div className="grid gap-3">
+              <div className="space-y-2">
                 {filteredClients.map(client => (
-                  <Card key={client.id} className="border border-slate-200/60 bg-white hover:border-slate-300 hover:shadow-sm transition-all">
-                    <CardContent className="p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white font-semibold text-sm shrink-0">
-                            {client.name.charAt(0)}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-slate-900 truncate">{client.name}</p>
-                            <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-slate-500">
-                              {client.company && <span className="truncate">{client.company}</span>}
-                              {client.company && client.email && <span className="text-slate-300">•</span>}
-                              {client.email && <span className="truncate">{client.email}</span>}
-                            </div>
-                            <div className="flex items-center gap-2 mt-2">
-                              {client.sector && (
-                                <Badge variant="outline" className="text-xs border-slate-200 text-slate-600">{client.sector}</Badge>
-                              )}
-                              <Badge className={`${statusColors[client.status]} text-xs border`}>{client.status}</Badge>
-                            </div>
-                          </div>
+                  <div key={client.id} className="card-premium p-4 hover:border-[var(--border-2)] transition-colors">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-9 h-9 rounded-lg bg-[var(--primary-muted)] flex items-center justify-center text-[var(--primary)] font-semibold text-sm shrink-0">
+                          {client.name.charAt(0)}
                         </div>
-                        <div className="flex items-center gap-1 shrink-0 self-end sm:self-auto">
-                          <Button variant="ghost" size="sm" onClick={() => {
-                            setEditingClient(client)
-                            setClientForm({
-                              name: client.name, email: client.email, phone: client.phone || '',
-                              company: client.company || '', position: client.position || '',
-                              sector: client.sector || '', status: client.status,
-                              source: client.source || '', notes: client.notes || '',
-                              rfpNumber: client.rfpNumber || '', website: client.website || '',
-                              address: client.address || ''
-                            })
-                            setShowClientModal(true)
-                          }} className="h-8 w-8 p-0 hover:bg-slate-100">
-                            <Edit className="w-4 h-4 text-slate-500" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteClient(client.id)} 
-                            className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600">
-                            <Trash2 className="w-4 h-4 text-slate-500" />
-                          </Button>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-[var(--text-primary)] truncate">{client.name}</div>
+                          <div className="text-xs text-[var(--text-tertiary)] truncate mt-0.5">
+                            {client.company && <span>{client.company}</span>}
+                            {client.company && client.email && <span className="mx-1.5">·</span>}
+                            {client.email && <span>{client.email}</span>}
+                          </div>
+                          <div className="flex items-center gap-2 mt-2">
+                            {client.sector && (
+                              <span className="badge badge-neutral">{client.sector}</span>
+                            )}
+                            <span className={`badge ${statusColors[client.status]}`}>{client.status}</span>
+                          </div>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => {
+                          setEditingClient(client)
+                          setClientForm({
+                            name: client.name, email: client.email, phone: client.phone || '',
+                            company: client.company || '', position: client.position || '',
+                            sector: client.sector || '', status: client.status,
+                            source: client.source || '', notes: client.notes || '',
+                            rfpNumber: client.rfpNumber || '', website: client.website || '',
+                            address: client.address || ''
+                          })
+                          setShowClientModal(true)
+                        }} className="btn-icon">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeleteClient(client.id)} className="btn-icon hover:bg-[var(--error-bg)] hover:text-[var(--error-text)]">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 ))}
                 {filteredClients.length === 0 && (
-                  <Card className="border border-slate-200/60 bg-white">
-                    <CardContent className="p-12 text-center">
-                      <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                      <p className="text-slate-500 text-sm">No clients found</p>
-                    </CardContent>
-                  </Card>
+                  <div className="card-premium p-12 text-center">
+                    <Users className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
+                    <p className="text-sm text-[var(--text-secondary)]">No clients found</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -1248,30 +1240,30 @@ export default function Home() {
           
           {/* Proposals Tab */}
           {activeTab === 'proposals' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-xl font-semibold text-slate-900">Proposals</h1>
-                  <p className="text-sm text-slate-500 mt-0.5">Track and manage your proposals</p>
+                  <h1 className="text-title-1">Proposals</h1>
+                  <p className="text-body-sm mt-1">Track and manage your proposals</p>
                 </div>
-                <Button onClick={() => {
+                <button onClick={() => {
                   setEditingProposal(null)
                   setProposalForm({ title: '', description: '', rfpNumber: '', valuePKR: 0, valueUSD: 0, currency: 'PKR', status: 'DRAFT', stage: 'NEW', submissionDate: '', deadline: '', submissionMethod: '', ownerId: '', assigneeId: '', contactId: '', internalRemarks: '', externalRemarks: '', sector: '' })
                   setShowProposalModal(true)
-                }} className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm">
-                  <Plus className="w-4 h-4 mr-2" /> Add Proposal
-                </Button>
+                }} className="btn-primary">
+                  <Plus className="w-4 h-4" /> Add Proposal
+                </button>
               </div>
               
               <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
                   <Input placeholder="Search proposals..." value={proposalSearch} 
                     onChange={(e) => setProposalSearch(e.target.value)} 
-                    className="pl-9 h-10 border-slate-200 focus:border-teal-500 focus:ring-teal-500/20 rounded-lg" />
+                    className="pl-9 h-9 text-sm border-[var(--border-2)] rounded-lg" />
                 </div>
                 <Select value={proposalFilter} onValueChange={setProposalFilter}>
-                  <SelectTrigger className="w-full sm:w-40 h-10 border-slate-200 rounded-lg">
+                  <SelectTrigger className="w-40 h-9 text-sm border-[var(--border-2)] rounded-lg">
                     <SelectValue placeholder="Filter by stage" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1287,65 +1279,60 @@ export default function Home() {
                 </Select>
               </div>
               
-              <div className="grid gap-3">
+              <div className="space-y-2">
                 {filteredProposals.map(proposal => (
-                  <Card key={proposal.id} className="border border-slate-200/60 bg-white hover:border-slate-300 hover:shadow-sm transition-all">
-                    <CardContent className="p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium text-slate-900">{proposal.title}</p>
-                            <Badge className={`${stageColors[proposal.stage]} text-xs border`}>{proposal.stage.replace('_', ' ')}</Badge>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-slate-500">
-                            {proposal.contact?.company && <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" />{proposal.contact.company}</span>}
-                            {proposal.rfpNumber && <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" />{proposal.rfpNumber}</span>}
-                            {proposal.valuePKR > 0 && <span className="flex items-center gap-1 text-teal-600 font-medium"><DollarSign className="w-3.5 h-3.5" />{formatCurrency(proposal.valuePKR)}</span>}
-                          </div>
-                          {proposal.deadline && (
-                            <div className="flex items-center gap-1 mt-1.5 text-xs text-amber-600">
-                              <Clock className="w-3.5 h-3.5" />
-                              <span>Deadline: {formatDate(proposal.deadline)}</span>
-                            </div>
-                          )}
+                  <div key={proposal.id} className="card-premium p-4 hover:border-[var(--border-2)] transition-colors">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-[var(--text-primary)]">{proposal.title}</span>
+                          <span className={`badge ${stageColors[proposal.stage]}`}>{proposal.stage.replace('_', ' ')}</span>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0 self-end sm:self-auto">
-                          <Button variant="ghost" size="sm" onClick={() => {
-                            setEditingProposal(proposal)
-                            setProposalForm({
-                              title: proposal.title, description: proposal.description || '',
-                              rfpNumber: proposal.rfpNumber || '', valuePKR: proposal.valuePKR,
-                              valueUSD: proposal.valueUSD, currency: proposal.currency,
-                              status: proposal.status, stage: proposal.stage,
-                              submissionDate: proposal.submissionDate?.split('T')[0] || '',
-                              deadline: proposal.deadline?.split('T')[0] || '',
-                              submissionMethod: proposal.submissionMethod || '',
-                              ownerId: proposal.owner?.id || '', assigneeId: proposal.assignee?.id || '',
-                              contactId: proposal.contact?.id || '',
-                              internalRemarks: proposal.internalRemarks || '',
-                              externalRemarks: proposal.externalRemarks || '',
-                              sector: proposal.sector || ''
-                            })
-                            setShowProposalModal(true)
-                          }} className="h-8 w-8 p-0 hover:bg-slate-100">
-                            <Edit className="w-4 h-4 text-slate-500" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteProposal(proposal.id)} 
-                            className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600">
-                            <Trash2 className="w-4 h-4 text-slate-500" />
-                          </Button>
+                        <div className="flex items-center gap-3 mt-1.5 text-xs text-[var(--text-tertiary)]">
+                          {proposal.contact?.company && <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" />{proposal.contact.company}</span>}
+                          {proposal.rfpNumber && <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" />{proposal.rfpNumber}</span>}
+                          {proposal.valuePKR > 0 && <span className="text-[var(--primary)] font-medium">{formatCurrency(proposal.valuePKR)}</span>}
                         </div>
+                        {proposal.deadline && (
+                          <div className="flex items-center gap-1 mt-1.5 text-xs text-[var(--warning-text)]">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>Deadline: {formatDate(proposal.deadline)}</span>
+                          </div>
+                        )}
                       </div>
-                    </CardContent>
-                  </Card>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => {
+                          setEditingProposal(proposal)
+                          setProposalForm({
+                            title: proposal.title, description: proposal.description || '',
+                            rfpNumber: proposal.rfpNumber || '', valuePKR: proposal.valuePKR,
+                            valueUSD: proposal.valueUSD, currency: proposal.currency,
+                            status: proposal.status, stage: proposal.stage,
+                            submissionDate: proposal.submissionDate?.split('T')[0] || '',
+                            deadline: proposal.deadline?.split('T')[0] || '',
+                            submissionMethod: proposal.submissionMethod || '',
+                            ownerId: proposal.owner?.id || '', assigneeId: proposal.assignee?.id || '',
+                            contactId: proposal.contact?.id || '',
+                            internalRemarks: proposal.internalRemarks || '',
+                            externalRemarks: proposal.externalRemarks || '',
+                            sector: proposal.sector || ''
+                          })
+                          setShowProposalModal(true)
+                        }} className="btn-icon">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeleteProposal(proposal.id)} className="btn-icon hover:bg-[var(--error-bg)] hover:text-[var(--error-text)]">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 ))}
                 {filteredProposals.length === 0 && (
-                  <Card className="border border-slate-200/60 bg-white">
-                    <CardContent className="p-12 text-center">
-                      <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                      <p className="text-slate-500 text-sm">No proposals found</p>
-                    </CardContent>
-                  </Card>
+                  <div className="card-premium p-12 text-center">
+                    <FileText className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
+                    <p className="text-sm text-[var(--text-secondary)]">No proposals found</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -1353,80 +1340,75 @@ export default function Home() {
           
           {/* Tasks Tab */}
           {activeTab === 'tasks' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-xl font-semibold text-slate-900">Tasks</h1>
-                  <p className="text-sm text-slate-500 mt-0.5">Manage your team's tasks</p>
+                  <h1 className="text-title-1">Tasks</h1>
+                  <p className="text-body-sm mt-1">Manage your team's tasks</p>
                 </div>
-                <Button onClick={() => {
+                <button onClick={() => {
                   setEditingTask(null)
                   setTaskForm({ title: '', description: '', status: 'TODO', priority: 'MEDIUM', dueDate: '', assigneeId: '', proposalId: '' })
                   setShowTaskModal(true)
-                }} className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm">
-                  <Plus className="w-4 h-4 mr-2" /> Add Task
-                </Button>
+                }} className="btn-primary">
+                  <Plus className="w-4 h-4" /> Add Task
+                </button>
               </div>
               
-              <div className="relative w-full sm:max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <div className="relative w-full max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
                 <Input placeholder="Search tasks..." value={taskSearch} 
                   onChange={(e) => setTaskSearch(e.target.value)} 
-                  className="pl-9 h-10 border-slate-200 focus:border-teal-500 focus:ring-teal-500/20 rounded-lg" />
+                  className="pl-9 h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
               
-              <div className="grid gap-3">
+              <div className="space-y-2">
                 {filteredTasks.map(task => (
-                  <Card key={task.id} className="border border-slate-200/60 bg-white hover:border-slate-300 hover:shadow-sm transition-all">
-                    <CardContent className="p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                            task.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-600' :
-                            task.status === 'IN_PROGRESS' ? 'bg-sky-100 text-sky-600' :
-                            'bg-slate-100 text-slate-500'
-                          }`}>
-                            <CheckSquare className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-slate-900 text-sm">{task.title}</p>
-                            <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-slate-500">
-                              {task.assignee && <span className="truncate">{task.assignee.name}</span>}
-                              {task.dueDate && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDate(task.dueDate)}</span>}
-                            </div>
-                          </div>
+                  <div key={task.id} className="card-premium p-4 hover:border-[var(--border-2)] transition-colors">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
+                          task.status === 'COMPLETED' ? 'bg-[var(--success-bg)] text-[var(--success)]' :
+                          task.status === 'IN_PROGRESS' ? 'bg-[var(--info-bg)] text-[var(--info)]' :
+                          'bg-[var(--surface-2)] text-[var(--text-muted)]'
+                        }`}>
+                          <CheckSquare className="w-3.5 h-3.5" />
                         </div>
-                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                          <Badge className={`${taskStatusColors[task.status]} text-xs border`}>{task.status}</Badge>
-                          <Badge className={`${priorityColors[task.priority]} text-xs border`}>{task.priority}</Badge>
-                          <Button variant="ghost" size="sm" onClick={() => {
-                            setEditingTask(task)
-                            setTaskForm({
-                              title: task.title, description: task.description || '',
-                              status: task.status, priority: task.priority,
-                              dueDate: task.dueDate?.split('T')[0] || '',
-                              assigneeId: task.assignee?.id || '', proposalId: task.proposal?.id || ''
-                            })
-                            setShowTaskModal(true)
-                          }} className="h-8 w-8 p-0 hover:bg-slate-100">
-                            <Edit className="w-4 h-4 text-slate-500" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteTask(task.id)} 
-                            className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600">
-                            <Trash2 className="w-4 h-4 text-slate-500" />
-                          </Button>
+                        <div className="min-w-0">
+                          <span className="text-sm font-medium text-[var(--text-primary)]">{task.title}</span>
+                          <div className="text-xs text-[var(--text-tertiary)] mt-0.5 flex items-center gap-2">
+                            {task.assignee && <span>{task.assignee.name}</span>}
+                            {task.dueDate && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDate(task.dueDate)}</span>}
+                          </div>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`badge ${taskStatusColors[task.status]}`}>{task.status}</span>
+                        <span className={`badge ${priorityColors[task.priority]}`}>{task.priority}</span>
+                        <button onClick={() => {
+                          setEditingTask(task)
+                          setTaskForm({
+                            title: task.title, description: task.description || '',
+                            status: task.status, priority: task.priority,
+                            dueDate: task.dueDate?.split('T')[0] || '',
+                            assigneeId: task.assignee?.id || '', proposalId: task.proposal?.id || ''
+                          })
+                          setShowTaskModal(true)
+                        }} className="btn-icon">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeleteTask(task.id)} className="btn-icon hover:bg-[var(--error-bg)] hover:text-[var(--error-text)]">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 ))}
                 {filteredTasks.length === 0 && (
-                  <Card className="border border-slate-200/60 bg-white">
-                    <CardContent className="p-12 text-center">
-                      <CheckSquare className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                      <p className="text-slate-500 text-sm">No tasks found</p>
-                    </CardContent>
-                  </Card>
+                  <div className="card-premium p-12 text-center">
+                    <CheckSquare className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
+                    <p className="text-sm text-[var(--text-secondary)]">No tasks found</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -1434,15 +1416,15 @@ export default function Home() {
           
           {/* Reports Tab */}
           {activeTab === 'reports' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
               <div>
-                <h1 className="text-xl font-semibold text-slate-900">Reports</h1>
-                <p className="text-sm text-slate-500 mt-0.5">Generate insightful reports</p>
+                <h1 className="text-title-1">Reports</h1>
+                <p className="text-body-sm mt-1">Generate insightful reports</p>
               </div>
               
-              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3">
                 <Select value={activeReportType} onValueChange={setActiveReportType}>
-                  <SelectTrigger className="w-full sm:w-44 h-10 border-slate-200 rounded-lg">
+                  <SelectTrigger className="w-40 h-9 text-sm border-[var(--border-2)] rounded-lg">
                     <SelectValue placeholder="Report type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1452,7 +1434,7 @@ export default function Home() {
                   </SelectContent>
                 </Select>
                 <Select value={reportPeriod} onValueChange={setReportPeriod}>
-                  <SelectTrigger className="w-full sm:w-36 h-10 border-slate-200 rounded-lg">
+                  <SelectTrigger className="w-32 h-9 text-sm border-[var(--border-2)] rounded-lg">
                     <SelectValue placeholder="Period" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1463,7 +1445,7 @@ export default function Home() {
                   </SelectContent>
                 </Select>
                 <Select value={reportYear} onValueChange={setReportYear}>
-                  <SelectTrigger className="w-full sm:w-28 h-10 border-slate-200 rounded-lg">
+                  <SelectTrigger className="w-28 h-9 text-sm border-[var(--border-2)] rounded-lg">
                     <SelectValue placeholder="Year" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1472,93 +1454,84 @@ export default function Home() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button onClick={fetchReportData} disabled={loadingReport}
-                  className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm h-10">
-                  {loadingReport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BarChart3 className="w-4 h-4 mr-2" />}
+                <button onClick={fetchReportData} disabled={loadingReport} className="btn-primary">
+                  {loadingReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <BarChart3 className="w-4 h-4" />}
                   Generate
-                </Button>
+                </button>
               </div>
               
               {reportData && (
-                <Card className="border border-slate-200/60 bg-white">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-teal-600" />
-                      Report Results
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <pre className="text-xs text-slate-600 overflow-auto max-h-96 p-4 bg-slate-50 rounded-lg border border-slate-100">
+                <div className="card-premium">
+                  <div className="p-5 border-b border-[var(--border-1)]">
+                    <h2 className="text-title-2">Report Results</h2>
+                  </div>
+                  <div className="p-5">
+                    <pre className="text-xs text-[var(--text-secondary)] overflow-auto max-h-96 p-4 bg-[var(--surface-1)] rounded-lg">
                       {JSON.stringify(reportData, null, 2)}
                     </pre>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               )}
             </div>
           )}
           
           {/* Users Tab */}
           {activeTab === 'users' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-xl font-semibold text-slate-900">Users</h1>
-                  <p className="text-sm text-slate-500 mt-0.5">Manage team members</p>
+                  <h1 className="text-title-1">Users</h1>
+                  <p className="text-body-sm mt-1">Manage team members</p>
                 </div>
-                <Button onClick={() => {
+                <button onClick={() => {
                   setEditingUser(null)
                   setUserForm({ name: '', email: '', password: '', role: 'VIEWER', department: '', phone: '' })
                   setShowUserModal(true)
-                }} className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm">
-                  <Plus className="w-4 h-4 mr-2" /> Add User
-                </Button>
+                }} className="btn-primary">
+                  <Plus className="w-4 h-4" /> Add User
+                </button>
               </div>
               
-              <div className="grid gap-3">
+              <div className="space-y-2">
                 {users.map(user => (
-                  <Card key={user.id} className="border border-slate-200/60 bg-white hover:border-slate-300 hover:shadow-sm transition-all">
-                    <CardContent className="p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white font-semibold text-sm shrink-0">
-                            {user.name.charAt(0)}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-slate-900">{user.name}</p>
-                            <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-slate-500">
-                              <span className="truncate">{user.email}</span>
-                              {user.department && <><span className="text-slate-300">•</span><span className="truncate">{user.department}</span></>}
-                            </div>
-                          </div>
+                  <div key={user.id} className="card-premium p-4 hover:border-[var(--border-2)] transition-colors">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-9 h-9 rounded-lg bg-[var(--primary-muted)] flex items-center justify-center text-[var(--primary)] font-semibold text-sm shrink-0">
+                          {user.name.charAt(0)}
                         </div>
-                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                          <Badge variant="outline" className="text-xs border-slate-200 text-slate-600">{user.role}</Badge>
-                          <Button variant="ghost" size="sm" onClick={() => {
-                            setEditingUser(user)
-                            setUserForm({
-                              name: user.name, email: user.email, password: '',
-                              role: user.role, department: user.department || '', phone: ''
-                            })
-                            setShowUserModal(true)
-                          }} className="h-8 w-8 p-0 hover:bg-slate-100">
-                            <Edit className="w-4 h-4 text-slate-500" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteUser(user.id)} 
-                            className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600">
-                            <Trash2 className="w-4 h-4 text-slate-500" />
-                          </Button>
+                        <div className="min-w-0">
+                          <span className="text-sm font-medium text-[var(--text-primary)]">{user.name}</span>
+                          <div className="text-xs text-[var(--text-tertiary)] mt-0.5 flex items-center gap-2">
+                            <span>{user.email}</span>
+                            {user.department && <><span className="text-[var(--border-2)]">·</span><span>{user.department}</span></>}
+                          </div>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="badge badge-neutral">{user.role}</span>
+                        <button onClick={() => {
+                          setEditingUser(user)
+                          setUserForm({
+                            name: user.name, email: user.email, password: '',
+                            role: user.role, department: user.department || '', phone: ''
+                          })
+                          setShowUserModal(true)
+                        }} className="btn-icon">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeleteUser(user.id)} className="btn-icon hover:bg-[var(--error-bg)] hover:text-[var(--error-text)]">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 ))}
                 {users.length === 0 && (
-                  <Card className="border border-slate-200/60 bg-white">
-                    <CardContent className="p-12 text-center">
-                      <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                      <p className="text-slate-500 text-sm">No users found</p>
-                    </CardContent>
-                  </Card>
+                  <div className="card-premium p-12 text-center">
+                    <Users className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
+                    <p className="text-sm text-[var(--text-secondary)]">No users found</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -1566,116 +1539,113 @@ export default function Home() {
           
           {/* Resources Tab */}
           {activeTab === 'resources' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-xl font-semibold text-slate-900">Resource Materials</h1>
-                  <p className="text-sm text-slate-500 mt-0.5">Manage documents and templates</p>
+                  <h1 className="text-title-1">Resource Materials</h1>
+                  <p className="text-body-sm mt-1">Manage documents and templates</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => {
+                  <button onClick={() => {
                     setCategoryForm({ name: '', slug: '', description: '' })
                     setShowCategoryModal(true)
-                  }} className="border-slate-200 hover:border-teal-300 hover:bg-teal-50">
-                    <Plus className="w-4 h-4 mr-2" /> Category
-                  </Button>
-                  <Button onClick={() => {
+                  }} className="btn-secondary">
+                    <Plus className="w-4 h-4" /> Category
+                  </button>
+                  <button onClick={() => {
                     setEditingResource(null)
                     setResourceForm({ title: '', description: '', categoryId: '', tags: '', isTemplate: false })
                     setPendingFiles([])
                     setShowResourceModal(true)
-                  }} className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm">
-                    <Upload className="w-4 h-4 mr-2" /> Add Resource
-                  </Button>
+                  }} className="btn-primary">
+                    <Upload className="w-4 h-4" /> Add Resource
+                  </button>
                 </div>
               </div>
               
-              <div className="relative w-full sm:max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <div className="relative w-full max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
                 <Input placeholder="Search resources..." value={resourceSearch} 
                   onChange={(e) => setResourceSearch(e.target.value)} 
-                  className="pl-9 h-10 border-slate-200 focus:border-teal-500 focus:ring-teal-500/20 rounded-lg" />
+                  className="pl-9 h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
               
-              {/* Categories with Resources */}
-              <div className="grid gap-4">
+              <div className="space-y-4">
                 {resourceCategories.map(category => {
                   const categoryMaterials = filteredResources.filter(m => m.categoryId === category.id)
                   return (
-                    <Card key={category.id} className="border border-slate-200/60 bg-white overflow-hidden">
-                      <CardHeader className="pb-3 pt-4 px-4 bg-slate-50/50 border-b border-slate-100">
+                    <div key={category.id} className="card-premium overflow-hidden">
+                      <div className="p-4 border-b border-[var(--border-1)] bg-[var(--surface-1)]">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-                              <FolderOpen className="w-4 h-4 text-amber-600" />
+                            <div className="w-8 h-8 rounded-lg bg-[var(--warning-bg)] flex items-center justify-center shrink-0">
+                              <FolderOpen className="w-4 h-4 text-[var(--warning)]" />
                             </div>
                             <div className="min-w-0">
-                              <CardTitle className="text-sm font-semibold text-slate-900 truncate">{category.name}</CardTitle>
+                              <span className="text-sm font-medium text-[var(--text-primary)]">{category.name}</span>
                               {category.description && (
-                                <CardDescription className="text-xs truncate">{category.description}</CardDescription>
+                                <p className="text-xs text-[var(--text-tertiary)] truncate mt-0.5">{category.description}</p>
                               )}
                             </div>
                           </div>
-                          <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-xs">{categoryMaterials.length}</Badge>
+                          <span className="badge badge-neutral">{categoryMaterials.length}</span>
                         </div>
-                      </CardHeader>
-                      <CardContent className="p-4">
-                        <div className="space-y-2">
-                          {categoryMaterials.map(material => (
-                            <div key={material.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors group">
-                              <div className="flex items-center gap-3 min-w-0 flex-1">
-                                <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0">
-                                  <File className="w-4 h-4 text-slate-400" />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium text-slate-900 truncate">{material.title}</p>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    {material.isTemplate && (
-                                      <Badge variant="outline" className="text-[10px] border-teal-200 text-teal-600 h-5">Template</Badge>
-                                    )}
-                                    {material.attachments && material.attachments.length > 0 && (
-                                      <span className="text-xs text-slate-400">{material.attachments.length} file{material.attachments.length > 1 ? 's' : ''}</span>
-                                    )}
+                      </div>
+                      <div className="p-3">
+                        {categoryMaterials.length > 0 ? (
+                          <div className="space-y-1">
+                            {categoryMaterials.map(material => (
+                              <div key={material.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--surface-1)] transition-colors group">
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  <div className="w-7 h-7 rounded-md bg-[var(--surface-2)] flex items-center justify-center shrink-0">
+                                    <File className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <span className="text-sm font-medium text-[var(--text-primary)] truncate">{material.title}</span>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      {material.isTemplate && (
+                                        <span className="badge badge-primary text-[10px] h-5">Template</span>
+                                      )}
+                                      {material.attachments && material.attachments.length > 0 && (
+                                        <span className="text-xs text-[var(--text-muted)]">{material.attachments.length} file{material.attachments.length > 1 ? 's' : ''}</span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button onClick={() => {
+                                    setEditingResource(material)
+                                    setResourceForm({
+                                      title: material.title,
+                                      description: material.description || '',
+                                      categoryId: material.categoryId,
+                                      tags: material.tags || '',
+                                      isTemplate: material.isTemplate
+                                    })
+                                    setPendingFiles([])
+                                    setShowResourceModal(true)
+                                  }} className="btn-icon">
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => handleDeleteResource(material.id)} className="btn-icon hover:bg-[var(--error-bg)] hover:text-[var(--error-text)]">
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <Button variant="ghost" size="sm" onClick={() => {
-                                  setEditingResource(material)
-                                  setResourceForm({
-                                    title: material.title,
-                                    description: material.description || '',
-                                    categoryId: material.categoryId,
-                                    tags: material.tags || '',
-                                    isTemplate: material.isTemplate
-                                  })
-                                  setPendingFiles([])
-                                  setShowResourceModal(true)
-                                }} className="h-8 w-8 p-0 hover:bg-white">
-                                  <Edit className="w-4 h-4 text-slate-500" />
-                                </Button>
-                                <Button variant="ghost" size="sm" onClick={() => handleDeleteResource(material.id)} 
-                                  className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600">
-                                  <Trash2 className="w-4 h-4 text-slate-500" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                          {categoryMaterials.length === 0 && (
-                            <p className="text-sm text-slate-400 text-center py-4">No materials in this category</p>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-[var(--text-muted)] text-center py-4">No materials in this category</p>
+                        )}
+                      </div>
+                    </div>
                   )
                 })}
                 {resourceCategories.length === 0 && (
-                  <Card className="border border-slate-200/60 bg-white">
-                    <CardContent className="p-12 text-center">
-                      <FolderOpen className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                      <p className="text-slate-500 text-sm">No categories found. Create a category to start organizing resources.</p>
-                    </CardContent>
-                  </Card>
+                  <div className="card-premium p-12 text-center">
+                    <FolderOpen className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
+                    <p className="text-sm text-[var(--text-secondary)]">No categories found. Create a category to start organizing resources.</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -1692,39 +1662,39 @@ export default function Home() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Name *</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Name *</Label>
                 <Input value={clientForm.name} onChange={(e) => setClientForm({...clientForm, name: e.target.value})} 
-                  className="h-10 border-slate-200 rounded-lg" />
+                  className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Email *</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Email *</Label>
                 <Input type="email" value={clientForm.email} onChange={(e) => setClientForm({...clientForm, email: e.target.value})} 
-                  className="h-10 border-slate-200 rounded-lg" />
+                  className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Phone</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Phone</Label>
                 <Input value={clientForm.phone} onChange={(e) => setClientForm({...clientForm, phone: e.target.value})} 
-                  className="h-10 border-slate-200 rounded-lg" />
+                  className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Company</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Company</Label>
                 <Input value={clientForm.company} onChange={(e) => setClientForm({...clientForm, company: e.target.value})} 
-                  className="h-10 border-slate-200 rounded-lg" />
+                  className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Position</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Position</Label>
                 <Input value={clientForm.position} onChange={(e) => setClientForm({...clientForm, position: e.target.value})} 
-                  className="h-10 border-slate-200 rounded-lg" />
+                  className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Sector</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Sector</Label>
                 <Select value={clientForm.sector} onValueChange={(v) => setClientForm({...clientForm, sector: v})}>
-                  <SelectTrigger className="h-10 border-slate-200 rounded-lg">
+                  <SelectTrigger className="h-9 text-sm border-[var(--border-2)] rounded-lg">
                     <SelectValue placeholder="Select sector" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1740,10 +1710,10 @@ export default function Home() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Status</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Status</Label>
                 <Select value={clientForm.status} onValueChange={(v) => setClientForm({...clientForm, status: v})}>
-                  <SelectTrigger className="h-10 border-slate-200 rounded-lg">
+                  <SelectTrigger className="h-9 text-sm border-[var(--border-2)] rounded-lg">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1754,34 +1724,34 @@ export default function Home() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Source</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Source</Label>
                 <Input value={clientForm.source} onChange={(e) => setClientForm({...clientForm, source: e.target.value})} 
-                  className="h-10 border-slate-200 rounded-lg" />
+                  className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Website</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Website</Label>
               <Input value={clientForm.website} onChange={(e) => setClientForm({...clientForm, website: e.target.value})} 
-                className="h-10 border-slate-200 rounded-lg" />
+                className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Address</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Address</Label>
               <Textarea value={clientForm.address} onChange={(e) => setClientForm({...clientForm, address: e.target.value})} 
-                className="border-slate-200 rounded-lg min-h-[80px]" />
+                className="border-[var(--border-2)] rounded-lg min-h-[80px] text-sm" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Notes</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Notes</Label>
               <Textarea value={clientForm.notes} onChange={(e) => setClientForm({...clientForm, notes: e.target.value})} 
-                className="border-slate-200 rounded-lg min-h-[80px]" />
+                className="border-[var(--border-2)] rounded-lg min-h-[80px] text-sm" />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowClientModal(false)} className="border-slate-200">Cancel</Button>
-            <Button onClick={handleSaveClient} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+            <button onClick={() => setShowClientModal(false)} className="btn-secondary">Cancel</button>
+            <button onClick={handleSaveClient} disabled={saving} className="btn-primary">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {saving ? 'Saving...' : 'Save Client'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1794,21 +1764,21 @@ export default function Home() {
             <DialogDescription>Fill in the proposal details below.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Title *</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Title *</Label>
               <Input value={proposalForm.title} onChange={(e) => setProposalForm({...proposalForm, title: e.target.value})} 
-                className="h-10 border-slate-200 rounded-lg" />
+                className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">RFP Number</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">RFP Number</Label>
                 <Input value={proposalForm.rfpNumber} onChange={(e) => setProposalForm({...proposalForm, rfpNumber: e.target.value})} 
-                  className="h-10 border-slate-200 rounded-lg" />
+                  className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Client</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Client</Label>
                 <Select value={proposalForm.contactId} onValueChange={(v) => setProposalForm({...proposalForm, contactId: v})}>
-                  <SelectTrigger className="h-10 border-slate-200 rounded-lg">
+                  <SelectTrigger className="h-9 text-sm border-[var(--border-2)] rounded-lg">
                     <SelectValue placeholder="Select client" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1820,20 +1790,20 @@ export default function Home() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Value (PKR)</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Value (PKR)</Label>
                 <Input type="number" value={proposalForm.valuePKR || ''} onChange={(e) => setProposalForm({...proposalForm, valuePKR: Number(e.target.value)})} 
-                  className="h-10 border-slate-200 rounded-lg" />
+                  className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Value (USD)</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Value (USD)</Label>
                 <Input type="number" value={proposalForm.valueUSD || ''} onChange={(e) => setProposalForm({...proposalForm, valueUSD: Number(e.target.value)})} 
-                  className="h-10 border-slate-200 rounded-lg" />
+                  className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Sector</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Sector</Label>
                 <Select value={proposalForm.sector} onValueChange={(v) => setProposalForm({...proposalForm, sector: v})}>
-                  <SelectTrigger className="h-10 border-slate-200 rounded-lg">
+                  <SelectTrigger className="h-9 text-sm border-[var(--border-2)] rounded-lg">
                     <SelectValue placeholder="Select sector" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1849,10 +1819,10 @@ export default function Home() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Stage</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Stage</Label>
                 <Select value={proposalForm.stage} onValueChange={(v) => setProposalForm({...proposalForm, stage: v})}>
-                  <SelectTrigger className="h-10 border-slate-200 rounded-lg">
+                  <SelectTrigger className="h-9 text-sm border-[var(--border-2)] rounded-lg">
                     <SelectValue placeholder="Select stage" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1866,10 +1836,10 @@ export default function Home() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Owner</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Owner</Label>
                 <Select value={proposalForm.ownerId} onValueChange={(v) => setProposalForm({...proposalForm, ownerId: v})}>
-                  <SelectTrigger className="h-10 border-slate-200 rounded-lg">
+                  <SelectTrigger className="h-9 text-sm border-[var(--border-2)] rounded-lg">
                     <SelectValue placeholder="Select owner" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1881,22 +1851,22 @@ export default function Home() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Submission Date</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Submission Date</Label>
                 <Input type="date" value={proposalForm.submissionDate} onChange={(e) => setProposalForm({...proposalForm, submissionDate: e.target.value})} 
-                  className="h-10 border-slate-200 rounded-lg" />
+                  className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Deadline</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Deadline</Label>
                 <Input type="date" value={proposalForm.deadline} onChange={(e) => setProposalForm({...proposalForm, deadline: e.target.value})} 
-                  className="h-10 border-slate-200 rounded-lg" />
+                  className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Assignee</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Assignee</Label>
                 <Select value={proposalForm.assigneeId} onValueChange={(v) => setProposalForm({...proposalForm, assigneeId: v})}>
-                  <SelectTrigger className="h-10 border-slate-200 rounded-lg">
+                  <SelectTrigger className="h-9 text-sm border-[var(--border-2)] rounded-lg">
                     <SelectValue placeholder="Select assignee" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1906,34 +1876,34 @@ export default function Home() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Submission Method</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Submission Method</Label>
                 <Input value={proposalForm.submissionMethod} onChange={(e) => setProposalForm({...proposalForm, submissionMethod: e.target.value})} 
-                  className="h-10 border-slate-200 rounded-lg" />
+                  className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Description</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Description</Label>
               <Textarea value={proposalForm.description} onChange={(e) => setProposalForm({...proposalForm, description: e.target.value})} 
-                className="border-slate-200 rounded-lg min-h-[80px]" />
+                className="border-[var(--border-2)] rounded-lg min-h-[80px] text-sm" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Internal Remarks</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Internal Remarks</Label>
               <Textarea value={proposalForm.internalRemarks} onChange={(e) => setProposalForm({...proposalForm, internalRemarks: e.target.value})} 
-                className="border-slate-200 rounded-lg min-h-[80px]" />
+                className="border-[var(--border-2)] rounded-lg min-h-[80px] text-sm" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">External Remarks</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">External Remarks</Label>
               <Textarea value={proposalForm.externalRemarks} onChange={(e) => setProposalForm({...proposalForm, externalRemarks: e.target.value})} 
-                className="border-slate-200 rounded-lg min-h-[80px]" />
+                className="border-[var(--border-2)] rounded-lg min-h-[80px] text-sm" />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowProposalModal(false)} className="border-slate-200">Cancel</Button>
-            <Button onClick={handleSaveProposal} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+            <button onClick={() => setShowProposalModal(false)} className="btn-secondary">Cancel</button>
+            <button onClick={handleSaveProposal} disabled={saving} className="btn-primary">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {saving ? 'Saving...' : 'Save Proposal'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1946,21 +1916,21 @@ export default function Home() {
             <DialogDescription>Fill in the task details below.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Title *</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Title *</Label>
               <Input value={taskForm.title} onChange={(e) => setTaskForm({...taskForm, title: e.target.value})} 
-                className="h-10 border-slate-200 rounded-lg" />
+                className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Description</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Description</Label>
               <Textarea value={taskForm.description} onChange={(e) => setTaskForm({...taskForm, description: e.target.value})} 
-                className="border-slate-200 rounded-lg min-h-[80px]" />
+                className="border-[var(--border-2)] rounded-lg min-h-[80px] text-sm" />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Status</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Status</Label>
                 <Select value={taskForm.status} onValueChange={(v) => setTaskForm({...taskForm, status: v})}>
-                  <SelectTrigger className="h-10 border-slate-200 rounded-lg">
+                  <SelectTrigger className="h-9 text-sm border-[var(--border-2)] rounded-lg">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1970,10 +1940,10 @@ export default function Home() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Priority</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Priority</Label>
                 <Select value={taskForm.priority} onValueChange={(v) => setTaskForm({...taskForm, priority: v})}>
-                  <SelectTrigger className="h-10 border-slate-200 rounded-lg">
+                  <SelectTrigger className="h-9 text-sm border-[var(--border-2)] rounded-lg">
                     <SelectValue placeholder="Select priority" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1985,10 +1955,10 @@ export default function Home() {
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Assignee *</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Assignee *</Label>
               <Select value={taskForm.assigneeId} onValueChange={(v) => setTaskForm({...taskForm, assigneeId: v})}>
-                <SelectTrigger className="h-10 border-slate-200 rounded-lg">
+                <SelectTrigger className="h-9 text-sm border-[var(--border-2)] rounded-lg">
                   <SelectValue placeholder="Select assignee" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1998,10 +1968,10 @@ export default function Home() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Related Proposal</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Related Proposal</Label>
               <Select value={taskForm.proposalId} onValueChange={(v) => setTaskForm({...taskForm, proposalId: v})}>
-                <SelectTrigger className="h-10 border-slate-200 rounded-lg">
+                <SelectTrigger className="h-9 text-sm border-[var(--border-2)] rounded-lg">
                   <SelectValue placeholder="Select proposal (optional)" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2011,18 +1981,18 @@ export default function Home() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Due Date</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Due Date</Label>
               <Input type="date" value={taskForm.dueDate} onChange={(e) => setTaskForm({...taskForm, dueDate: e.target.value})} 
-                className="h-10 border-slate-200 rounded-lg" />
+                className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowTaskModal(false)} className="border-slate-200">Cancel</Button>
-            <Button onClick={handleSaveTask} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+            <button onClick={() => setShowTaskModal(false)} className="btn-secondary">Cancel</button>
+            <button onClick={handleSaveTask} disabled={saving} className="btn-primary">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {saving ? 'Saving...' : 'Save Task'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2035,26 +2005,26 @@ export default function Home() {
             <DialogDescription>Fill in the user details below.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Name *</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Name *</Label>
               <Input value={userForm.name} onChange={(e) => setUserForm({...userForm, name: e.target.value})} 
-                className="h-10 border-slate-200 rounded-lg" />
+                className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Email *</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Email *</Label>
               <Input type="email" value={userForm.email} onChange={(e) => setUserForm({...userForm, email: e.target.value})} 
-                className="h-10 border-slate-200 rounded-lg" />
+                className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Password {!editingUser && '*'}</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Password {!editingUser && '*'}</Label>
               <Input type="password" value={userForm.password} onChange={(e) => setUserForm({...userForm, password: e.target.value})} 
-                className="h-10 border-slate-200 rounded-lg" placeholder={editingUser ? 'Leave blank to keep current' : ''} />
+                className="h-9 text-sm border-[var(--border-2)] rounded-lg" placeholder={editingUser ? 'Leave blank to keep current' : ''} />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Role</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Role</Label>
                 <Select value={userForm.role} onValueChange={(v) => setUserForm({...userForm, role: v})}>
-                  <SelectTrigger className="h-10 border-slate-200 rounded-lg">
+                  <SelectTrigger className="h-9 text-sm border-[var(--border-2)] rounded-lg">
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2065,19 +2035,19 @@ export default function Home() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Department</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Department</Label>
                 <Input value={userForm.department} onChange={(e) => setUserForm({...userForm, department: e.target.value})} 
-                  className="h-10 border-slate-200 rounded-lg" />
+                  className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowUserModal(false)} className="border-slate-200">Cancel</Button>
-            <Button onClick={handleSaveUser} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+            <button onClick={() => setShowUserModal(false)} className="btn-secondary">Cancel</button>
+            <button onClick={handleSaveUser} disabled={saving} className="btn-primary">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {saving ? 'Saving...' : 'Save User'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2090,15 +2060,15 @@ export default function Home() {
             <DialogDescription>Fill in the resource details below.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Title *</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Title *</Label>
               <Input value={resourceForm.title} onChange={(e) => setResourceForm({...resourceForm, title: e.target.value})} 
-                className="h-10 border-slate-200 rounded-lg" />
+                className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Category *</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Category *</Label>
               <Select value={resourceForm.categoryId} onValueChange={(v) => setResourceForm({...resourceForm, categoryId: v})}>
-                <SelectTrigger className="h-10 border-slate-200 rounded-lg">
+                <SelectTrigger className="h-9 text-sm border-[var(--border-2)] rounded-lg">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2108,42 +2078,42 @@ export default function Home() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Description</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Description</Label>
               <Textarea value={resourceForm.description} onChange={(e) => setResourceForm({...resourceForm, description: e.target.value})} 
-                className="border-slate-200 rounded-lg min-h-[80px]" />
+                className="border-[var(--border-2)] rounded-lg min-h-[80px] text-sm" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Tags (comma separated)</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Tags (comma separated)</Label>
               <Input value={resourceForm.tags} onChange={(e) => setResourceForm({...resourceForm, tags: e.target.value})} 
-                className="h-10 border-slate-200 rounded-lg" />
+                className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <input type="checkbox" id="isTemplate" checked={resourceForm.isTemplate} 
                 onChange={(e) => setResourceForm({...resourceForm, isTemplate: e.target.checked})}
-                className="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
-              <Label htmlFor="isTemplate" className="text-sm font-medium">Mark as Template</Label>
+                className="w-4 h-4 rounded border-[var(--border-2)] text-[var(--primary)]" />
+              <Label htmlFor="isTemplate" className="text-xs font-medium">Mark as Template</Label>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Files</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Files</Label>
               <Input type="file" multiple onChange={(e) => {
                 if (e.target.files) {
                   setPendingFiles(Array.from(e.target.files))
                 }
-              }} className="h-10 border-slate-200 rounded-lg" />
+              }} className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
               {pendingFiles.length > 0 && (
-                <div className="text-xs text-slate-500 mt-1">
+                <div className="text-xs text-[var(--text-tertiary)] mt-1">
                   {pendingFiles.length} file{pendingFiles.length > 1 ? 's' : ''} selected
                 </div>
               )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowResourceModal(false)} className="border-slate-200">Cancel</Button>
-            <Button onClick={handleSaveResource} disabled={saving || uploadingFiles} className="bg-teal-600 hover:bg-teal-700">
-              {saving || uploadingFiles ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+            <button onClick={() => setShowResourceModal(false)} className="btn-secondary">Cancel</button>
+            <button onClick={handleSaveResource} disabled={saving || uploadingFiles} className="btn-primary">
+              {saving || uploadingFiles ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {uploadingFiles ? 'Uploading...' : saving ? 'Saving...' : 'Save Resource'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2156,28 +2126,28 @@ export default function Home() {
             <DialogDescription>Create a new resource category.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Name *</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Name *</Label>
               <Input value={categoryForm.name} onChange={(e) => setCategoryForm({...categoryForm, name: e.target.value})} 
-                className="h-10 border-slate-200 rounded-lg" />
+                className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Slug *</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Slug *</Label>
               <Input value={categoryForm.slug} onChange={(e) => setCategoryForm({...categoryForm, slug: e.target.value})} 
-                className="h-10 border-slate-200 rounded-lg" />
+                className="h-9 text-sm border-[var(--border-2)] rounded-lg" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Description</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Description</Label>
               <Textarea value={categoryForm.description} onChange={(e) => setCategoryForm({...categoryForm, description: e.target.value})} 
-                className="border-slate-200 rounded-lg min-h-[80px]" />
+                className="border-[var(--border-2)] rounded-lg min-h-[80px] text-sm" />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCategoryModal(false)} className="border-slate-200">Cancel</Button>
-            <Button onClick={handleSaveCategory} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+            <button onClick={() => setShowCategoryModal(false)} className="btn-secondary">Cancel</button>
+            <button onClick={handleSaveCategory} disabled={saving} className="btn-primary">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {saving ? 'Saving...' : 'Save Category'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
