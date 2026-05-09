@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { format, differenceInDays, parseISO } from 'date-fns'
+import { format, differenceInDays, parseISO, startOfWeek, startOfMonth, startOfQuarter, startOfYear, endOfWeek, endOfMonth, endOfQuarter, endOfYear } from 'date-fns'
 import {
   BarChart,
   Bar,
@@ -34,6 +34,7 @@ import {
   Medal,
   FileText,
   RefreshCw,
+  ChevronDown,
 } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -48,6 +49,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -146,9 +148,12 @@ interface DashboardData {
   teamPerformance: TeamMemberPerformance[]
   pipelineStats: PipelineStats
   monthlyRevenueTrend: MonthlyRevenueTrend[]
+  availableYears: number[]
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
+
+const PIPELINE_STATUSES = ['Submitted', 'In Process', 'In Evaluation', 'Pending', 'Won', 'Rejected']
 
 const STATUS_COLORS: Record<string, string> = {
   Submitted: '#3b82f6',
@@ -168,11 +173,15 @@ const STATUS_BG: Record<string, string> = {
   Rejected: 'bg-red-100 text-red-700 border-red-200',
 }
 
-const YEARS = [
-  { value: '2024', label: '2024' },
-  { value: '2025', label: '2025' },
-  { value: '2026', label: '2026' },
-]
+type DatePeriod = 'thisWeek' | 'thisMonth' | 'thisQuarter' | 'thisYear' | 'custom'
+
+const PERIOD_LABELS: Record<DatePeriod, string> = {
+  thisWeek: 'This Week',
+  thisMonth: 'This Month',
+  thisQuarter: 'This Quarter',
+  thisYear: 'This Year',
+  custom: 'Custom',
+}
 
 const formatPKR = (value: number) => `₨ ${value.toLocaleString()}`
 
@@ -181,6 +190,38 @@ const formatCompactPKR = (value: number) => {
   if (value >= 1000000) return `₨ ${(value / 1000000).toFixed(1)}M`
   if (value >= 1000) return `₨ ${(value / 1000).toFixed(0)}K`
   return `₨ ${value.toLocaleString()}`
+}
+
+// ─── Date Range Helpers ─────────────────────────────────────────────────────
+
+function getDateRangeForPeriod(period: DatePeriod, year: number): { start: Date; end: Date } {
+  const now = new Date()
+
+  switch (period) {
+    case 'thisWeek': {
+      const start = startOfWeek(now, { weekStartsOn: 1 })
+      const end = endOfWeek(now, { weekStartsOn: 1 })
+      return { start, end }
+    }
+    case 'thisMonth': {
+      const start = startOfMonth(now)
+      const end = endOfMonth(now)
+      return { start, end }
+    }
+    case 'thisQuarter': {
+      const start = startOfQuarter(now)
+      const end = endOfQuarter(now)
+      return { start, end }
+    }
+    case 'thisYear': {
+      const start = new Date(year, 0, 1)
+      const end = new Date(year, 11, 31, 23, 59, 59, 999)
+      return { start, end }
+    }
+    case 'custom':
+      // Handled separately with customStartDate/customEndDate
+      return { start: new Date(year, 0, 1), end: new Date(year, 11, 31, 23, 59, 59, 999) }
+  }
 }
 
 // ─── useCountUp Hook ─────────────────────────────────────────────────────────
@@ -313,17 +354,16 @@ function ProposalPipelineDonut({
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
 
-  const statuses = ['Submitted', 'In Process', 'In Evaluation', 'Won', 'Rejected']
-  const total = statuses.reduce((sum, s) => sum + (statusSummary[s] || 0), 0)
+  const total = PIPELINE_STATUSES.reduce((sum, s) => sum + (statusSummary[s] || 0), 0)
 
-  let accumulated = 0
-  const segments = statuses.map((status) => {
+  // Compute accumulated percentages using reduce to avoid reassignment
+  const segments = PIPELINE_STATUSES.reduce<Array<{ status: string; count: number; pct: number; accumulatedBefore: number; color: string }>>((acc, status) => {
     const count = statusSummary[status] || 0
     const pct = total > 0 ? (count / total) * 100 : 0
-    const accumulatedBefore = accumulated
-    accumulated += pct
-    return { status, count, pct, accumulatedBefore, color: STATUS_COLORS[status] || '#94a3b8' }
-  })
+    const accumulatedBefore = acc.length > 0 ? acc[acc.length - 1].accumulatedBefore + acc[acc.length - 1].pct : 0
+    acc.push({ status, count, pct, accumulatedBefore, color: STATUS_COLORS[status] || '#94a3b8' })
+    return acc
+  }, [])
 
   return (
     <svg width={size} height={size} className="transform -rotate-90">
@@ -366,15 +406,34 @@ function AnimatedValue({ value }: { value: number }) {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function CRMDashboard() {
-  const currentYear = String(new Date().getFullYear())
-  const [selectedYear, setSelectedYear] = useState(currentYear)
+  const currentYear = new Date().getFullYear()
+  const [selectedYear, setSelectedYear] = useState(String(currentYear))
+  const [activePeriod, setActivePeriod] = useState<DatePeriod>('thisYear')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
 
-  // Build query params — only year
+  // Compute date range based on active period
+  const computedDateRange = useMemo(() => {
+    if (activePeriod === 'custom' && customStartDate && customEndDate) {
+      return {
+        start: new Date(customStartDate),
+        end: new Date(new Date(customEndDate).setHours(23, 59, 59, 999)),
+      }
+    }
+    return getDateRangeForPeriod(activePeriod, parseInt(selectedYear))
+  }, [activePeriod, selectedYear, customStartDate, customEndDate])
+
+  // Build query params
   const queryParams = useMemo(() => {
     const params = new URLSearchParams()
-    if (selectedYear) params.set('year', selectedYear)
+    params.set('year', selectedYear)
+    // Always pass startDate/endDate for date range filtering
+    if (activePeriod !== 'thisYear') {
+      params.set('startDate', format(computedDateRange.start, 'yyyy-MM-dd'))
+      params.set('endDate', format(computedDateRange.end, 'yyyy-MM-dd'))
+    }
     return params.toString()
-  }, [selectedYear])
+  }, [selectedYear, activePeriod, computedDateRange])
 
   // Fetch dashboard data
   const {
@@ -387,6 +446,38 @@ export default function CRMDashboard() {
     queryFn: () => fetch(`/api/dashboard?${queryParams}`).then((r) => r.json()),
     enabled: true,
   })
+
+  // Available years: use API response or fallback
+  const availableYears = useMemo(() => {
+    if (dashboard?.availableYears && dashboard.availableYears.length > 0) {
+      return dashboard.availableYears
+    }
+    // Fallback: current year ±5
+    const fallback: number[] = []
+    for (let y = currentYear - 5; y <= currentYear + 5; y++) {
+      fallback.push(y)
+    }
+    return fallback
+  }, [dashboard, currentYear])
+
+  // Handle period change
+  const handlePeriodChange = useCallback((period: DatePeriod) => {
+    setActivePeriod(period)
+    if (period !== 'custom') {
+      setCustomStartDate('')
+      setCustomEndDate('')
+    }
+  }, [])
+
+  // Handle year change - reset period to thisYear
+  const handleYearChange = useCallback((year: string) => {
+    setSelectedYear(year)
+    if (activePeriod === 'custom') {
+      // Keep custom if user explicitly set it
+    } else {
+      setActivePeriod('thisYear')
+    }
+  }, [activePeriod])
 
   // Current month for monthly progress card
   const currentMonthIndex = new Date().getMonth()
@@ -435,20 +526,19 @@ export default function CRMDashboard() {
       }))
   }, [dashboard])
 
-  // Win Rate Funnel data
+  // Win Rate Funnel data — includes ALL 6 statuses
   const funnelData = useMemo(() => {
     if (!dashboard || !dashboard.proposalStatusSummary) return []
-    const statuses = ['Submitted', 'In Process', 'In Evaluation', 'Won', 'Rejected']
     const data: { status: string; count: number; color: string; dropOff: number; conversion: number }[] = []
     let prevCount = 0
-    for (let i = 0; i < statuses.length; i++) {
-      const count = dashboard.proposalStatusSummary[statuses[i]] || 0
+    for (let i = 0; i < PIPELINE_STATUSES.length; i++) {
+      const count = dashboard.proposalStatusSummary[PIPELINE_STATUSES[i]] || 0
       const dropOff = i > 0 && prevCount > 0 ? Math.round(((prevCount - count) / prevCount) * 100) : 0
       const conversion = totalProposals > 0 ? Math.round((count / totalProposals) * 100) : 0
       data.push({
-        status: statuses[i],
+        status: PIPELINE_STATUSES[i],
         count,
-        color: STATUS_COLORS[statuses[i]] || '#94a3b8',
+        color: STATUS_COLORS[PIPELINE_STATUSES[i]] || '#94a3b8',
         dropOff,
         conversion,
       })
@@ -483,13 +573,22 @@ export default function CRMDashboard() {
     }))
   }, [dashboard])
 
+  // Period label for subtitle
+  const periodSubtitle = useMemo(() => {
+    if (activePeriod === 'thisYear') return 'Full Year'
+    if (activePeriod === 'custom' && customStartDate && customEndDate) {
+      return `${format(new Date(customStartDate), 'MMM dd')} – ${format(new Date(customEndDate), 'MMM dd, yyyy')}`
+    }
+    const { start, end } = computedDateRange
+    return `${format(start, 'MMM dd')} – ${format(end, 'MMM dd, yyyy')}`
+  }, [activePeriod, customStartDate, customEndDate, computedDateRange])
+
   // ─── Loading skeleton ──────────────────────────────────────────────────
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100/80 p-4 md:p-6 lg:p-8 space-y-6">
-        {/* Hero skeleton */}
-        <Skeleton className="h-28 rounded-2xl" />
+        <Skeleton className="h-36 rounded-2xl" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-40 rounded-2xl" />
@@ -542,45 +641,90 @@ export default function CRMDashboard() {
       <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto">
 
         {/* ═══════════════ HERO HEADER ═══════════════ */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 p-6 md:p-8 shadow-lg">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 shadow-lg">
           {/* Decorative shapes */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
-          <div className="absolute bottom-0 left-1/3 w-48 h-48 bg-white/5 rounded-full translate-y-1/2" />
+          <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
+          <div className="absolute bottom-0 left-1/3 w-56 h-56 bg-white/5 rounded-full translate-y-1/2" />
 
-          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-                Dashboard
-              </h1>
-              <p className="text-emerald-100 mt-1 text-sm md:text-base">
-                Fiscal Year {selectedYear} — Business Intelligence &amp; Proposal Analytics
-              </p>
+          <div className="relative p-6 md:p-8 space-y-5">
+            {/* Top row: Title + Year selector + Last updated */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                  Dashboard
+                </h1>
+                <p className="text-emerald-100 mt-1 text-sm md:text-base">
+                  Fiscal Year {selectedYear} — {periodSubtitle}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {/* Year selector */}
+                <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/20">
+                  <Calendar className="h-4 w-4 text-emerald-100" />
+                  <Select
+                    value={selectedYear}
+                    onValueChange={handleYearChange}
+                  >
+                    <SelectTrigger className="h-7 w-20 border-0 bg-transparent text-white text-sm font-medium p-0 focus:ring-0 [&>svg]:text-white/70">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableYears.map((y) => (
+                        <SelectItem key={y} value={String(y)}>
+                          {y}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Last updated pill */}
+                <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-emerald-100 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/15">
+                  <Clock className="h-3 w-3" />
+                  {format(new Date(), 'MMM dd, HH:mm')}
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              {/* Year selector */}
-              <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/20">
-                <Calendar className="h-4 w-4 text-emerald-100" />
-                <Select
-                  value={selectedYear}
-                  onValueChange={setSelectedYear}
+
+            {/* Date range quick picks */}
+            <div className="flex flex-wrap items-center gap-2">
+              {(['thisWeek', 'thisMonth', 'thisQuarter', 'thisYear', 'custom'] as DatePeriod[]).map((period) => (
+                <Button
+                  key={period}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handlePeriodChange(period)}
+                  className={`
+                    h-8 px-3.5 rounded-lg text-xs font-medium transition-all duration-200
+                    ${activePeriod === period
+                      ? 'bg-white/25 text-white border border-white/30 shadow-sm backdrop-blur-sm'
+                      : 'bg-white/8 text-emerald-100 border border-transparent hover:bg-white/15 hover:text-white'
+                    }
+                  `}
                 >
-                  <SelectTrigger className="h-7 w-20 border-0 bg-transparent text-white text-sm font-medium p-0 focus:ring-0 [&>svg]:text-white/70">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {YEARS.map((y) => (
-                      <SelectItem key={y.value} value={y.value}>
-                        {y.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {/* Last updated pill */}
-              <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-emerald-100 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/15">
-                <Clock className="h-3 w-3" />
-                {format(new Date(), 'MMM dd, HH:mm')}
-              </div>
+                  {PERIOD_LABELS[period]}
+                </Button>
+              ))}
+
+              {/* Custom date inputs */}
+              {activePeriod === 'custom' && (
+                <div className="flex items-center gap-2 ml-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <Input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="h-8 w-36 bg-white/15 border-white/25 text-white text-xs rounded-lg backdrop-blur-sm placeholder:text-emerald-200/60 focus:ring-1 focus:ring-white/30 focus:border-white/40 [color-scheme:dark]"
+                    placeholder="Start"
+                  />
+                  <span className="text-emerald-200 text-xs">→</span>
+                  <Input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="h-8 w-36 bg-white/15 border-white/25 text-white text-xs rounded-lg backdrop-blur-sm placeholder:text-emerald-200/60 focus:ring-1 focus:ring-white/30 focus:border-white/40 [color-scheme:dark]"
+                    placeholder="End"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

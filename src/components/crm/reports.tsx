@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import {
@@ -35,6 +35,8 @@ import {
   Clock,
   DollarSign,
   Percent,
+  LayoutGrid,
+  Sparkles,
 } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -215,7 +217,8 @@ const QUARTERS = [
   { value: '4', label: 'Q4 (Oct-Dec)' },
 ]
 
-const YEARS = [
+// Years will be fetched dynamically from the API
+const FALLBACK_YEARS = [
   { value: '2024', label: '2024' },
   { value: '2025', label: '2025' },
   { value: '2026', label: '2026' },
@@ -265,6 +268,8 @@ export default function CRMReports() {
   })
 
   const [activeTab, setActiveTab] = useState('clients')
+  const [reportCategory, setReportCategory] = useState<string>('all')
+  const [availableYears, setAvailableYears] = useState<number[]>([])
   const [expandedThematic, setExpandedThematic] = useState<Record<string, boolean>>({})
   const [expandedService, setExpandedService] = useState<Record<string, boolean>>({})
 
@@ -302,9 +307,26 @@ export default function CRMReports() {
 
   // ── Report Queries ──────────────────────────────────────────────────────
 
-  const { data: clientsData, isLoading: clientsLoading } = useQuery<{ type: string; data: ClientReportItem[] }>({
+  // Helper to update available years from any report response
+  const updateAvailableYears = useCallback((data: { availableYears?: number[] }) => {
+    if (data.availableYears && data.availableYears.length > 0) {
+      setAvailableYears((prev) => {
+        const merged = new Set([...prev, ...data.availableYears!])
+        const sorted = Array.from(merged).sort((a, b) => a - b)
+        if (sorted.length !== prev.length || sorted.some((v, i) => v !== prev[i])) return sorted
+        return prev
+      })
+    }
+  }, [])
+
+  const { data: clientsData, isLoading: clientsLoading } = useQuery<{ type: string; data: ClientReportItem[]; availableYears?: number[] }>({
     queryKey: ['report', 'clients', queryParams],
-    queryFn: () => fetch(`/api/reports?type=clients&${queryParams}`).then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`/api/reports?type=clients&${queryParams}`)
+      const data = await r.json()
+      updateAvailableYears(data)
+      return data
+    },
     enabled: activeTab === 'clients',
   })
 
@@ -312,21 +334,37 @@ export default function CRMReports() {
     type: string
     data: ProposalReportItem[]
     summary: ProposalsSummary
+    availableYears?: number[]
   }>({
     queryKey: ['report', 'proposals', queryParams],
-    queryFn: () => fetch(`/api/reports?type=proposals&${queryParams}`).then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`/api/reports?type=proposals&${queryParams}`)
+      const data = await r.json()
+      updateAvailableYears(data)
+      return data
+    },
     enabled: activeTab === 'proposals',
   })
 
-  const { data: summaryData, isLoading: summaryLoading } = useQuery<{ type: string; data: SummaryData }>({
+  const { data: summaryData, isLoading: summaryLoading } = useQuery<{ type: string; data: SummaryData; availableYears?: number[] }>({
     queryKey: ['report', 'summary', queryParams],
-    queryFn: () => fetch(`/api/reports?type=summary&${queryParams}`).then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`/api/reports?type=summary&${queryParams}`)
+      const data = await r.json()
+      updateAvailableYears(data)
+      return data
+    },
     enabled: activeTab === 'summary',
   })
 
-  const { data: thematicData, isLoading: thematicLoading } = useQuery<{ type: string; data: ThematicReportItem[] }>({
+  const { data: thematicData, isLoading: thematicLoading } = useQuery<{ type: string; data: ThematicReportItem[]; availableYears?: number[] }>({
     queryKey: ['report', 'thematic', queryParams],
-    queryFn: () => fetch(`/api/reports?type=thematic&${queryParams}`).then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`/api/reports?type=thematic&${queryParams}`)
+      const data = await r.json()
+      updateAvailableYears(data)
+      return data
+    },
     enabled: activeTab === 'thematic',
   })
 
@@ -334,9 +372,15 @@ export default function CRMReports() {
     type: string
     data: ServiceReportItem[]
     summary: ServiceReportSummary
+    availableYears?: number[]
   }>({
     queryKey: ['report', 'service', queryParams],
-    queryFn: () => fetch(`/api/reports?type=service&${queryParams}`).then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`/api/reports?type=service&${queryParams}`)
+      const data = await r.json()
+      updateAvailableYears(data)
+      return data
+    },
     enabled: activeTab === 'service',
   })
 
@@ -443,16 +487,99 @@ export default function CRMReports() {
     }
     setFilters(reset)
     setAppliedFilters(reset)
+    setReportCategory('all')
+  }
+
+  const removeFilter = (key: keyof Filters) => {
+    const resetValue = key === 'year' ? currentYear : ''
+    const newFilters = { ...filters, [key]: resetValue }
+    setFilters(newFilters)
+    setAppliedFilters(newFilters)
   }
 
   const hasActiveFilters =
-    filters.clientId ||
-    filters.serviceId ||
-    filters.thematicAreaId ||
-    filters.startDate ||
-    filters.endDate ||
-    filters.month !== '' ||
-    filters.quarter !== ''
+    appliedFilters.clientId ||
+    appliedFilters.serviceId ||
+    appliedFilters.thematicAreaId ||
+    appliedFilters.startDate ||
+    appliedFilters.endDate ||
+    appliedFilters.month !== '' ||
+    appliedFilters.quarter !== ''
+
+  // Category handler - auto-switch tab and apply relevant filter
+  const handleCategoryChange = useCallback((category: string) => {
+    setReportCategory(category)
+    if (category === 'client') {
+      setActiveTab('clients')
+    } else if (category === 'service') {
+      setActiveTab('service')
+    } else if (category === 'thematic') {
+      setActiveTab('thematic')
+    }
+    // 'all' stays on current tab
+  }, [])
+
+  // Quick date range handlers
+  const handleQuickDate = useCallback((period: 'thisMonth' | 'thisQuarter' | 'thisYear') => {
+    const now = new Date()
+    const year = now.getFullYear()
+    let newFilters: Filters
+
+    if (period === 'thisMonth') {
+      const month = String(now.getMonth())
+      newFilters = { ...filters, month, quarter: '', year: String(year), startDate: '', endDate: '' }
+    } else if (period === 'thisQuarter') {
+      const q = Math.floor(now.getMonth() / 3) + 1
+      newFilters = { ...filters, quarter: String(q), month: '', year: String(year), startDate: '', endDate: '' }
+    } else {
+      newFilters = { ...filters, year: String(year), month: '', quarter: '', startDate: '', endDate: '' }
+    }
+
+    setFilters(newFilters)
+    setAppliedFilters(newFilters)
+  }, [filters])
+
+  // Dynamic year options
+  const yearOptions = useMemo(() => {
+    if (availableYears.length > 0) {
+      return availableYears.map((y) => ({ value: String(y), label: String(y) }))
+    }
+    return FALLBACK_YEARS
+  }, [availableYears])
+
+  // Active filter badges
+  const activeFilterBadges = useMemo(() => {
+    const badges: { key: keyof Filters; label: string }[] = []
+
+    if (appliedFilters.clientId) {
+      const client = clientsList.find((c) => c.id === appliedFilters.clientId)
+      if (client) badges.push({ key: 'clientId', label: `Client: ${client.name}` })
+    }
+    if (appliedFilters.serviceId) {
+      const service = services.find((s) => s.id === appliedFilters.serviceId)
+      if (service) badges.push({ key: 'serviceId', label: `Service: ${service.name}` })
+    }
+    if (appliedFilters.thematicAreaId) {
+      const area = thematicAreas.find((ta) => ta.id === appliedFilters.thematicAreaId)
+      if (area) badges.push({ key: 'thematicAreaId', label: `Thematic: ${area.name}` })
+    }
+    if (appliedFilters.startDate) {
+      badges.push({ key: 'startDate', label: `From: ${appliedFilters.startDate}` })
+    }
+    if (appliedFilters.endDate) {
+      badges.push({ key: 'endDate', label: `To: ${appliedFilters.endDate}` })
+    }
+    if (appliedFilters.month !== '') {
+      const monthObj = MONTHS.find((m) => m.value === appliedFilters.month)
+      if (monthObj) badges.push({ key: 'month', label: monthObj.label })
+    }
+    if (appliedFilters.quarter !== '') {
+      const quarterObj = QUARTERS.find((q) => q.value === appliedFilters.quarter)
+      if (quarterObj) badges.push({ key: 'quarter', label: quarterObj.label })
+    }
+
+    return badges
+  }, [appliedFilters, clientsList, services, thematicAreas])
 
   const toggleThematic = (id: string) => {
     setExpandedThematic((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -1487,12 +1614,79 @@ export default function CRMReports() {
                 </Badge>
               )}
             </div>
-            {/* Row 1: Client, Service, Thematic Area */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+
+            {/* Quick Date Range Buttons */}
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="text-xs font-medium text-muted-foreground mr-1">Quick:</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => handleQuickDate('thisMonth')}
+              >
+                <Sparkles className="h-3 w-3" />
+                This Month
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => handleQuickDate('thisQuarter')}
+              >
+                <Sparkles className="h-3 w-3" />
+                This Quarter
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => handleQuickDate('thisYear')}
+              >
+                <Sparkles className="h-3 w-3" />
+                This Year
+              </Button>
+            </div>
+
+            {/* Category Filter + Row 1: Client, Service, Thematic Area */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Category</label>
+                <Select value={reportCategory} onValueChange={handleCategoryChange}>
+                  <SelectTrigger className="h-9 text-sm w-full">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2">
+                        <LayoutGrid className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        <span>All</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="client">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        <span>By Client</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="service">
+                      <div className="flex items-center gap-2">
+                        <Wrench className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        <span>By Service</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="thematic">
+                      <div className="flex items-center gap-2">
+                        <Layers className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        <span>By Thematic Area</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Client</label>
                 <Select
-                  value={filters.clientId}
+                  value={filters.clientId || '__all__'}
                   onValueChange={(v) => setFilters((f) => ({ ...f, clientId: v === '__all__' ? '' : v }))}
                 >
                   <SelectTrigger className="h-9 text-sm w-full">
@@ -1514,7 +1708,7 @@ export default function CRMReports() {
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Service</label>
                 <Select
-                  value={filters.serviceId}
+                  value={filters.serviceId || '__all__'}
                   onValueChange={(v) => setFilters((f) => ({ ...f, serviceId: v === '__all__' ? '' : v }))}
                 >
                   <SelectTrigger className="h-9 text-sm w-full">
@@ -1536,7 +1730,7 @@ export default function CRMReports() {
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Thematic Area</label>
                 <Select
-                  value={filters.thematicAreaId}
+                  value={filters.thematicAreaId || '__all__'}
                   onValueChange={(v) => setFilters((f) => ({ ...f, thematicAreaId: v === '__all__' ? '' : v }))}
                 >
                   <SelectTrigger className="h-9 text-sm w-full">
@@ -1579,7 +1773,7 @@ export default function CRMReports() {
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Month</label>
                 <Select
-                  value={filters.month}
+                  value={filters.month || '__all__'}
                   onValueChange={(v) => setFilters((f) => ({ ...f, month: v === '__all__' ? '' : v }))}
                 >
                   <SelectTrigger className="h-9 text-sm w-full">
@@ -1597,7 +1791,7 @@ export default function CRMReports() {
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Quarter</label>
                 <Select
-                  value={filters.quarter}
+                  value={filters.quarter || '__all__'}
                   onValueChange={(v) => setFilters((f) => ({ ...f, quarter: v === '__all__' ? '' : v }))}
                 >
                   <SelectTrigger className="h-9 text-sm w-full">
@@ -1622,7 +1816,7 @@ export default function CRMReports() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {YEARS.map((y) => (
+                    {yearOptions.map((y) => (
                       <SelectItem key={y.value} value={y.value}>
                         {y.label}
                       </SelectItem>
@@ -1652,6 +1846,32 @@ export default function CRMReports() {
                 </div>
               </div>
             </div>
+
+            {/* Active Filter Badges */}
+            {hasActiveFilters && activeFilterBadges.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-gray-100">
+                <span className="text-xs text-muted-foreground mr-1">Active:</span>
+                {activeFilterBadges.map((badge) => (
+                  <Badge
+                    key={badge.key}
+                    variant="secondary"
+                    className="text-xs gap-1 pr-1 cursor-pointer hover:bg-red-50 hover:text-red-600 transition-colors"
+                    onClick={() => removeFilter(badge.key)}
+                  >
+                    {badge.label}
+                    <X className="h-3 w-3" />
+                  </Badge>
+                ))}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs text-muted-foreground hover:text-destructive px-2"
+                  onClick={clearFilters}
+                >
+                  Clear all
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 

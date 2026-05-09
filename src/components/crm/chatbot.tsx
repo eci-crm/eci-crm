@@ -94,6 +94,7 @@ export function CRMChatbot() {
   const [isOpen, setIsOpen] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>(DEFAULT_SUGGESTIONS)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
@@ -130,7 +131,10 @@ export function CRMChatbot() {
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // Use requestAnimationFrame to ensure scroll happens after DOM render
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    })
   }, [messages, sendMessage.isPending])
 
   // Focus input when chat opens
@@ -220,7 +224,7 @@ export function CRMChatbot() {
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarGutter: 'stable' }}>
+            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 scroll-smooth" style={{ scrollbarGutter: 'stable' }}>
               {messages.length === 0 && !sendMessage.isPending ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/30">

@@ -928,7 +928,7 @@ export default function Proposals() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto px-6 min-h-0">
+          <ScrollArea className="flex-1 px-6 min-h-0">
             <div className="space-y-6 pb-4">
               {/* ── Basic Info ────────────────────────────────────────── */}
               <div>
@@ -1148,11 +1148,11 @@ export default function Proposals() {
                         No thematic areas available
                       </p>
                     ) : (
-                      <div className="space-y-2 rounded-md border p-3 max-h-48 overflow-y-auto">
+                      <div className="grid grid-cols-1 gap-1 rounded-md border p-3 max-h-48 overflow-y-auto">
                         {thematicAreas.map((area) => (
                           <label
                             key={area.id}
-                            className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5"
+                            className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded px-1 py-1"
                           >
                             <Checkbox
                               checked={formData.thematicAreaIds.includes(area.id)}
@@ -1177,11 +1177,11 @@ export default function Proposals() {
                         No services available
                       </p>
                     ) : (
-                      <div className="space-y-2 rounded-md border p-3 max-h-48 overflow-y-auto">
+                      <div className="grid grid-cols-1 gap-1 rounded-md border p-3 max-h-48 overflow-y-auto">
                         {services.map((service) => (
                           <label
                             key={service.id}
-                            className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5"
+                            className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded px-1 py-1"
                           >
                             <Checkbox
                               checked={formData.serviceIds.includes(service.id)}
@@ -1221,7 +1221,7 @@ export default function Proposals() {
                 </div>
               </div>
             </div>
-          </div>
+          </ScrollArea>
 
           <DialogFooter className="px-6 py-4 border-t shrink-0 bg-background">
             <Button variant="outline" onClick={closeDialog} disabled={isSaving}>

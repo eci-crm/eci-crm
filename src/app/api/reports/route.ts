@@ -43,6 +43,35 @@ function getFilterDates(params: URLSearchParams) {
   return { startDate, endDate, year }
 }
 
+async function getAvailableYears(): Promise<number[]> {
+  const currentYear = new Date().getFullYear()
+
+  // Get distinct years from BusinessTarget
+  const targetYears = await db.businessTarget.findMany({
+    select: { year: true },
+    distinct: ['year'],
+  })
+
+  // Get distinct years from Proposal createdAt
+  const proposals = await db.proposal.findMany({
+    select: { createdAt: true },
+  })
+  const proposalYears = new Set<number>()
+  for (const p of proposals) {
+    proposalYears.add(new Date(p.createdAt).getFullYear())
+  }
+
+  // Combine all years and current year
+  const yearSet = new Set<number>([currentYear])
+  for (const t of targetYears) {
+    yearSet.add(t.year)
+  }
+  for (const y of proposalYears) {
+    yearSet.add(y)
+  }
+  return Array.from(yearSet).sort((a, b) => a - b)
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -52,17 +81,20 @@ export async function GET(request: NextRequest) {
     const thematicAreaId = searchParams.get('thematicAreaId')
     const { startDate, endDate, year } = getFilterDates(searchParams)
 
+    // Fetch available years in parallel with the report
+    const availableYears = await getAvailableYears()
+
     switch (type) {
       case 'clients':
-        return await handleClientsReport(startDate, endDate, clientId)
+        return await handleClientsReport(startDate, endDate, clientId, availableYears)
       case 'proposals':
-        return await handleProposalsReport(startDate, endDate, serviceId, clientId, thematicAreaId)
+        return await handleProposalsReport(startDate, endDate, serviceId, clientId, thematicAreaId, availableYears)
       case 'summary':
-        return await handleSummaryReport(startDate, endDate, year, serviceId, clientId, thematicAreaId)
+        return await handleSummaryReport(startDate, endDate, year, serviceId, clientId, thematicAreaId, availableYears)
       case 'thematic':
-        return await handleThematicReport(startDate, endDate, serviceId, clientId, thematicAreaId)
+        return await handleThematicReport(startDate, endDate, serviceId, clientId, thematicAreaId, availableYears)
       case 'service':
-        return await handleServiceReport(startDate, endDate, year, clientId, thematicAreaId)
+        return await handleServiceReport(startDate, endDate, year, clientId, thematicAreaId, availableYears)
       default:
         return NextResponse.json({ error: 'Invalid report type' }, { status: 400 })
     }
@@ -72,7 +104,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function handleClientsReport(startDate: Date, endDate: Date, clientId: string | null) {
+async function handleClientsReport(startDate: Date, endDate: Date, clientId: string | null, availableYears: number[]) {
   const where: Record<string, unknown> = {}
   if (clientId) {
     where.id = clientId
@@ -105,10 +137,10 @@ async function handleClientsReport(startDate: Date, endDate: Date, clientId: str
       .reduce((sum, p) => sum + p.value, 0),
   }))
 
-  return NextResponse.json({ type: 'clients', data: report })
+  return NextResponse.json({ type: 'clients', data: report, availableYears })
 }
 
-async function handleProposalsReport(startDate: Date, endDate: Date, serviceId: string | null, clientId: string | null, thematicAreaId: string | null) {
+async function handleProposalsReport(startDate: Date, endDate: Date, serviceId: string | null, clientId: string | null, thematicAreaId: string | null, availableYears: number[]) {
   const where: Record<string, unknown> = {
     createdAt: { gte: startDate, lte: endDate },
   }
@@ -154,10 +186,11 @@ async function handleProposalsReport(startDate: Date, endDate: Date, serviceId: 
       wonValue: proposals.filter((p) => p.status === 'Won').reduce((sum, p) => sum + p.value, 0),
       statusBreakdown,
     },
+    availableYears,
   })
 }
 
-async function handleSummaryReport(startDate: Date, endDate: Date, year: number, serviceId: string | null, clientId: string | null, thematicAreaId: string | null) {
+async function handleSummaryReport(startDate: Date, endDate: Date, year: number, serviceId: string | null, clientId: string | null, thematicAreaId: string | null, availableYears: number[]) {
   // Client summary
   const clientWhere: Record<string, unknown> = {}
   if (clientId) {
@@ -255,10 +288,11 @@ async function handleSummaryReport(startDate: Date, endDate: Date, year: number,
       achievementPercentage: totalTarget > 0 ? Math.round((totalWonValue / totalTarget) * 100) : 0,
       monthlyBreakdown,
     },
+    availableYears,
   })
 }
 
-async function handleThematicReport(startDate: Date, endDate: Date, serviceId: string | null, clientId: string | null, thematicAreaId: string | null) {
+async function handleThematicReport(startDate: Date, endDate: Date, serviceId: string | null, clientId: string | null, thematicAreaId: string | null, availableYears: number[]) {
   const where: Record<string, unknown> = {}
   if (thematicAreaId) {
     where.id = thematicAreaId
@@ -312,10 +346,10 @@ async function handleThematicReport(startDate: Date, endDate: Date, serviceId: s
     }
   })
 
-  return NextResponse.json({ type: 'thematic', data: report })
+  return NextResponse.json({ type: 'thematic', data: report, availableYears })
 }
 
-async function handleServiceReport(startDate: Date, endDate: Date, year: number, clientId: string | null, thematicAreaId: string | null) {
+async function handleServiceReport(startDate: Date, endDate: Date, year: number, clientId: string | null, thematicAreaId: string | null, availableYears: number[]) {
   const services = await db.service.findMany({
     orderBy: { sortOrder: 'asc' },
     include: {
@@ -421,5 +455,6 @@ async function handleServiceReport(startDate: Date, endDate: Date, year: number,
       proposalsWithServices: proposalsWithServices.length,
       serviceCoverage,
     },
+    availableYears,
   })
 }

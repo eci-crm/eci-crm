@@ -19,7 +19,7 @@ function getDateRange(params: URLSearchParams) {
   const yearParam = params.get('year')
 
   const now = new Date()
-  const year = yearParam ? parseInt(yearParam) : 2025
+  const year = yearParam ? parseInt(yearParam) : now.getFullYear()
 
   let startDate: Date
   let endDate: Date
@@ -27,6 +27,8 @@ function getDateRange(params: URLSearchParams) {
   if (startDateStr && endDateStr) {
     startDate = new Date(startDateStr)
     endDate = new Date(endDateStr)
+    // Ensure endDate covers the full day
+    endDate.setHours(23, 59, 59, 999)
   } else if (monthParam !== null) {
     const month = parseInt(monthParam)
     startDate = new Date(year, month, 1)
@@ -48,6 +50,34 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const { startDate, endDate, serviceId, year } = getDateRange(searchParams)
+
+    // ─── Get available years from database ─────────────────────────────────
+    const currentYear = new Date().getFullYear()
+
+    // Get distinct years from BusinessTarget
+    const targetYears = await db.businessTarget.findMany({
+      select: { year: true },
+      distinct: ['year'],
+    })
+
+    // Get distinct years from Proposal createdAt
+    const proposals = await db.proposal.findMany({
+      select: { createdAt: true },
+    })
+    const proposalYears = new Set<number>()
+    for (const p of proposals) {
+      proposalYears.add(new Date(p.createdAt).getFullYear())
+    }
+
+    // Combine all years and current year
+    const yearSet = new Set<number>([currentYear])
+    for (const t of targetYears) {
+      yearSet.add(t.year)
+    }
+    for (const y of proposalYears) {
+      yearSet.add(y)
+    }
+    const availableYears = Array.from(yearSet).sort((a, b) => a - b)
 
     // Client counts
     const totalClients = await db.client.count()
@@ -258,8 +288,7 @@ export async function GET(request: NextRequest) {
       take: 5,
     })
 
-    // ─── NEW: Client Analytics ───────────────────────────────────────────
-    // Top 5 clients by won business value (using submissionDate like totalBusiness)
+    // ─── Client Analytics ───────────────────────────────────────────────────
     const allWonProposalsWithClient = await db.proposal.findMany({
       where: {
         status: 'Won',
@@ -274,7 +303,6 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // Aggregate won value per client (filtered by date range using submissionDate)
     const clientWonMap: Record<string, { id: string; name: string; status: string; wonValue: number }> = {}
     for (const p of allWonProposalsWithClient) {
       const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
@@ -311,13 +339,12 @@ export async function GET(request: NextRequest) {
       newClientsThisMonth,
     }
 
-    // ─── NEW: Team Performance ───────────────────────────────────────────
+    // ─── Team Performance ───────────────────────────────────────────────────
     const allTeamMembers = await db.teamMember.findMany({
       where: { isActive: true },
       select: { id: true, name: true, role: true },
     })
 
-    // Get all won proposals with assignedMember for the period
     const allWonWithMember = await db.proposal.findMany({
       where: {
         status: 'Won',
@@ -356,13 +383,11 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Sort by wonValue descending
     teamPerformanceData.sort((a, b) => b.wonValue - a.wonValue)
 
     const teamPerformance = teamPerformanceData
 
-    // ─── NEW: Pipeline Stats ─────────────────────────────────────────────
-    // All proposals in date range (using submissionDate or createdAt)
+    // ─── Pipeline Stats ─────────────────────────────────────────────────────
     const allProposalsForPipeline = await db.proposal.findMany({
       select: {
         value: true,
@@ -373,7 +398,6 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // Filter by date range using submissionDate (same logic as totalBusiness)
     const proposalsInRange = allProposalsForPipeline.filter((p) => {
       const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
       if (pDate < startDate || pDate > endDate) return false
@@ -385,12 +409,9 @@ export async function GET(request: NextRequest) {
     const proposalsInRangeCount = proposalsInRange.length
     const averageProposalValue = proposalsInRangeCount > 0 ? Math.round(totalProposalValue / proposalsInRangeCount) : 0
 
-    // Conversion rate: Won / Total * 100
     const wonInPeriod = proposalsInRange.filter((p) => p.status === 'Won').length
     const conversionRate = proposalsInRangeCount > 0 ? Math.round((wonInPeriod / proposalsInRangeCount) * 100) : 0
 
-    // Average days to win (from submission to won - use createdAt as proxy if submissionDate is null)
-    // Since we don't track "won date", use submissionDate as the date and createdAt as start
     const wonWithDates = proposalsInRange.filter(
       (p) => p.status === 'Won' && p.submissionDate
     )
@@ -405,7 +426,6 @@ export async function GET(request: NextRequest) {
       avgDaysToWin = Math.round(totalDays / wonWithDates.length)
     }
 
-    // Pipeline value: sum of non-Won proposals
     const pipelineValue = proposalsInRange
       .filter((p) => p.status !== 'Won')
       .reduce((sum, p) => sum + p.value, 0)
@@ -417,7 +437,7 @@ export async function GET(request: NextRequest) {
       pipelineValue,
     }
 
-    // ─── NEW: Monthly Revenue Trend (12 months) ─────────────────────────
+    // ─── Monthly Revenue Trend (12 months) ─────────────────────────────────
     const monthlyRevenueTrend = []
     for (let m = 0; m < 12; m++) {
       const mStart = new Date(year, m, 1)
@@ -477,11 +497,11 @@ export async function GET(request: NextRequest) {
       proposalStatusSummary,
       upcomingDeadlines,
       recentProposals,
-      // New data
       clientAnalytics,
       teamPerformance,
       pipelineStats,
       monthlyRevenueTrend,
+      availableYears,
     })
   } catch (error) {
     console.error('Error fetching dashboard:', error)
