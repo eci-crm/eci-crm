@@ -1295,7 +1295,10 @@ function ServicesTab() {
 
 function BusinessTargetsTab() {
   const queryClient = useQueryClient();
-  const [selectedYear, setSelectedYear] = React.useState("2025");
+  const currentYear = new Date().getFullYear()
+  const [selectedYear, setSelectedYear] = React.useState(String(currentYear));
+  const [customYearInput, setCustomYearInput] = React.useState("");
+  const [showCustomYear, setShowCustomYear] = React.useState(false);
   const [annualTarget, setAnnualTarget] = React.useState<number>(0);
   const [monthlyOverrides, setMonthlyOverrides] = React.useState<number[]>(
     Array(12).fill(0)
@@ -1303,6 +1306,15 @@ function BusinessTargetsTab() {
   const [serviceTargets, setServiceTargets] = React.useState<ServiceTarget[]>([]);
   const [showMonthlyOverrides, setShowMonthlyOverrides] = React.useState(false);
   const [expandedServiceId, setExpandedServiceId] = React.useState<string | null>(null);
+
+  // Generate year options: current year ±10 plus years with targets in DB
+  const yearOptions = React.useMemo(() => {
+    const years: { value: string; label: string }[] = []
+    for (let y = currentYear - 10; y <= currentYear + 10; y++) {
+      years.push({ value: String(y), label: String(y) })
+    }
+    return years
+  }, [currentYear])
 
   const { data: services } = useQuery<Service[]>({
     queryKey: ["services"],
@@ -1517,16 +1529,72 @@ function BusinessTargetsTab() {
           <div className="flex items-end gap-4">
             <div className="space-y-2">
               <Label>Year</Label>
-              <Select value={selectedYear} onValueChange={setSelectedYear}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="2024">2024</SelectItem>
-                  <SelectItem value="2025">2025</SelectItem>
-                  <SelectItem value="2026">2026</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {yearOptions.map((y) => (
+                      <SelectItem key={y.value} value={y.value}>
+                        {y.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 px-2.5"
+                  onClick={() => setShowCustomYear(!showCustomYear)}
+                  title="Enter custom year"
+                >
+                  <Plus className="size-3.5" />
+                </Button>
+              </div>
+              {showCustomYear && (
+                <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <Input
+                    type="number"
+                    min={2000}
+                    max={2100}
+                    value={customYearInput}
+                    onChange={(e) => setCustomYearInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const year = parseInt(customYearInput);
+                        if (year >= 2000 && year <= 2100) {
+                          setSelectedYear(String(year));
+                          setShowCustomYear(false);
+                          setCustomYearInput("");
+                        }
+                      }
+                      if (e.key === "Escape") {
+                        setShowCustomYear(false);
+                        setCustomYearInput("");
+                      }
+                    }}
+                    placeholder="e.g. 2030"
+                    className="w-[140px]"
+                    autoFocus
+                  />
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-9"
+                    onClick={() => {
+                      const year = parseInt(customYearInput);
+                      if (year >= 2000 && year <= 2100) {
+                        setSelectedYear(String(year));
+                        setShowCustomYear(false);
+                        setCustomYearInput("");
+                      }
+                    }}
+                  >
+                    Go
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="flex-1 space-y-2">
               <Label>Annual Target (PKR)</Label>

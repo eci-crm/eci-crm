@@ -4,6 +4,8 @@ import ZAI from 'z-ai-web-dev-sdk'
 
 // ─── Helper: Date range calculation ──────────────────────────────────────────
 
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
 function getWeekRange(): { start: Date; end: Date } {
   const now = new Date()
   const day = now.getDay()
@@ -213,15 +215,114 @@ async function fetchCRMSummary(): Promise<string> {
       `  • "${p.name}" for ${p.client.name} | Deadline: ${formatDate(new Date(p.deadline!))}${p.assignedMember ? ` | Assigned: ${p.assignedMember.name}` : ''} | Value: ${formatCurrency(p.value)}`
   )
 
+  // New clients this month
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const newClientsThisMonth = await db.client.count({
+    where: {
+      createdAt: { gte: monthStart },
+    },
+  })
+
+  // All proposals for pipeline stats
+  const allProposalsForPipeline = await db.proposal.findMany({
+    select: {
+      value: true,
+      status: true,
+      createdAt: true,
+      submissionDate: true,
+      services: { select: { serviceId: true } },
+    },
+  })
+
+  const proposalsInRange = allProposalsForPipeline.filter((p) => {
+    const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
+    return pDate >= yearStart && pDate <= yearEnd
+  })
+
+  const totalProposalValue = proposalsInRange.reduce((sum, p) => sum + p.value, 0)
+  const proposalsInRangeCount = proposalsInRange.length
+
   // Win rate
   const wonCount = statusCounts['Won'] || 0
   const winRate = totalProposals > 0 ? Math.round((wonCount / totalProposals) * 100) : 0
   const yearWinRate = yearTotalProposals > 0 ? Math.round((yearStatusCounts['Won'] / yearTotalProposals) * 100) : 0
 
+  // Thematic Areas summary
+  const allThematicAreas = await db.thematicArea.findMany({ orderBy: { sortOrder: 'asc' } })
+  const thematicLines: string[] = []
+  for (const area of allThematicAreas) {
+    const areaProposals = await db.proposal.findMany({
+      where: {
+        thematicAreas: { some: { thematicAreaId: area.id } },
+      },
+      select: { value: true, status: true, createdAt: true, submissionDate: true },
+    })
+    const wonValue = areaProposals
+      .filter((p) => p.status === 'Won')
+      .reduce((sum, p) => {
+        const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
+        return pDate >= yearStart && pDate <= yearEnd ? sum + p.value : sum
+      }, 0)
+    const totalCount = areaProposals.length
+    const statusBreakdown: Record<string, number> = {}
+    for (const p of areaProposals) {
+      statusBreakdown[p.status] = (statusBreakdown[p.status] || 0) + 1
+    }
+    thematicLines.push(`  • ${area.name}: ${totalCount} proposals, Won value: ${formatCurrency(wonValue)}, Status: ${Object.entries(statusBreakdown).map(([k, v]) => `${k}: ${v}`).join(', ')}`)
+  }
+
+  // Monthly breakdown of won proposals
+  const monthlyBreakdown: string[] = []
+  for (let m = 0; m < 12; m++) {
+    const mStart = new Date(year, m, 1)
+    const mEnd = new Date(year, m + 1, 0, 23, 59, 59, 999)
+    const monthWon = await db.proposal.findMany({
+      where: { status: 'Won' },
+      select: { value: true, createdAt: true, submissionDate: true },
+    })
+    let mValue = 0
+    for (const p of monthWon) {
+      const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
+      if (pDate >= mStart && pDate <= mEnd) {
+        mValue += p.value
+      }
+    }
+    if (mValue > 0) {
+      monthlyBreakdown.push(`  • ${MONTH_NAMES[m]}: ${formatCurrency(mValue)}`)
+    }
+  }
+
+  // Quarterly breakdown
+  const quarterlyBreakdown: string[] = []
+  for (let q = 1; q <= 4; q++) {
+    const startMonth = (q - 1) * 3
+    const qStart = new Date(year, startMonth, 1)
+    const qEnd = new Date(year, startMonth + 3, 0, 23, 59, 59, 999)
+    const qWon = await db.proposal.findMany({
+      where: { status: 'Won' },
+      select: { value: true, createdAt: true, submissionDate: true },
+    })
+    let qValue = 0
+    for (const p of qWon) {
+      const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
+      if (pDate >= qStart && pDate <= qEnd) {
+        qValue += p.value
+      }
+    }
+    quarterlyBreakdown.push(`  • Q${q}: ${formatCurrency(qValue)}`)
+  }
+
+  // Pipeline stats
+  const pipelineValue = allProposalsForPipeline
+    .filter((p) => p.status !== 'Won' && p.status !== 'Rejected')
+    .reduce((sum, p) => sum + p.value, 0)
+  const avgProposalValue = proposalsInRangeCount > 0 ? Math.round(totalProposalValue / proposalsInRangeCount) : 0
+
   // Build the summary
   const summary = `## Current CRM Summary (as of ${formatDate(now)}):
-
+  
 - Total Clients: ${totalClients} (Active: ${activeClients}, Inactive: ${inactiveClients})
+- New Clients This Month: ${newClientsThisMonth}
 - Total Proposals (all time): ${totalProposals}
   - Submitted: ${statusCounts['Submitted']}, In Process: ${statusCounts['In Process']}, In Evaluation: ${statusCounts['In Evaluation']}, Pending: ${statusCounts['Pending']}, Won: ${statusCounts['Won']}, Rejected: ${statusCounts['Rejected']}
   - Overall Win Rate: ${winRate}%
@@ -231,9 +332,20 @@ async function fetchCRMSummary(): Promise<string> {
 - Total Business Won (${year}): ${formatCurrency(totalBusinessWon)}
 - Annual Target (${year}): ${formatCurrency(annualTarget)} (${percentageAchieved}% achieved)
 - Remaining to Target: ${formatCurrency(Math.max(0, annualTarget - totalBusinessWon))}
+- Average Proposal Value: ${formatCurrency(avgProposalValue)}
+- Pipeline Value (active proposals): ${formatCurrency(pipelineValue)}
+
+## Monthly Business Breakdown (${year}):
+${monthlyBreakdown.join('\n') || '  No won business yet this year'}
+
+## Quarterly Breakdown (${year}):
+${quarterlyBreakdown.join('\n')}
 
 ## Services (Won value for ${year}):
 ${serviceLines.join('\n') || '  No services configured'}
+
+## Thematic Areas (for ${year}):
+${thematicLines.join('\n') || '  No thematic areas configured'}
 
 ## Top Clients (by Won value for ${year}):
 ${topClients.join('\n') || '  No won proposals yet'}
@@ -459,6 +571,42 @@ ${upcomingDetails.map((d) => `  • ${d}`).join('\n')}`)
     }
   }
 
+  // Thematic area detection
+  const allThematicAreasForDetection = await db.thematicArea.findMany({ select: { id: true, name: true } })
+  for (const area of allThematicAreasForDetection) {
+    if (lower.includes(area.name.toLowerCase()) || lower.includes('thematic')) {
+      const areaProposals = await db.proposal.findMany({
+        where: { thematicAreas: { some: { thematicAreaId: area.id } } },
+        include: {
+          client: { select: { name: true } },
+          assignedMember: { select: { name: true } },
+          services: { include: { service: { select: { name: true } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+      })
+
+      const wonValue = areaProposals.filter((p) => p.status === 'Won').reduce((s, p) => s + p.value, 0)
+      const statusBreakdown: Record<string, number> = {}
+      for (const p of areaProposals) {
+        statusBreakdown[p.status] = (statusBreakdown[p.status] || 0) + 1
+      }
+
+      const areaDetails = areaProposals.map(
+        (p) =>
+          `"${p.name}" for ${p.client.name} | ${p.status} | ${formatCurrency(p.value)} | Services: ${p.services.map((s) => s.service.name).join(', ')}${p.assignedMember ? ` | Assigned: ${p.assignedMember.name}` : ''}`
+      )
+
+      contexts.push(`\n## Thematic Area: ${area.name}
+- Total Proposals: ${areaProposals.length}
+- Won Value: ${formatCurrency(wonValue)}
+- Status Breakdown: ${Object.entries(statusBreakdown).map(([k, v]) => `${k}: ${v}`).join(', ')}
+- Recent Proposals:
+${areaDetails.map((d) => `  • ${d}`).join('\n')}`)
+      break
+    }
+  }
+
   // Team member detection
   const allMembers = await db.teamMember.findMany({ where: { isActive: true }, select: { id: true, name: true } })
   for (const member of allMembers) {
@@ -555,9 +703,13 @@ Important guidelines:
 - Format all currency amounts as ₨ (Pakistani Rupee), e.g., ₨ 1,500,000
 - When asked about win rate, calculate: (Won proposals / Total proposals) × 100
 - When asked about progress toward target, use the target and actual values shown
-- If the user asks about a specific time period, client, service, or team member, check the additional context above for specific data
+- If the user asks about a specific time period, client, service, thematic area, or team member, check the additional context above for specific data
+- When asked about monthly or quarterly performance, refer to the Monthly Business Breakdown and Quarterly Breakdown sections above
+- When asked about thematic areas, check the Thematic Areas section for detailed information
 - Be concise but thorough — give the key numbers first, then brief context
-- If the user asks something not covered by the data, let them know you can help with CRM-related queries about proposals, clients, services, targets, and team performance`
+- If the user asks something not covered by the data, let them know you can help with CRM-related queries about proposals, clients, services, targets, thematic areas, team performance, and business analytics
+- When comparing periods, use the data provided and note the time range
+- For pipeline-related questions, reference the Pipeline Value and status breakdowns`
 
     // Use z-ai-web-dev-sdk LLM
     const zai = await ZAI.create()

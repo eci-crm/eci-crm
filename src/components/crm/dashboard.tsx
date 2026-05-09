@@ -447,18 +447,25 @@ export default function CRMDashboard() {
     enabled: true,
   })
 
-  // Available years: use API response or fallback
+  // Available years: always show current year ±10 plus DB years
   const availableYears = useMemo(() => {
-    if (dashboard?.availableYears && dashboard.availableYears.length > 0) {
-      return dashboard.availableYears
+    const yearSet = new Set<number>()
+    // Always include current year ±10
+    for (let y = currentYear - 10; y <= currentYear + 10; y++) {
+      yearSet.add(y)
     }
-    // Fallback: current year ±5
-    const fallback: number[] = []
-    for (let y = currentYear - 5; y <= currentYear + 5; y++) {
-      fallback.push(y)
+    // Add DB years
+    if (dashboard?.availableYears) {
+      for (const y of dashboard.availableYears) {
+        yearSet.add(y)
+      }
     }
-    return fallback
+    return Array.from(yearSet).sort((a, b) => a - b)
   }, [dashboard, currentYear])
+
+  // Custom year input state
+  const [customYearInput, setCustomYearInput] = useState('')
+  const [showCustomYear, setShowCustomYear] = useState(false)
 
   // Handle period change
   const handlePeriodChange = useCallback((period: DatePeriod) => {
@@ -676,7 +683,59 @@ export default function CRMDashboard() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {/* Custom year input */}
+                  <button
+                    onClick={() => setShowCustomYear(!showCustomYear)}
+                    className="h-6 w-6 rounded-md bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                    title="Enter custom year"
+                  >
+                    <span className="text-[11px] text-white/80 font-medium">+</span>
+                  </button>
                 </div>
+                {/* Custom year input popup */}
+                {showCustomYear && (
+                  <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <Input
+                      type="number"
+                      min={2000}
+                      max={2100}
+                      value={customYearInput}
+                      onChange={(e) => setCustomYearInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const year = parseInt(customYearInput)
+                          if (year >= 2000 && year <= 2100) {
+                            setSelectedYear(String(year))
+                            setShowCustomYear(false)
+                            setCustomYearInput('')
+                          }
+                        }
+                        if (e.key === 'Escape') {
+                          setShowCustomYear(false)
+                          setCustomYearInput('')
+                        }
+                      }}
+                      placeholder="Year"
+                      className="h-7 w-20 bg-white/15 border-white/25 text-white text-xs rounded-lg backdrop-blur-sm placeholder:text-emerald-200/60 focus:ring-1 focus:ring-white/30 [color-scheme:dark]"
+                      autoFocus
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 bg-white/15 text-white hover:bg-white/25 text-xs"
+                      onClick={() => {
+                        const year = parseInt(customYearInput)
+                        if (year >= 2000 && year <= 2100) {
+                          setSelectedYear(String(year))
+                          setShowCustomYear(false)
+                          setCustomYearInput('')
+                        }
+                      }}
+                    >
+                      Go
+                    </Button>
+                  </div>
+                )}
                 {/* Last updated pill */}
                 <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-emerald-100 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/15">
                   <Clock className="h-3 w-3" />
@@ -1203,8 +1262,54 @@ export default function CRMDashboard() {
           </Card>
         </div>
 
+        {/* ═══════════════ RECENT ACTIVITY — HORIZONTAL ═══════════════ */}
+        <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+          <CardHeader className="pb-2 pt-5 px-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-teal-100 flex items-center justify-center">
+                  <FileText className="h-4 w-4 text-teal-600" />
+                </div>
+                <CardTitle className="text-base font-semibold text-gray-900">
+                  Recent Activity — {selectedYear}
+                </CardTitle>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pb-5 px-5">
+            {(dashboard.recentProposals || []).length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+                {(dashboard.recentProposals || []).map((p) => (
+                  <div key={p.id} className="rounded-xl bg-gray-50/80 p-4 space-y-2 hover:bg-gray-100/80 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <Badge
+                        variant="outline"
+                        className={`text-[9px] px-1.5 py-0 h-4 ${STATUS_BG[p.status] || 'bg-gray-100 text-gray-600'}`}
+                      >
+                        {p.status}
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground">
+                        {format(parseISO(p.createdAt), 'MMM dd')}
+                      </span>
+                    </div>
+                    <p className="text-xs font-medium text-gray-800 truncate" title={p.name}>
+                      {p.name}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate">{p.client.name}</p>
+                    <p className="text-sm font-bold text-gray-900">{formatCompactPKR(p.value)}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-6">
+                No recent proposals
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
         {/* ═══════════════ BOTTOM SECTION ═══════════════ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Top Clients */}
           <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
             <CardHeader className="pb-2 pt-5 px-5">
@@ -1385,45 +1490,6 @@ export default function CRMDashboard() {
                 ) : (
                   <p className="text-xs text-muted-foreground text-center py-6">
                     No upcoming deadlines within 7 days
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Recent Activity — Compact Proposal List */}
-          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
-            <CardHeader className="pb-2 pt-5 px-5">
-              <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-teal-100 flex items-center justify-center">
-                  <FileText className="h-4 w-4 text-teal-600" />
-                </div>
-                <CardTitle className="text-base font-semibold text-gray-900">Recent Activity</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="pb-5 px-5">
-              <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
-                {(dashboard.recentProposals || []).length > 0 ? (
-                  (dashboard.recentProposals || []).map((p) => (
-                    <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50/80 transition-colors">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-gray-800 truncate">{p.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{p.client.name} · {format(parseISO(p.createdAt), 'MMM dd')}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-xs font-semibold text-gray-900">{formatCompactPKR(p.value)}</p>
-                        <Badge
-                          variant="outline"
-                          className={`text-[9px] px-1 py-0 h-4 ${STATUS_BG[p.status] || 'bg-gray-100 text-gray-600'}`}
-                        >
-                          {p.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-muted-foreground text-center py-6">
-                    No recent proposals
                   </p>
                 )}
               </div>

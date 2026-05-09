@@ -131,10 +131,19 @@ export function CRMChatbot() {
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    // Use requestAnimationFrame to ensure scroll happens after DOM render
-    requestAnimationFrame(() => {
+    const scrollToBottom = () => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+      }
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+    // Multiple attempts to ensure scroll works after layout
+    requestAnimationFrame(() => {
+      requestAnimationFrame(scrollToBottom)
     })
+    // Fallback timeout for delayed renders
+    const timer = setTimeout(scrollToBottom, 100)
+    return () => clearTimeout(timer)
   }, [messages, sendMessage.isPending])
 
   // Focus input when chat opens
