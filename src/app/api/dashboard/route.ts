@@ -258,6 +258,198 @@ export async function GET(request: NextRequest) {
       take: 5,
     })
 
+    // ─── NEW: Client Analytics ───────────────────────────────────────────
+    // Top 5 clients by won business value (using submissionDate like totalBusiness)
+    const allWonProposalsWithClient = await db.proposal.findMany({
+      where: {
+        status: 'Won',
+      },
+      select: {
+        value: true,
+        createdAt: true,
+        submissionDate: true,
+        clientId: true,
+        client: { select: { id: true, name: true, status: true } },
+        services: { select: { serviceId: true } },
+      },
+    })
+
+    // Aggregate won value per client (filtered by date range using submissionDate)
+    const clientWonMap: Record<string, { id: string; name: string; status: string; wonValue: number }> = {}
+    for (const p of allWonProposalsWithClient) {
+      const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
+      if (pDate >= startDate && pDate <= endDate) {
+        if (serviceId && !p.services.some((s) => s.serviceId === serviceId)) continue
+        if (!clientWonMap[p.clientId]) {
+          clientWonMap[p.clientId] = {
+            id: p.client.id,
+            name: p.client.name,
+            status: p.client.status,
+            wonValue: 0,
+          }
+        }
+        clientWonMap[p.clientId].wonValue += p.value
+      }
+    }
+
+    const topClients = Object.values(clientWonMap)
+      .sort((a, b) => b.wonValue - a.wonValue)
+      .slice(0, 5)
+
+    // New clients this month
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const newClientsThisMonth = await db.client.count({
+      where: {
+        createdAt: { gte: monthStart },
+      },
+    })
+
+    const clientAnalytics = {
+      topClients,
+      activeClients,
+      inactiveClients,
+      newClientsThisMonth,
+    }
+
+    // ─── NEW: Team Performance ───────────────────────────────────────────
+    const allTeamMembers = await db.teamMember.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, role: true },
+    })
+
+    // Get all won proposals with assignedMember for the period
+    const allWonWithMember = await db.proposal.findMany({
+      where: {
+        status: 'Won',
+        assignedMemberId: { not: null },
+      },
+      select: {
+        value: true,
+        createdAt: true,
+        submissionDate: true,
+        assignedMemberId: true,
+        services: { select: { serviceId: true } },
+      },
+    })
+
+    const teamPerformanceData = []
+    for (const member of allTeamMembers) {
+      let wonCount = 0
+      let wonValue = 0
+
+      for (const p of allWonWithMember) {
+        if (p.assignedMemberId !== member.id) continue
+        const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
+        if (pDate >= startDate && pDate <= endDate) {
+          if (serviceId && !p.services.some((s) => s.serviceId === serviceId)) continue
+          wonCount++
+          wonValue += p.value
+        }
+      }
+
+      teamPerformanceData.push({
+        id: member.id,
+        name: member.name,
+        role: member.role,
+        wonProposals: wonCount,
+        wonValue,
+      })
+    }
+
+    // Sort by wonValue descending
+    teamPerformanceData.sort((a, b) => b.wonValue - a.wonValue)
+
+    const teamPerformance = teamPerformanceData
+
+    // ─── NEW: Pipeline Stats ─────────────────────────────────────────────
+    // All proposals in date range (using submissionDate or createdAt)
+    const allProposalsForPipeline = await db.proposal.findMany({
+      select: {
+        value: true,
+        status: true,
+        createdAt: true,
+        submissionDate: true,
+        services: { select: { serviceId: true } },
+      },
+    })
+
+    // Filter by date range using submissionDate (same logic as totalBusiness)
+    const proposalsInRange = allProposalsForPipeline.filter((p) => {
+      const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
+      if (pDate < startDate || pDate > endDate) return false
+      if (serviceId && !p.services.some((s) => s.serviceId === serviceId)) return false
+      return true
+    })
+
+    const totalProposalValue = proposalsInRange.reduce((sum, p) => sum + p.value, 0)
+    const proposalsInRangeCount = proposalsInRange.length
+    const averageProposalValue = proposalsInRangeCount > 0 ? Math.round(totalProposalValue / proposalsInRangeCount) : 0
+
+    // Conversion rate: Won / Total * 100
+    const wonInPeriod = proposalsInRange.filter((p) => p.status === 'Won').length
+    const conversionRate = proposalsInRangeCount > 0 ? Math.round((wonInPeriod / proposalsInRangeCount) * 100) : 0
+
+    // Average days to win (from submission to won - use createdAt as proxy if submissionDate is null)
+    // Since we don't track "won date", use submissionDate as the date and createdAt as start
+    const wonWithDates = proposalsInRange.filter(
+      (p) => p.status === 'Won' && p.submissionDate
+    )
+    let avgDaysToWin = 0
+    if (wonWithDates.length > 0) {
+      const totalDays = wonWithDates.reduce((sum, p) => {
+        const start = new Date(p.createdAt)
+        const end = new Date(p.submissionDate!)
+        const diff = Math.abs(end.getTime() - start.getTime())
+        return sum + Math.ceil(diff / (1000 * 60 * 60 * 24))
+      }, 0)
+      avgDaysToWin = Math.round(totalDays / wonWithDates.length)
+    }
+
+    // Pipeline value: sum of non-Won proposals
+    const pipelineValue = proposalsInRange
+      .filter((p) => p.status !== 'Won')
+      .reduce((sum, p) => sum + p.value, 0)
+
+    const pipelineStats = {
+      averageProposalValue,
+      conversionRate,
+      avgDaysToWin,
+      pipelineValue,
+    }
+
+    // ─── NEW: Monthly Revenue Trend (12 months) ─────────────────────────
+    const monthlyRevenueTrend = []
+    for (let m = 0; m < 12; m++) {
+      const mStart = new Date(year, m, 1)
+      const mEnd = new Date(year, m + 1, 0, 23, 59, 59, 999)
+
+      const monthWonAll = await db.proposal.findMany({
+        where: {
+          status: 'Won',
+        },
+        select: { value: true, createdAt: true, submissionDate: true, services: { select: { serviceId: true } } },
+      })
+
+      let mRevenue = 0
+      for (const p of monthWonAll) {
+        const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
+        if (pDate >= mStart && pDate <= mEnd) {
+          if (serviceId) {
+            if (p.services.some((s) => s.serviceId === serviceId)) {
+              mRevenue += p.value
+            }
+          } else {
+            mRevenue += p.value
+          }
+        }
+      }
+
+      monthlyRevenueTrend.push({
+        month: MONTH_NAMES[m],
+        revenue: mRevenue,
+      })
+    }
+
     return NextResponse.json({
       clientCounts: {
         total: totalClients,
@@ -285,6 +477,11 @@ export async function GET(request: NextRequest) {
       proposalStatusSummary,
       upcomingDeadlines,
       recentProposals,
+      // New data
+      clientAnalytics,
+      teamPerformance,
+      pipelineStats,
+      monthlyRevenueTrend,
     })
   } catch (error) {
     console.error('Error fetching dashboard:', error)

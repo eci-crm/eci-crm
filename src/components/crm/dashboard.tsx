@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import {
@@ -15,6 +15,8 @@ import {
   Pie,
   Cell,
   ResponsiveContainer,
+  AreaChart,
+  Area,
 } from 'recharts'
 import {
   TrendingUp,
@@ -25,6 +27,13 @@ import {
   ArrowUpRight,
   Clock,
   AlertTriangle,
+  Users,
+  Trophy,
+  DollarSign,
+  Percent,
+  Timer,
+  Funnel,
+  Activity,
 } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -107,6 +116,40 @@ interface UpcomingDeadline {
   client: { id: string; name: string }
 }
 
+interface TopClient {
+  id: string
+  name: string
+  status: string
+  wonValue: number
+}
+
+interface ClientAnalytics {
+  topClients: TopClient[]
+  activeClients: number
+  inactiveClients: number
+  newClientsThisMonth: number
+}
+
+interface TeamMemberPerformance {
+  id: string
+  name: string
+  role: string
+  wonProposals: number
+  wonValue: number
+}
+
+interface PipelineStats {
+  averageProposalValue: number
+  conversionRate: number
+  avgDaysToWin: number
+  pipelineValue: number
+}
+
+interface MonthlyRevenueTrend {
+  month: string
+  revenue: number
+}
+
 interface DashboardData {
   clientCounts: { total: number; active: number; inactive: number }
   proposalCounts: { total: number; byStatus: Record<string, number> }
@@ -124,6 +167,10 @@ interface DashboardData {
   proposalStatusSummary: ProposalStatusSummary
   upcomingDeadlines: UpcomingDeadline[]
   recentProposals: RecentProposal[]
+  clientAnalytics: ClientAnalytics
+  teamPerformance: TeamMemberPerformance[]
+  pipelineStats: PipelineStats
+  monthlyRevenueTrend: MonthlyRevenueTrend[]
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -183,7 +230,44 @@ const formatCompactPKR = (value: number) => {
   return `₨ ${value.toLocaleString()}`
 }
 
-// ─── Sub-components (declared outside to avoid re-creation) ────────────────────
+// ─── useCountUp Hook ─────────────────────────────────────────────────────────
+
+function useCountUp(end: number, duration: number = 1200): number {
+  const [count, setCount] = useState(0)
+  const rafRef = useRef<number | null>(null)
+  const prevEnd = useRef(end)
+
+  useEffect(() => {
+    // Only re-animate when the end value changes
+    if (Math.abs(prevEnd.current - end) < 0.5) return
+    prevEnd.current = end
+
+    const startVal = 0
+    const startTime = performance.now()
+
+    function animate(currentTime: number) {
+      const elapsed = currentTime - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      // Ease out cubic
+      const eased = 1 - Math.pow(1 - progress, 3)
+      const current = startVal + (end - startVal) * eased
+      setCount(current)
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(animate)
+      }
+    }
+
+    rafRef.current = requestAnimationFrame(animate)
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
+  }, [end, duration])
+
+  return count
+}
+
+// ─── Sub-components ────────────────────────────────────────────────────────────
 
 function CircularProgress({
   percentage,
@@ -255,6 +339,48 @@ function MiniDonut({ won, total }: { won: number; total: number }) {
       />
     </svg>
   )
+}
+
+function ActiveInactiveDonut({ active, inactive }: { active: number; inactive: number }) {
+  const total = active + inactive
+  const size = 64
+  const strokeWidth = 8
+  const radius = (size - strokeWidth) / 2
+  const circumference = radius * 2 * Math.PI
+  const activePct = total > 0 ? (active / total) * 100 : 0
+  const activeOffset = circumference - (activePct / 100) * circumference
+
+  return (
+    <svg width={size} height={size} className="transform -rotate-90">
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="#fecaca"
+        strokeWidth={strokeWidth}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="#10b981"
+        strokeWidth={strokeWidth}
+        strokeDasharray={circumference}
+        strokeDashoffset={activeOffset}
+        strokeLinecap="round"
+        className="transition-all duration-700 ease-out"
+      />
+    </svg>
+  )
+}
+
+// ─── AnimatedValue Component ─────────────────────────────────────────────────
+
+function AnimatedValue({ value }: { value: number }) {
+  const animated = useCountUp(value, 1400)
+  return <>{formatCompactPKR(Math.round(animated))}</>
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -353,6 +479,54 @@ export default function CRMDashboard() {
       }))
   }, [dashboard])
 
+  // Win Rate Funnel data
+  const funnelData = useMemo(() => {
+    if (!dashboard || !dashboard.proposalStatusSummary) return []
+    const statuses = ['Submitted', 'In Process', 'In Evaluation', 'Won']
+    const data: { status: string; count: number; color: string; dropOff: number; conversion: number }[] = []
+    let prevCount = 0
+    for (let i = 0; i < statuses.length; i++) {
+      const count = dashboard.proposalStatusSummary[statuses[i]] || 0
+      const dropOff = i > 0 && prevCount > 0 ? Math.round(((prevCount - count) / prevCount) * 100) : 0
+      const conversion = totalProposals > 0 ? Math.round((count / totalProposals) * 100) : 0
+      data.push({
+        status: statuses[i],
+        count,
+        color: STATUS_COLORS[statuses[i]] || '#94a3b8',
+        dropOff,
+        conversion,
+      })
+      prevCount = count
+    }
+    return data
+  }, [dashboard, totalProposals])
+
+  // Client analytics data
+  const clientAnalytics = dashboard?.clientAnalytics
+  const topClients = clientAnalytics?.topClients || []
+  const maxClientValue = topClients.length > 0 ? topClients[0].wonValue : 1
+
+  // Team performance
+  const teamPerformance = dashboard?.teamPerformance || []
+  const maxTeamValue = teamPerformance.length > 0 ? teamPerformance[0].wonValue : 1
+
+  // Pipeline stats
+  const pipelineStats = dashboard?.pipelineStats || {
+    averageProposalValue: 0,
+    conversionRate: 0,
+    avgDaysToWin: 0,
+    pipelineValue: 0,
+  }
+
+  // Revenue trend
+  const revenueTrendData = useMemo(() => {
+    if (!dashboard || !dashboard.monthlyRevenueTrend) return []
+    return dashboard.monthlyRevenueTrend.map((m) => ({
+      month: m.month,
+      revenue: m.revenue,
+    }))
+  }, [dashboard])
+
   // Clear all filters
   const clearFilters = () => {
     setFilters({
@@ -383,6 +557,11 @@ export default function CRMDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-36 rounded-xl" />
+          ))}
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -576,7 +755,7 @@ export default function CRMDashboard() {
           </CardContent>
         </Card>
 
-        {/* ── Row 1: KPI Cards ───────────────────────────────────────── */}
+        {/* ── Row 1: KPI Cards (with animated counters) ────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Total Business */}
           <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
@@ -585,7 +764,7 @@ export default function CRMDashboard() {
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">Total Business</p>
                   <p className="text-2xl font-bold text-gray-900 tracking-tight">
-                    {formatCompactPKR(dashboard.totalBusiness)}
+                    <AnimatedValue value={dashboard.totalBusiness} />
                   </p>
                   <p className="text-xs text-muted-foreground">
                     From {wonCount} won proposals
@@ -664,8 +843,8 @@ export default function CRMDashboard() {
                     target
                   </p>
                 </div>
-                <div className="h-11 w-11 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                  <Calendar className="h-5 w-5 text-blue-600" />
+                <div className="h-11 w-11 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
+                  <Calendar className="h-5 w-5 text-teal-600" />
                 </div>
               </div>
               <div className="mt-3 space-y-1.5">
@@ -721,7 +900,7 @@ export default function CRMDashboard() {
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
-                {Object.entries(dashboard.proposalStatusSummary).map(
+                {Object.entries(dashboard.proposalStatusSummary || {}).map(
                   ([status, count]) =>
                     count > 0 && (
                       <Badge
@@ -738,7 +917,78 @@ export default function CRMDashboard() {
           </Card>
         </div>
 
-        {/* ── Row 2: Charts ──────────────────────────────────────────── */}
+        {/* ── Row 2: Quick Stats ──────────────────────────────────────── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Average Proposal Value */}
+          <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+                  <DollarSign className="h-4.5 w-4.5 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Avg Proposal Value</p>
+                  <p className="text-lg font-bold text-gray-900 tracking-tight">
+                    {formatCompactPKR(pipelineStats.averageProposalValue || 0)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Conversion Rate */}
+          <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-teal-50 flex items-center justify-center shrink-0">
+                  <Percent className="h-4.5 w-4.5 text-teal-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Conversion Rate</p>
+                  <p className="text-lg font-bold text-gray-900 tracking-tight">
+                    {pipelineStats.conversionRate || 0}%
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Average Days to Win */}
+          <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                  <Timer className="h-4.5 w-4.5 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Avg Days to Win</p>
+                  <p className="text-lg font-bold text-gray-900 tracking-tight">
+                    {pipelineStats.avgDaysToWin || 0} days
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pipeline Value */}
+          <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-rose-50 flex items-center justify-center shrink-0">
+                  <Activity className="h-4.5 w-4.5 text-rose-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Pipeline Value</p>
+                  <p className="text-lg font-bold text-gray-900 tracking-tight">
+                    {formatCompactPKR(pipelineStats.pipelineValue || 0)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Row 3: Target vs Actual + Win Rate Funnel ──────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Target vs Actual Bar Chart */}
           <Card className="rounded-xl shadow-sm border bg-white">
@@ -796,6 +1046,92 @@ export default function CRMDashboard() {
             </CardContent>
           </Card>
 
+          {/* Win Rate Funnel */}
+          <Card className="rounded-xl shadow-sm border bg-white">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <Funnel className="h-4 w-4 text-gray-500" />
+                <CardTitle className="text-base font-semibold text-gray-900">
+                  Win Rate Funnel
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pb-4">
+              <div className="space-y-3">
+                {funnelData.map((stage, index) => {
+                  const maxCount = funnelData.length > 0 ? funnelData[0].count : 1
+                  const widthPct = maxCount > 0 ? Math.max((stage.count / maxCount) * 100, 8) : 8
+
+                  return (
+                    <div key={stage.status} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-3 w-3 rounded-sm shrink-0"
+                            style={{ backgroundColor: stage.color }}
+                          />
+                          <span className="text-sm font-medium text-gray-800">{stage.status}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-bold text-gray-900">{stage.count}</span>
+                          {index > 0 && stage.dropOff > 0 && (
+                            <span className="text-[10px] font-medium text-red-500 bg-red-50 px-1.5 py-0.5 rounded">
+                              -{stage.dropOff}% drop
+                            </span>
+                          )}
+                          <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                            {stage.conversion}% of total
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex justify-center">
+                        <div
+                          className="h-8 rounded-lg transition-all duration-700 ease-out flex items-center justify-center"
+                          style={{
+                            width: `${widthPct}%`,
+                            backgroundColor: stage.color,
+                            opacity: 0.85,
+                            minWidth: '40px',
+                          }}
+                        >
+                          <span className="text-[10px] font-semibold text-white">
+                            {stage.count}
+                          </span>
+                        </div>
+                      </div>
+                      {index < funnelData.length - 1 && (
+                        <div className="flex justify-center">
+                          <svg width="16" height="12" className="text-gray-300">
+                            <path d="M4 0 L8 8 L12 0" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {funnelData.length > 1 && (
+                  <div className="mt-3 pt-3 border-t">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">Overall Win Rate</span>
+                      <span className="text-sm font-bold text-emerald-600">
+                        {funnelData[0].count > 0
+                          ? Math.round(
+                              ((funnelData[funnelData.length - 1].count) / funnelData[0].count) * 100
+                            )
+                          : 0}
+                        %
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Row 4: Service-wise + Client Analytics ─────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Service-wise Business Summary */}
           <Card className="rounded-xl shadow-sm border bg-white">
             <CardHeader className="pb-2">
@@ -857,9 +1193,93 @@ export default function CRMDashboard() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Client Analytics */}
+          <Card className="rounded-xl shadow-sm border bg-white">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-gray-500" />
+                <CardTitle className="text-base font-semibold text-gray-900">
+                  Client Analytics
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pb-4">
+              <div className="grid grid-cols-3 gap-4 mb-5">
+                {/* Active/Inactive Donut */}
+                <div className="col-span-1 flex flex-col items-center justify-center">
+                  <div className="relative">
+                    <ActiveInactiveDonut
+                      active={clientAnalytics?.activeClients || 0}
+                      inactive={clientAnalytics?.inactiveClients || 0}
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-700">
+                      {clientAnalytics?.activeClients || 0}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-center">
+                    <p className="text-[10px] text-muted-foreground">Active / Inactive</p>
+                    <p className="text-xs font-semibold text-gray-700">
+                      {clientAnalytics?.activeClients || 0} / {clientAnalytics?.inactiveClients || 0}
+                    </p>
+                  </div>
+                </div>
+
+                {/* New clients metric */}
+                <div className="col-span-2 flex flex-col justify-center gap-3">
+                  <div className="bg-emerald-50 rounded-lg p-3">
+                    <p className="text-xs font-medium text-emerald-600">New Clients This Month</p>
+                    <p className="text-2xl font-bold text-emerald-700">{clientAnalytics?.newClientsThisMonth || 0}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-xs font-medium text-gray-500">Total Clients</p>
+                    <p className="text-2xl font-bold text-gray-900">{dashboard.clientCounts?.total || 0}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Top 5 Clients */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Top 5 Clients by Won Value</p>
+                <div className="space-y-2.5">
+                  {(topClients || []).length > 0 ? (
+                    (topClients || []).map((client, idx) => (
+                      <div key={client.id} className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-gray-400 w-4">
+                              {idx + 1}
+                            </span>
+                            <span className="text-xs font-medium text-gray-800 truncate max-w-[140px]">
+                              {client.name}
+                            </span>
+                          </div>
+                          <span className="text-xs font-semibold text-gray-900">
+                            {formatCompactPKR(client.wonValue)}
+                          </span>
+                        </div>
+                        <div className="ml-6 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-emerald-400 transition-all duration-700 ease-out"
+                            style={{
+                              width: `${maxClientValue > 0 ? (client.wonValue / maxClientValue) * 100 : 0}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center py-4">
+                      No client data available
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* ── Row 3: Pie Chart & Quarterly Progress ───────────────────── */}
+        {/* ── Row 5: Proposal Status Pie + Quarterly Progress ─────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Proposal Status Summary - Pie Chart */}
           <Card className="rounded-xl shadow-sm border bg-white">
@@ -946,7 +1366,7 @@ export default function CRMDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pb-4 space-y-5">
-              {dashboard.quarterlyProgress.map((q) => {
+              {(dashboard.quarterlyProgress || []).map((q) => {
                 const pct =
                   q.target > 0 ? Math.round((q.actual / q.target) * 100) : 0
                 const isOverAchieved = pct >= 100
@@ -1058,7 +1478,144 @@ export default function CRMDashboard() {
           </Card>
         </div>
 
-        {/* ── Row 4: Tables ──────────────────────────────────────────── */}
+        {/* ── Row 6: Team Performance + Revenue Trend ─────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Team Performance Leaderboard */}
+          <Card className="rounded-xl shadow-sm border bg-white">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-amber-500" />
+                <CardTitle className="text-base font-semibold text-gray-900">
+                  Team Performance
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pb-4">
+              <div className="space-y-3 max-h-72 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+                {teamPerformance.length > 0 ? (
+                  teamPerformance.map((member, idx) => {
+                    const rankBadges = ['🥇', '🥈', '🥉']
+                    const rankBadge = idx < 3 ? rankBadges[idx] : null
+                    const barPct = maxTeamValue > 0 ? (member.wonValue / maxTeamValue) * 100 : 0
+
+                    return (
+                      <div key={member.id} className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-6 text-center text-sm">
+                              {rankBadge || (
+                                <span className="text-xs font-bold text-gray-400">
+                                  {idx + 1}
+                                </span>
+                              )}
+                            </span>
+                            <div>
+                              <span className="text-sm font-medium text-gray-800">
+                                {member.name}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground ml-1.5">
+                                {member.wonProposals} won
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-sm font-bold text-gray-900">
+                            {formatCompactPKR(member.wonValue)}
+                          </span>
+                        </div>
+                        <div className="ml-8 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-700 ease-out ${
+                              idx === 0
+                                ? 'bg-amber-400'
+                                : idx === 1
+                                  ? 'bg-gray-400'
+                                  : idx === 2
+                                    ? 'bg-orange-400'
+                                    : 'bg-emerald-400'
+                            }`}
+                            style={{ width: `${barPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
+                    No team performance data
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Revenue Trend Sparkline */}
+          <Card className="rounded-xl shadow-sm border bg-white">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold text-gray-900">
+                  Revenue Trend — {filters.year}
+                </CardTitle>
+                <Badge variant="outline" className="text-[10px] h-5 bg-emerald-50 text-emerald-700 border-emerald-200">
+                  12 Month
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pb-4">
+              <div className="h-72">
+                {revenueTrendData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={revenueTrendData}
+                      margin={{ top: 10, right: 20, left: 10, bottom: 5 }}
+                    >
+                      <defs>
+                        <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis
+                        dataKey="month"
+                        tick={{ fontSize: 11, fill: '#64748b' }}
+                        axisLine={{ stroke: '#e2e8f0' }}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: '#64748b' }}
+                        axisLine={{ stroke: '#e2e8f0' }}
+                        tickFormatter={(v) => formatCompactPKR(v)}
+                      />
+                      <Tooltip
+                        formatter={(value: number) => [formatPKR(value), 'Revenue']}
+                        contentStyle={{
+                          borderRadius: '8px',
+                          border: '1px solid #e2e8f0',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          fontSize: '12px',
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="revenue"
+                        stroke="#10b981"
+                        strokeWidth={2.5}
+                        fill="url(#revenueGradient)"
+                        dot={{ r: 3, fill: '#10b981', strokeWidth: 0 }}
+                        activeDot={{ r: 5, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                    No revenue data
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Row 7: Recent Proposals + Upcoming Deadlines ────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Recent Proposals */}
           <Card className="rounded-xl shadow-sm border bg-white">
@@ -1079,8 +1636,8 @@ export default function CRMDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dashboard.recentProposals.length > 0 ? (
-                    dashboard.recentProposals.map((p) => (
+                  {(dashboard.recentProposals || []).length > 0 ? (
+                    (dashboard.recentProposals || []).map((p) => (
                       <TableRow key={p.id}>
                         <TableCell className="text-sm font-medium max-w-[160px] truncate">
                           {p.name}
@@ -1141,8 +1698,8 @@ export default function CRMDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dashboard.upcomingDeadlines.length > 0 ? (
-                    dashboard.upcomingDeadlines.map((p) => {
+                  {(dashboard.upcomingDeadlines || []).length > 0 ? (
+                    (dashboard.upcomingDeadlines || []).map((p) => {
                       const deadlineDate = p.deadline
                         ? parseISO(p.deadline)
                         : null

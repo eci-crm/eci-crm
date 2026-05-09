@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { MessageCircle, X, Send, Bot, User, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
@@ -95,7 +94,7 @@ export function CRMChatbot() {
   const [isOpen, setIsOpen] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>(DEFAULT_SUGGESTIONS)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
 
@@ -131,12 +130,7 @@ export function CRMChatbot() {
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (scrollRef.current) {
-      const viewport = scrollRef.current.querySelector('[data-slot="scroll-area-viewport"]')
-      if (viewport) {
-        viewport.scrollTop = viewport.scrollHeight
-      }
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, sendMessage.isPending])
 
   // Focus input when chat opens
@@ -203,7 +197,7 @@ export function CRMChatbot() {
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             className="fixed bottom-6 right-6 z-50 flex flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl dark:bg-slate-900"
-            style={{ width: 380, height: 500 }}
+            style={{ width: 400, height: 560 }}
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3">
@@ -226,7 +220,7 @@ export function CRMChatbot() {
             </div>
 
             {/* Messages Area */}
-            <ScrollArea ref={scrollRef} className="flex-1 p-4">
+            <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarGutter: 'stable' }}>
               {messages.length === 0 && !sendMessage.isPending ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/30">
@@ -295,9 +289,12 @@ export function CRMChatbot() {
                       </div>
                     </motion.div>
                   )}
+
+                  {/* Scroll anchor */}
+                  <div ref={messagesEndRef} />
                 </div>
               )}
-            </ScrollArea>
+            </div>
 
             {/* Suggestions */}
             <div className="border-t border-border/50 px-3 py-2">

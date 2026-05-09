@@ -917,8 +917,8 @@ export default function Proposals() {
       {/* ── Add/Edit Dialog ──────────────────────────────────────────────────── */}
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-3xl max-h-[92vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
             <DialogTitle>{editingProposal ? 'Edit Proposal' : 'Add Proposal'}</DialogTitle>
             <DialogDescription>
               {editingProposal
@@ -927,7 +927,7 @@ export default function Proposals() {
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="flex-1 overflow-y-auto px-6 min-h-0">
             <div className="space-y-6 pb-4">
               {/* ── Basic Info ────────────────────────────────────────── */}
               <div>
@@ -1220,9 +1220,9 @@ export default function Proposals() {
                 </div>
               </div>
             </div>
-          </ScrollArea>
+          </div>
 
-          <DialogFooter className="pt-4 border-t">
+          <DialogFooter className="px-6 py-4 border-t shrink-0 bg-background">
             <Button variant="outline" onClick={closeDialog} disabled={isSaving}>
               Cancel
             </Button>
