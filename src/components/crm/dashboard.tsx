@@ -149,6 +149,12 @@ interface DashboardData {
   pipelineStats: PipelineStats
   monthlyRevenueTrend: MonthlyRevenueTrend[]
   availableYears: number[]
+  periodInfo?: {
+    isFullYear: boolean
+    periodTarget: number
+    annualTarget: number
+    yearProportion: number
+  }
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -423,15 +429,12 @@ export default function CRMDashboard() {
     return getDateRangeForPeriod(activePeriod, parseInt(selectedYear))
   }, [activePeriod, selectedYear, customStartDate, customEndDate])
 
-  // Build query params
+  // Build query params — ALWAYS send startDate/endDate for consistent filtering
   const queryParams = useMemo(() => {
     const params = new URLSearchParams()
     params.set('year', selectedYear)
-    // Always pass startDate/endDate for date range filtering
-    if (activePeriod !== 'thisYear') {
-      params.set('startDate', format(computedDateRange.start, 'yyyy-MM-dd'))
-      params.set('endDate', format(computedDateRange.end, 'yyyy-MM-dd'))
-    }
+    params.set('startDate', format(computedDateRange.start, 'yyyy-MM-dd'))
+    params.set('endDate', format(computedDateRange.end, 'yyyy-MM-dd'))
     return params.toString()
   }, [selectedYear, activePeriod, computedDateRange])
 
@@ -489,7 +492,13 @@ export default function CRMDashboard() {
   // Current month for monthly progress card
   const currentMonthIndex = new Date().getMonth()
   const currentMonthData = dashboard?.monthlyProgress?.[currentMonthIndex]
-  const currentMonthName = format(new Date(), 'MMMM')
+  // Use the first month in the filtered data if current month isn't in range
+  const displayedMonthData = currentMonthData || (dashboard?.monthlyProgress?.length ? dashboard.monthlyProgress[dashboard.monthlyProgress.length - 1] : null)
+  const currentMonthName = displayedMonthData?.month || format(new Date(), 'MMMM')
+
+  // Period info from API
+  const periodInfo = dashboard?.periodInfo
+  const isFullYear = periodInfo?.isFullYear ?? true
 
   // Proposal status for pie chart
   const proposalStatusData = useMemo(() => {
@@ -639,8 +648,8 @@ export default function CRMDashboard() {
   // ─── Render ────────────────────────────────────────────────────────────
 
   const monthlyProgressPct =
-    currentMonthData && currentMonthData.target > 0
-      ? Math.min(Math.round((currentMonthData.actual / currentMonthData.target) * 100), 100)
+    displayedMonthData && displayedMonthData.target > 0
+      ? Math.min(Math.round((displayedMonthData.actual / displayedMonthData.target) * 100), 100)
       : 0
 
   return (
@@ -801,7 +810,7 @@ export default function CRMDashboard() {
                     <AnimatedValue value={dashboard.totalBusiness} />
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    From {wonCount} won proposals
+                    From {wonCount} won proposal{wonCount !== 1 ? 's' : ''} {!isFullYear && <span className="text-amber-600">({periodSubtitle})</span>}
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
@@ -823,12 +832,17 @@ export default function CRMDashboard() {
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
                 <div className="space-y-1.5">
-                  <p className="text-sm font-medium text-muted-foreground">Target Achievement</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {isFullYear ? 'Target Achievement' : 'Period Target Achievement'}
+                  </p>
                   <p className="text-3xl font-bold text-gray-900 tracking-tight">
                     {dashboard.targetVsActual.percentageAchieved}%
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Remaining: {formatCompactPKR(dashboard.targetVsActual.remaining)}
+                    {!isFullYear && periodInfo && (
+                      <span className="text-amber-600 ml-1">({periodInfo.yearProportion}% of annual)</span>
+                    )}
                   </p>
                 </div>
                 <div className="relative shrink-0">
@@ -860,12 +874,14 @@ export default function CRMDashboard() {
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
                 <div className="space-y-1.5">
-                  <p className="text-sm font-medium text-muted-foreground">Monthly Progress</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {isFullYear ? 'Monthly Progress' : 'Period Progress'}
+                  </p>
                   <p className="text-3xl font-bold text-gray-900 tracking-tight">
-                    {currentMonthData ? formatCompactPKR(currentMonthData.actual) : '₨ 0'}
+                    {displayedMonthData ? formatCompactPKR(displayedMonthData.actual) : '₨ 0'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    of {currentMonthData ? formatCompactPKR(currentMonthData.target) : '₨ 0'} target
+                    of {displayedMonthData ? formatCompactPKR(displayedMonthData.target) : '₨ 0'} target
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
@@ -888,7 +904,9 @@ export default function CRMDashboard() {
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
                 <div className="space-y-1.5">
-                  <p className="text-sm font-medium text-muted-foreground">Proposal Pipeline</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {isFullYear ? 'Proposal Pipeline' : `Pipeline (${periodSubtitle})`}
+                  </p>
                   <p className="text-3xl font-bold text-gray-900 tracking-tight">
                     {wonCount}
                     <span className="text-lg font-normal text-muted-foreground"> / {totalProposals}</span>
@@ -998,7 +1016,7 @@ export default function CRMDashboard() {
             <CardHeader className="pb-2 pt-5 px-5">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold text-gray-900">
-                  Target vs Actual — Monthly
+                  Target vs Actual — {isFullYear ? 'Monthly' : periodSubtitle}
                 </CardTitle>
                 <Badge variant="outline" className="text-[10px] h-5 bg-gray-50 text-gray-600 border-gray-200 rounded-lg">
                   {selectedYear}
@@ -1137,7 +1155,7 @@ export default function CRMDashboard() {
                   Revenue Trend
                 </CardTitle>
                 <Badge variant="outline" className="text-[10px] h-5 bg-emerald-50 text-emerald-700 border-emerald-200 rounded-lg">
-                  12 Month
+                  {isFullYear ? '12 Month' : periodSubtitle}
                 </Badge>
               </div>
             </CardHeader>
@@ -1271,7 +1289,7 @@ export default function CRMDashboard() {
                   <FileText className="h-4 w-4 text-teal-600" />
                 </div>
                 <CardTitle className="text-base font-semibold text-gray-900">
-                  Recent Activity — {selectedYear}
+                  Recent Activity — {isFullYear ? selectedYear : periodSubtitle}
                 </CardTitle>
               </div>
             </div>
@@ -1506,7 +1524,7 @@ export default function CRMDashboard() {
                   <Target className="h-4 w-4 text-teal-600" />
                 </div>
                 <CardTitle className="text-base font-semibold text-gray-900">
-                  Quarterly Progress — {selectedYear}
+                  Quarterly Progress — {isFullYear ? selectedYear : periodSubtitle}
                 </CardTitle>
               </div>
             </div>

@@ -79,95 +79,97 @@ export async function GET(request: NextRequest) {
     }
     const availableYears = Array.from(yearSet).sort((a, b) => a - b)
 
-    // Client counts
+    // ─── Fetch ALL proposals once (with related data) for efficiency ─────
+    const allProposals = await db.proposal.findMany({
+      include: {
+        client: { select: { id: true, name: true, status: true } },
+        assignedMember: { select: { id: true, name: true, role: true } },
+        thematicAreas: { include: { thematicArea: true } },
+        services: { include: { service: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    // ─── Helper: check if a date falls within the selected range ────────
+    function isInDateRange(date: Date): boolean {
+      return date >= startDate && date <= endDate
+    }
+
+    // ─── Helper: get the effective date for a proposal (submissionDate or createdAt) ─
+    function getProposalDate(p: { createdAt: Date; submissionDate: Date | null }): Date {
+      return p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
+    }
+
+    // ─── Helper: check if proposal matches service filter ──────────────
+    function matchesService(proposalServices: { serviceId: string }[]): boolean {
+      if (!serviceId) return true
+      return proposalServices.some((s) => s.serviceId === serviceId)
+    }
+
+    // ─── Filter proposals by date range and service ──────────────────────
+    const proposalsInRange = allProposals.filter((p) => {
+      const pDate = getProposalDate(p)
+      return isInDateRange(pDate) && matchesService(p.services)
+    })
+
+    // ─── Client counts ─────────────────────────────────────────────────
     const totalClients = await db.client.count()
     const activeClients = await db.client.count({ where: { status: 'Active' } })
     const inactiveClients = await db.client.count({ where: { status: 'Inactive' } })
 
-    // Proposal counts
-    const totalProposals = await db.proposal.count({
-      where: {
-        createdAt: { gte: startDate, lte: endDate },
-      },
-    })
-
-    const proposalsByStatus = await db.proposal.groupBy({
-      by: ['status'],
-      where: {
-        createdAt: { gte: startDate, lte: endDate },
-      },
-      _count: { status: true },
-    })
+    // ─── Proposal counts (filtered by date range) ─────────────────────
+    const totalProposals = proposalsInRange.length
 
     const proposalCountsByStatus: Record<string, number> = {}
-    for (const item of proposalsByStatus) {
-      proposalCountsByStatus[item.status] = item._count.status
+    for (const p of proposalsInRange) {
+      proposalCountsByStatus[p.status] = (proposalCountsByStatus[p.status] || 0) + 1
     }
 
-    // Total business (won proposals) - use submissionDate for business tracking
-    const wonProposals = await db.proposal.findMany({
-      where: {
-        status: 'Won',
-      },
-      select: { value: true, createdAt: true, submissionDate: true, services: { include: { service: true } } },
-    })
+    // ─── Total business (won proposals within date range) ──────────────
+    const wonProposalsInRange = proposalsInRange.filter((p) => p.status === 'Won')
+    const totalBusiness = wonProposalsInRange.reduce((sum, p) => sum + p.value, 0)
 
-    let totalBusiness = 0
-    for (const p of wonProposals) {
-      const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
-      if (pDate >= startDate && pDate <= endDate) {
-        if (serviceId) {
-          if (p.services.some((s) => s.serviceId === serviceId)) {
-            totalBusiness += p.value
-          }
-        } else {
-          totalBusiness += p.value
-        }
-      }
-    }
-
-    // Targets
+    // ─── Targets ─────────────────────────────────────────────────────
     const targetWhere: Record<string, unknown> = { year }
     if (serviceId) targetWhere.serviceId = serviceId
 
     const targets = await db.businessTarget.findMany({ where: targetWhere })
 
-    // Annual target - must be calculated before monthly/quarterly loops that reference it
+    // Annual target
     const annualTargetRow = targets.find((t) => t.month === null)
     const annualTarget = annualTargetRow ? annualTargetRow.amount : targets.reduce((sum, t) => sum + t.amount, 0)
+
+    // ─── Pro-rate target for sub-year periods ─────────────────────────
+    // Calculate what proportion of the year the date range covers
+    const yearStart = new Date(year, 0, 1)
+    const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999)
+    const totalYearMs = yearEnd.getTime() - yearStart.getTime()
+    const rangeMs = endDate.getTime() - startDate.getTime()
+    const yearProportion = totalYearMs > 0 ? Math.min(rangeMs / totalYearMs, 1) : 1
+
+    // Pro-rated target based on the selected date range
+    const periodTarget = Math.round(annualTarget * yearProportion)
     const annualActual = totalBusiness
 
-    // Monthly progress
+    // ─── Monthly progress (filtered by date range) ────────────────────
     const monthlyProgress = []
     for (let m = 0; m < 12; m++) {
       const monthStart = new Date(year, m, 1)
       const monthEnd = new Date(year, m + 1, 0, 23, 59, 59, 999)
+
+      // Check if this month overlaps with the selected date range
+      if (monthEnd < startDate || monthStart > endDate) continue
 
       const monthTargets = targets.filter((t) => t.month === m + 1)
       const monthTargetAmount = monthTargets.length > 0
         ? monthTargets.reduce((sum, t) => sum + t.amount, 0)
         : (annualTarget > 0 ? Math.round(annualTarget / 12) : 0)
 
-      const monthWonProposals = await db.proposal.findMany({
-        where: {
-          status: 'Won',
-        },
-        select: { value: true, createdAt: true, submissionDate: true, services: { select: { serviceId: true } } },
+      const monthWon = wonProposalsInRange.filter((p) => {
+        const pDate = getProposalDate(p)
+        return pDate >= monthStart && pDate <= monthEnd
       })
-
-      let monthActual = 0
-      for (const p of monthWonProposals) {
-        const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
-        if (pDate >= monthStart && pDate <= monthEnd) {
-          if (serviceId) {
-            if (p.services.some((s) => s.serviceId === serviceId)) {
-              monthActual += p.value
-            }
-          } else {
-            monthActual += p.value
-          }
-        }
-      }
+      const monthActual = monthWon.reduce((sum, p) => sum + p.value, 0)
 
       monthlyProgress.push({
         month: MONTH_NAMES[m],
@@ -176,38 +178,26 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Quarterly progress
+    // ─── Quarterly progress (filtered by date range) ──────────────────
     const quarterlyProgress = []
     for (let q = 1; q <= 4; q++) {
       const startMonth = (q - 1) * 3
       const qStart = new Date(year, startMonth, 1)
       const qEnd = new Date(year, startMonth + 3, 0, 23, 59, 59, 999)
 
+      // Check if this quarter overlaps with the selected date range
+      if (qEnd < startDate || qStart > endDate) continue
+
       const qTargets = targets.filter((t) => t.month !== null && getQuarter(t.month - 1) === q)
       const qTargetAmount = qTargets.length > 0
         ? qTargets.reduce((sum, t) => sum + t.amount, 0)
         : (annualTarget > 0 ? Math.round(annualTarget / 4) : 0)
 
-      const qWonProposals = await db.proposal.findMany({
-        where: {
-          status: 'Won',
-        },
-        select: { value: true, createdAt: true, submissionDate: true, services: { select: { serviceId: true } } },
+      const qWon = wonProposalsInRange.filter((p) => {
+        const pDate = getProposalDate(p)
+        return pDate >= qStart && pDate <= qEnd
       })
-
-      let qActual = 0
-      for (const p of qWonProposals) {
-        const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
-        if (pDate >= qStart && pDate <= qEnd) {
-          if (serviceId) {
-            if (p.services.some((s) => s.serviceId === serviceId)) {
-              qActual += p.value
-            }
-          } else {
-            qActual += p.value
-          }
-        }
-      }
+      const qActual = qWon.reduce((sum, p) => sum + p.value, 0)
 
       quarterlyProgress.push({
         quarter: `Q${q}`,
@@ -216,52 +206,42 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Target vs actual
-    const overallTarget = annualTarget
+    // ─── Target vs actual (using pro-rated target) ──────────────────
+    const overallTarget = periodTarget
     const overallActual = annualActual
     const percentageAchieved = overallTarget > 0 ? Math.round((overallActual / overallTarget) * 100) : 0
     const remaining = Math.max(0, overallTarget - overallActual)
 
-    // Service-wise summary
+    // ─── Service-wise summary (filtered by date range) ────────────────
     const allServices = await db.service.findMany({ orderBy: { sortOrder: 'asc' } })
     const serviceWiseSummary = []
 
     for (const service of allServices) {
-      const serviceProposals = await db.proposal.findMany({
-        where: {
-          services: { some: { serviceId: service.id } },
-          createdAt: { gte: startDate, lte: endDate },
-        },
-        select: { value: true, status: true },
-      })
+      const serviceProposalsInRange = proposalsInRange.filter((p) =>
+        p.services.some((s) => s.serviceId === service.id)
+      )
 
-      const totalValue = serviceProposals.reduce((sum, p) => sum + p.value, 0)
-      const wonValue = serviceProposals
+      const totalValue = serviceProposalsInRange.reduce((sum, p) => sum + p.value, 0)
+      const wonValue = serviceProposalsInRange
         .filter((p) => p.status === 'Won')
         .reduce((sum, p) => sum + p.value, 0)
 
       serviceWiseSummary.push({
         service: { id: service.id, name: service.name, color: service.color },
-        proposals: serviceProposals.length,
+        proposals: serviceProposalsInRange.length,
         totalValue,
         wonValue,
       })
     }
 
-    // Proposal status summary
+    // ─── Proposal status summary (filtered by date range) ────────────
     const statusOrder = ['Submitted', 'In Process', 'In Evaluation', 'Pending', 'Won', 'Rejected']
     const proposalStatusSummary: Record<string, number> = {}
     for (const status of statusOrder) {
-      const count = await db.proposal.count({
-        where: {
-          status,
-          createdAt: { gte: startDate, lte: endDate },
-        },
-      })
-      proposalStatusSummary[status] = count
+      proposalStatusSummary[status] = proposalsInRange.filter((p) => p.status === status).length
     }
 
-    // Upcoming deadlines (7 days)
+    // ─── Upcoming deadlines (7 days — always from now, not filtered by date range) ─
     const now = new Date()
     const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
     const upcomingDeadlines = await db.proposal.findMany({
@@ -276,48 +256,21 @@ export async function GET(request: NextRequest) {
       take: 10,
     })
 
-    // Recent proposals
-    const recentProposals = await db.proposal.findMany({
-      include: {
-        client: true,
-        assignedMember: true,
-        thematicAreas: { include: { thematicArea: true } },
-        services: { include: { service: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-    })
+    // ─── Recent proposals (filtered by date range) ───────────────────
+    const recentProposals = proposalsInRange.slice(0, 5)
 
-    // ─── Client Analytics ───────────────────────────────────────────────────
-    const allWonProposalsWithClient = await db.proposal.findMany({
-      where: {
-        status: 'Won',
-      },
-      select: {
-        value: true,
-        createdAt: true,
-        submissionDate: true,
-        clientId: true,
-        client: { select: { id: true, name: true, status: true } },
-        services: { select: { serviceId: true } },
-      },
-    })
-
+    // ─── Client Analytics (filtered by date range) ────────────────────
     const clientWonMap: Record<string, { id: string; name: string; status: string; wonValue: number }> = {}
-    for (const p of allWonProposalsWithClient) {
-      const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
-      if (pDate >= startDate && pDate <= endDate) {
-        if (serviceId && !p.services.some((s) => s.serviceId === serviceId)) continue
-        if (!clientWonMap[p.clientId]) {
-          clientWonMap[p.clientId] = {
-            id: p.client.id,
-            name: p.client.name,
-            status: p.client.status,
-            wonValue: 0,
-          }
+    for (const p of wonProposalsInRange) {
+      if (!clientWonMap[p.clientId]) {
+        clientWonMap[p.clientId] = {
+          id: p.client.id,
+          name: p.client.name,
+          status: p.client.status,
+          wonValue: 0,
         }
-        clientWonMap[p.clientId].wonValue += p.value
       }
+      clientWonMap[p.clientId].wonValue += p.value
     }
 
     const topClients = Object.values(clientWonMap)
@@ -339,40 +292,19 @@ export async function GET(request: NextRequest) {
       newClientsThisMonth,
     }
 
-    // ─── Team Performance ───────────────────────────────────────────────────
+    // ─── Team Performance (filtered by date range) ──────────────────
     const allTeamMembers = await db.teamMember.findMany({
       where: { isActive: true },
       select: { id: true, name: true, role: true },
     })
 
-    const allWonWithMember = await db.proposal.findMany({
-      where: {
-        status: 'Won',
-        assignedMemberId: { not: null },
-      },
-      select: {
-        value: true,
-        createdAt: true,
-        submissionDate: true,
-        assignedMemberId: true,
-        services: { select: { serviceId: true } },
-      },
-    })
-
     const teamPerformanceData = []
     for (const member of allTeamMembers) {
-      let wonCount = 0
-      let wonValue = 0
-
-      for (const p of allWonWithMember) {
-        if (p.assignedMemberId !== member.id) continue
-        const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
-        if (pDate >= startDate && pDate <= endDate) {
-          if (serviceId && !p.services.some((s) => s.serviceId === serviceId)) continue
-          wonCount++
-          wonValue += p.value
-        }
-      }
+      const memberWonProposals = wonProposalsInRange.filter(
+        (p) => p.assignedMemberId === member.id
+      )
+      const wonCount = memberWonProposals.length
+      const wonValue = memberWonProposals.reduce((sum, p) => sum + p.value, 0)
 
       teamPerformanceData.push({
         id: member.id,
@@ -384,27 +316,9 @@ export async function GET(request: NextRequest) {
     }
 
     teamPerformanceData.sort((a, b) => b.wonValue - a.wonValue)
-
     const teamPerformance = teamPerformanceData
 
-    // ─── Pipeline Stats ─────────────────────────────────────────────────────
-    const allProposalsForPipeline = await db.proposal.findMany({
-      select: {
-        value: true,
-        status: true,
-        createdAt: true,
-        submissionDate: true,
-        services: { select: { serviceId: true } },
-      },
-    })
-
-    const proposalsInRange = allProposalsForPipeline.filter((p) => {
-      const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
-      if (pDate < startDate || pDate > endDate) return false
-      if (serviceId && !p.services.some((s) => s.serviceId === serviceId)) return false
-      return true
-    })
-
+    // ─── Pipeline Stats (filtered by date range) ────────────────────
     const totalProposalValue = proposalsInRange.reduce((sum, p) => sum + p.value, 0)
     const proposalsInRangeCount = proposalsInRange.length
     const averageProposalValue = proposalsInRangeCount > 0 ? Math.round(totalProposalValue / proposalsInRangeCount) : 0
@@ -437,38 +351,30 @@ export async function GET(request: NextRequest) {
       pipelineValue,
     }
 
-    // ─── Monthly Revenue Trend (12 months) ─────────────────────────────────
+    // ─── Monthly Revenue Trend (filtered by date range) ─────────────
     const monthlyRevenueTrend = []
     for (let m = 0; m < 12; m++) {
       const mStart = new Date(year, m, 1)
       const mEnd = new Date(year, m + 1, 0, 23, 59, 59, 999)
 
-      const monthWonAll = await db.proposal.findMany({
-        where: {
-          status: 'Won',
-        },
-        select: { value: true, createdAt: true, submissionDate: true, services: { select: { serviceId: true } } },
-      })
+      // Only include months that overlap with the selected date range
+      if (mEnd < startDate || mStart > endDate) continue
 
-      let mRevenue = 0
-      for (const p of monthWonAll) {
-        const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
-        if (pDate >= mStart && pDate <= mEnd) {
-          if (serviceId) {
-            if (p.services.some((s) => s.serviceId === serviceId)) {
-              mRevenue += p.value
-            }
-          } else {
-            mRevenue += p.value
-          }
-        }
-      }
+      const mWon = wonProposalsInRange.filter((p) => {
+        const pDate = getProposalDate(p)
+        return pDate >= mStart && pDate <= mEnd
+      })
+      const mRevenue = mWon.reduce((sum, p) => sum + p.value, 0)
 
       monthlyRevenueTrend.push({
         month: MONTH_NAMES[m],
         revenue: mRevenue,
       })
     }
+
+    // ─── Period label for the frontend ──────────────────────────────
+    const isFullYear = startDate.getTime() === new Date(year, 0, 1).getTime() &&
+      endDate.getTime() === new Date(year, 11, 31, 23, 59, 59, 999).getTime()
 
     return NextResponse.json({
       clientCounts: {
@@ -502,6 +408,12 @@ export async function GET(request: NextRequest) {
       pipelineStats,
       monthlyRevenueTrend,
       availableYears,
+      periodInfo: {
+        isFullYear,
+        periodTarget,
+        annualTarget,
+        yearProportion: Math.round(yearProportion * 100),
+      },
     })
   } catch (error) {
     console.error('Error fetching dashboard:', error)

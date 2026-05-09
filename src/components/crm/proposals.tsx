@@ -179,6 +179,7 @@ type SortField =
   | 'winningChances'
   | 'assignedMember'
   | 'deadline'
+  | 'createdAt'
 type SortDirection = 'asc' | 'desc'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -375,6 +376,10 @@ export default function Proposals() {
           comparison =
             (a.deadline ? new Date(a.deadline).getTime() : 0) -
             (b.deadline ? new Date(b.deadline).getTime() : 0)
+          break
+        case 'createdAt':
+          comparison =
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
           break
         default:
           comparison = 0
