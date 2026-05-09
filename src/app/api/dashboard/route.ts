@@ -102,6 +102,11 @@ export async function GET(request: NextRequest) {
 
     const targets = await db.businessTarget.findMany({ where: targetWhere })
 
+    // Annual target - must be calculated before monthly/quarterly loops that reference it
+    const annualTargetRow = targets.find((t) => t.month === null)
+    const annualTarget = annualTargetRow ? annualTargetRow.amount : targets.reduce((sum, t) => sum + t.amount, 0)
+    const annualActual = totalBusiness
+
     // Monthly progress
     const monthlyProgress = []
     for (let m = 0; m < 12; m++) {
@@ -180,11 +185,6 @@ export async function GET(request: NextRequest) {
         actual: qActual,
       })
     }
-
-    // Annual progress - get annual target (month === null means annual, or sum of monthly)
-    const annualTargetRow = targets.find((t) => t.month === null)
-    const annualTarget = annualTargetRow ? annualTargetRow.amount : targets.reduce((sum, t) => sum + t.amount, 0)
-    const annualActual = totalBusiness
 
     // Target vs actual
     const overallTarget = annualTarget

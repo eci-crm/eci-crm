@@ -325,13 +325,13 @@ export default function CRMDashboard() {
   const targetActualChartData = useMemo(() => {
     if (!dashboard) return []
     if (filters.quarter !== '') {
-      return dashboard.quarterlyProgress.map((q) => ({
+      return (dashboard.quarterlyProgress || []).map((q) => ({
         name: q.quarter,
         Target: q.target,
         Actual: q.actual,
       }))
     }
-    return dashboard.monthlyProgress.map((m) => ({
+    return (dashboard.monthlyProgress || []).map((m) => ({
       name: m.month,
       Target: m.target,
       Actual: m.actual,
