@@ -92,16 +92,23 @@ export function LoginPage() {
           <div className="absolute top-1/2 left-1/3 h-96 w-96 rounded-full bg-cyan-500/10 blur-[120px]" />
         </motion.div>
 
-        {/* Floating orbs */}
-        {[...Array(6)].map((_, i) => (
+        {/* Floating orbs - deterministic sizes/positions to avoid hydration mismatch */}
+        {[
+          { w: 60, h: 50, top: 47, left: 95, dur: 5.2, delay: 0 },
+          { w: 28, h: 46, top: 89, left: 60, dur: 6.1, delay: 0.5 },
+          { w: 40, h: 57, top: 62, left: 18, dur: 4.8, delay: 1.0 },
+          { w: 35, h: 35, top: 40, left: 69, dur: 5.7, delay: 1.5 },
+          { w: 26, h: 92, top: 97, left: 1, dur: 7.0, delay: 2.0 },
+          { w: 54, h: 88, top: 23, left: 58, dur: 6.4, delay: 2.5 },
+        ].map((orb, i) => (
           <motion.div
             key={i}
             className="absolute rounded-full bg-emerald-400/10"
             style={{
-              width: Math.random() * 80 + 20,
-              height: Math.random() * 80 + 20,
-              top: `${Math.random() * 100}%`,
-              left: `${Math.random() * 100}%`,
+              width: orb.w,
+              height: orb.h,
+              top: `${orb.top}%`,
+              left: `${orb.left}%`,
             }}
             animate={{
               y: [0, -30, 0],
@@ -109,9 +116,9 @@ export function LoginPage() {
               opacity: [0.3, 0.6, 0.3],
             }}
             transition={{
-              duration: 4 + Math.random() * 4,
+              duration: orb.dur,
               repeat: Infinity,
-              delay: i * 0.5,
+              delay: orb.delay,
               ease: 'easeInOut',
             }}
           />
