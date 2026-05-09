@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,20 +7,158 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Client {
+  id        String    @id @default(cuid())
+  name      String
+  address   String    @default("")
+  status    String    @default("Active")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  proposals Proposal[]
 }
 
-model Post {
+model TeamMember {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  password  String    @default("")
+  role      String    @default("Member")
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  proposals Proposal[]
+}
+
+model ThematicArea {
   id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
+  name      String   @unique
+  color     String   @default("#3b82f6")
+  sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  proposals ProposalThematicArea[]
+}
+
+model Service {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String   @default("#10b981")
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  proposals ProposalService[]
+  targets   BusinessTarget[]
+}
+
+model Proposal {
+  id               String   @id @default(cuid())
+  name             String
+  rfpNumber        String   @default("")
+  clientId         String
+  assignedMemberId String?
+  value            Float    @default(0)
+  status           String   @default("In Process")
+  winningChances   String   @default("")
+  focalPerson      String   @default("")
+  followUpDate     DateTime?
+  remarks          String   @default("")
+  deadline         DateTime?
+  submissionDate   DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  client           Client               @relation(fields: [clientId], references: [id])
+  assignedMember   TeamMember?          @relation(fields: [assignedMemberId], references: [id])
+  thematicAreas    ProposalThematicArea[]
+  services         ProposalService[]
+}
+
+model ProposalThematicArea {
+  id            String @id @default(cuid())
+  proposalId    String
+  thematicAreaId String
+
+  proposal      Proposal    @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  thematicArea  ThematicArea @relation(fields: [thematicAreaId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, thematicAreaId])
+}
+
+model ProposalService {
+  id         String  @id @default(cuid())
+  proposalId String
+  serviceId  String
+
+  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, serviceId])
+}
+
+model BusinessTarget {
+  id        String   @id @default(cuid())
+  year      Int
+  month     Int?
+  amount    Float
+  serviceId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  service   Service? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([year, month, serviceId])
+}
+
+model ResourceFolder {
+  id       String          @id @default(cuid())
+  name     String
+  parentId String?
+  parent   ResourceFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children ResourceFolder[] @relation("FolderHierarchy")
+  resources Resource[]
+}
+
+model Resource {
+  id       String         @id @default(cuid())
+  name     String
+  filePath String
+  fileType String
+  fileSize Int
+  fileData String
+  folderId String?
+  folder   ResourceFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+}
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  link      String?
+  userId    String?
+  createdAt DateTime @default(now())
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  action      String
+  entity      String
+  entityId    String?
+  description String
+  userId      String?
+  createdAt   DateTime @default(now())
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  role      String
+  content   String
+  createdAt DateTime @default(now())
 }
