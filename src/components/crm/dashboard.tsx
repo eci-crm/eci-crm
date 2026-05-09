@@ -22,8 +22,6 @@ import {
   TrendingUp,
   Target,
   Calendar,
-  Filter,
-  X,
   ArrowUpRight,
   Clock,
   AlertTriangle,
@@ -32,8 +30,10 @@ import {
   DollarSign,
   Percent,
   Timer,
-  Funnel,
   Activity,
+  Medal,
+  FileText,
+  RefreshCw,
 } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -46,35 +46,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-interface Filters {
-  serviceId: string
-  startDate: string
-  endDate: string
-  month: string
-  quarter: string
-  year: string
-}
-
-interface Service {
-  id: string
-  name: string
-  color: string
-  sortOrder: number
-}
 
 interface MonthlyProgress {
   month: string
@@ -181,6 +156,7 @@ const STATUS_COLORS: Record<string, string> = {
   'In Evaluation': '#8b5cf6',
   Pending: '#f97316',
   Won: '#10b981',
+  Rejected: '#ef4444',
 }
 
 const STATUS_BG: Record<string, string> = {
@@ -189,31 +165,8 @@ const STATUS_BG: Record<string, string> = {
   'In Evaluation': 'bg-purple-100 text-purple-700 border-purple-200',
   Pending: 'bg-orange-100 text-orange-700 border-orange-200',
   Won: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  Rejected: 'bg-red-100 text-red-700 border-red-200',
 }
-
-const MONTHS = [
-  { value: '', label: 'All Months' },
-  { value: '0', label: 'January' },
-  { value: '1', label: 'February' },
-  { value: '2', label: 'March' },
-  { value: '3', label: 'April' },
-  { value: '4', label: 'May' },
-  { value: '5', label: 'June' },
-  { value: '6', label: 'July' },
-  { value: '7', label: 'August' },
-  { value: '8', label: 'September' },
-  { value: '9', label: 'October' },
-  { value: '10', label: 'November' },
-  { value: '11', label: 'December' },
-]
-
-const QUARTERS = [
-  { value: '', label: 'All Quarters' },
-  { value: '1', label: 'Q1 (Jan-Mar)' },
-  { value: '2', label: 'Q2 (Apr-Jun)' },
-  { value: '3', label: 'Q3 (Jul-Sep)' },
-  { value: '4', label: 'Q4 (Oct-Dec)' },
-]
 
 const YEARS = [
   { value: '2024', label: '2024' },
@@ -238,7 +191,6 @@ function useCountUp(end: number, duration: number = 1200): number {
   const prevEnd = useRef(end)
 
   useEffect(() => {
-    // Only re-animate when the end value changes
     if (Math.abs(prevEnd.current - end) < 0.5) return
     prevEnd.current = end
 
@@ -248,7 +200,6 @@ function useCountUp(end: number, duration: number = 1200): number {
     function animate(currentTime: number) {
       const elapsed = currentTime - startTime
       const progress = Math.min(elapsed / duration, 1)
-      // Ease out cubic
       const eased = 1 - Math.pow(1 - progress, 3)
       const current = startVal + (end - startVal) * eased
       setCount(current)
@@ -273,10 +224,12 @@ function CircularProgress({
   percentage,
   size = 80,
   strokeWidth = 8,
+  accentColor = '#14b8a6',
 }: {
   percentage: number
   size?: number
   strokeWidth?: number
+  accentColor?: string
 }) {
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
@@ -297,7 +250,7 @@ function CircularProgress({
         cy={size / 2}
         r={radius}
         fill="none"
-        stroke={percentage >= 100 ? '#10b981' : '#3b82f6'}
+        stroke={percentage >= 100 ? '#10b981' : accentColor}
         strokeWidth={strokeWidth}
         strokeDasharray={circumference}
         strokeDashoffset={offset}
@@ -308,7 +261,15 @@ function CircularProgress({
   )
 }
 
-function MiniDonut({ won, total }: { won: number; total: number }) {
+function MiniDonut({
+  won,
+  total,
+  accentColor = '#8b5cf6',
+}: {
+  won: number
+  total: number
+  accentColor?: string
+}) {
   const size = 48
   const strokeWidth = 6
   const radius = (size - strokeWidth) / 2
@@ -331,24 +292,38 @@ function MiniDonut({ won, total }: { won: number; total: number }) {
         cy={size / 2}
         r={radius}
         fill="none"
-        stroke="#10b981"
+        stroke={accentColor}
         strokeWidth={strokeWidth}
         strokeDasharray={circumference}
         strokeDashoffset={wonOffset}
         strokeLinecap="round"
+        className="transition-all duration-700 ease-out"
       />
     </svg>
   )
 }
 
-function ActiveInactiveDonut({ active, inactive }: { active: number; inactive: number }) {
-  const total = active + inactive
-  const size = 64
-  const strokeWidth = 8
+function ProposalPipelineDonut({
+  statusSummary,
+}: {
+  statusSummary: ProposalStatusSummary
+}) {
+  const size = 56
+  const strokeWidth = 7
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
-  const activePct = total > 0 ? (active / total) * 100 : 0
-  const activeOffset = circumference - (activePct / 100) * circumference
+
+  const statuses = ['Submitted', 'In Process', 'In Evaluation', 'Won', 'Rejected']
+  const total = statuses.reduce((sum, s) => sum + (statusSummary[s] || 0), 0)
+
+  let accumulated = 0
+  const segments = statuses.map((status) => {
+    const count = statusSummary[status] || 0
+    const pct = total > 0 ? (count / total) * 100 : 0
+    const accumulatedBefore = accumulated
+    accumulated += pct
+    return { status, count, pct, accumulatedBefore, color: STATUS_COLORS[status] || '#94a3b8' }
+  })
 
   return (
     <svg width={size} height={size} className="transform -rotate-90">
@@ -357,21 +332,26 @@ function ActiveInactiveDonut({ active, inactive }: { active: number; inactive: n
         cy={size / 2}
         r={radius}
         fill="none"
-        stroke="#fecaca"
+        stroke="#f3f4f6"
         strokeWidth={strokeWidth}
       />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="#10b981"
-        strokeWidth={strokeWidth}
-        strokeDasharray={circumference}
-        strokeDashoffset={activeOffset}
-        strokeLinecap="round"
-        className="transition-all duration-700 ease-out"
-      />
+      {segments.map((seg) =>
+        seg.pct > 0 ? (
+          <circle
+            key={seg.status}
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke={seg.color}
+            strokeWidth={strokeWidth}
+            strokeDasharray={`${(seg.pct / 100) * circumference} ${circumference}`}
+            strokeDashoffset={-((seg.accumulatedBefore / 100) * circumference)}
+            strokeLinecap="round"
+            className="transition-all duration-700 ease-out"
+          />
+        ) : null
+      )}
     </svg>
   )
 }
@@ -387,48 +367,31 @@ function AnimatedValue({ value }: { value: number }) {
 
 export default function CRMDashboard() {
   const currentYear = String(new Date().getFullYear())
+  const [selectedYear, setSelectedYear] = useState(currentYear)
 
-  const [filters, setFilters] = useState<Filters>({
-    serviceId: '',
-    startDate: '',
-    endDate: '',
-    month: '',
-    quarter: '',
-    year: currentYear,
-  })
-
-  // Fetch services for filter dropdown
-  const { data: services = [] } = useQuery<Service[]>({
-    queryKey: ['services'],
-    queryFn: () => fetch('/api/services').then((r) => r.json()),
-  })
-
-  // Build query params
+  // Build query params — only year
   const queryParams = useMemo(() => {
     const params = new URLSearchParams()
-    if (filters.serviceId) params.set('serviceId', filters.serviceId)
-    if (filters.startDate) params.set('startDate', filters.startDate)
-    if (filters.endDate) params.set('endDate', filters.endDate)
-    if (filters.month !== '') params.set('month', filters.month)
-    if (filters.quarter !== '') params.set('quarter', filters.quarter)
-    if (filters.year) params.set('year', filters.year)
+    if (selectedYear) params.set('year', selectedYear)
     return params.toString()
-  }, [filters])
+  }, [selectedYear])
 
   // Fetch dashboard data
   const {
     data: dashboard,
     isLoading,
     isError,
+    refetch,
   } = useQuery<DashboardData>({
     queryKey: ['dashboard', queryParams],
     queryFn: () => fetch(`/api/dashboard?${queryParams}`).then((r) => r.json()),
     enabled: true,
   })
 
-  // Determine current month for monthly progress card
+  // Current month for monthly progress card
   const currentMonthIndex = new Date().getMonth()
   const currentMonthData = dashboard?.monthlyProgress?.[currentMonthIndex]
+  const currentMonthName = format(new Date(), 'MMMM')
 
   // Proposal status for pie chart
   const proposalStatusData = useMemo(() => {
@@ -447,22 +410,15 @@ export default function CRMDashboard() {
   const wonCount = dashboard?.proposalStatusSummary?.['Won'] || 0
   const totalProposals = dashboard?.proposalCounts?.total || 0
 
-  // Target vs Actual chart data (monthly or quarterly based on filter)
+  // Target vs Actual chart data — always monthly
   const targetActualChartData = useMemo(() => {
     if (!dashboard) return []
-    if (filters.quarter !== '') {
-      return (dashboard.quarterlyProgress || []).map((q) => ({
-        name: q.quarter,
-        Target: q.target,
-        Actual: q.actual,
-      }))
-    }
     return (dashboard.monthlyProgress || []).map((m) => ({
       name: m.month,
       Target: m.target,
       Actual: m.actual,
     }))
-  }, [dashboard, filters.quarter])
+  }, [dashboard])
 
   // Service-wise chart data
   const serviceChartData = useMemo(() => {
@@ -482,7 +438,7 @@ export default function CRMDashboard() {
   // Win Rate Funnel data
   const funnelData = useMemo(() => {
     if (!dashboard || !dashboard.proposalStatusSummary) return []
-    const statuses = ['Submitted', 'In Process', 'In Evaluation', 'Won']
+    const statuses = ['Submitted', 'In Process', 'In Evaluation', 'Won', 'Rejected']
     const data: { status: string; count: number; color: string; dropOff: number; conversion: number }[] = []
     let prevCount = 0
     for (let i = 0; i < statuses.length; i++) {
@@ -501,7 +457,7 @@ export default function CRMDashboard() {
     return data
   }, [dashboard, totalProposals])
 
-  // Client analytics data
+  // Client analytics
   const clientAnalytics = dashboard?.clientAnalytics
   const topClients = clientAnalytics?.topClients || []
   const maxClientValue = topClients.length > 0 ? topClients[0].wonValue : 1
@@ -527,50 +483,26 @@ export default function CRMDashboard() {
     }))
   }, [dashboard])
 
-  // Clear all filters
-  const clearFilters = () => {
-    setFilters({
-      serviceId: '',
-      startDate: '',
-      endDate: '',
-      month: '',
-      quarter: '',
-      year: currentYear,
-    })
-  }
-
-  const hasActiveFilters =
-    filters.serviceId ||
-    filters.startDate ||
-    filters.endDate ||
-    filters.month !== '' ||
-    filters.quarter !== ''
-
   // ─── Loading skeleton ──────────────────────────────────────────────────
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50/50 p-4 md:p-6 lg:p-8 space-y-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Skeleton className="h-8 w-48" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100/80 p-4 md:p-6 lg:p-8 space-y-6">
+        {/* Hero skeleton */}
+        <Skeleton className="h-28 rounded-2xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-36 rounded-xl" />
+            <Skeleton key={i} className="h-40 rounded-2xl" />
           ))}
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+            <Skeleton key={i} className="h-20 rounded-xl" />
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Skeleton className="h-80 rounded-xl" />
-          <Skeleton className="h-80 rounded-xl" />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Skeleton className="h-72 rounded-xl" />
-          <Skeleton className="h-72 rounded-xl" />
+          <Skeleton className="h-80 rounded-2xl" />
+          <Skeleton className="h-80 rounded-2xl" />
         </div>
       </div>
     )
@@ -578,9 +510,9 @@ export default function CRMDashboard() {
 
   if (isError || !dashboard) {
     return (
-      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full rounded-xl shadow-sm">
-          <CardContent className="p-6 text-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100/80 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full rounded-2xl shadow-lg border-0">
+          <CardContent className="p-8 text-center">
             <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
             <h2 className="text-lg font-semibold text-gray-900 mb-2">
               Failed to Load Dashboard
@@ -588,7 +520,8 @@ export default function CRMDashboard() {
             <p className="text-sm text-muted-foreground mb-4">
               There was an error fetching dashboard data. Please try again.
             </p>
-            <Button onClick={() => window.location.reload()} variant="outline">
+            <Button onClick={() => refetch()} variant="outline" className="rounded-xl">
+              <RefreshCw className="h-4 w-4 mr-2" />
               Retry
             </Button>
           </CardContent>
@@ -599,134 +532,39 @@ export default function CRMDashboard() {
 
   // ─── Render ────────────────────────────────────────────────────────────
 
-  return (
-    <div className="min-h-screen bg-gray-50/50">
-      <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto">
-        {/* ── Header ─────────────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
-              CRM Pro Dashboard
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Business intelligence &amp; proposal analytics overview
-            </p>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-white rounded-lg px-3 py-2 shadow-sm border">
-            <Clock className="h-3.5 w-3.5" />
-            Last updated: {format(new Date(), 'MMM dd, yyyy HH:mm')}
-          </div>
-        </div>
+  const monthlyProgressPct =
+    currentMonthData && currentMonthData.target > 0
+      ? Math.min(Math.round((currentMonthData.actual / currentMonthData.target) * 100), 100)
+      : 0
 
-        {/* ── Filter Bar ─────────────────────────────────────────────── */}
-        <Card className="rounded-xl shadow-sm border bg-white">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-gray-700">Filters</span>
-              {hasActiveFilters && (
-                <Badge variant="secondary" className="text-xs">
-                  Active
-                </Badge>
-              )}
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/80">
+      <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto">
+
+        {/* ═══════════════ HERO HEADER ═══════════════ */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 p-6 md:p-8 shadow-lg">
+          {/* Decorative shapes */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
+          <div className="absolute bottom-0 left-1/3 w-48 h-48 bg-white/5 rounded-full translate-y-1/2" />
+
+          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                Dashboard
+              </h1>
+              <p className="text-emerald-100 mt-1 text-sm md:text-base">
+                Fiscal Year {selectedYear} — Business Intelligence &amp; Proposal Analytics
+              </p>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">From</label>
-                <Input
-                  type="date"
-                  value={filters.startDate}
-                  onChange={(e) =>
-                    setFilters((f) => ({ ...f, startDate: e.target.value }))
-                  }
-                  className="h-9 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">To</label>
-                <Input
-                  type="date"
-                  value={filters.endDate}
-                  onChange={(e) =>
-                    setFilters((f) => ({ ...f, endDate: e.target.value }))
-                  }
-                  className="h-9 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Service</label>
+            <div className="flex items-center gap-3">
+              {/* Year selector */}
+              <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/20">
+                <Calendar className="h-4 w-4 text-emerald-100" />
                 <Select
-                  value={filters.serviceId}
-                  onValueChange={(v) =>
-                    setFilters((f) => ({ ...f, serviceId: v === '__all__' ? '' : v }))
-                  }
+                  value={selectedYear}
+                  onValueChange={setSelectedYear}
                 >
-                  <SelectTrigger className="h-9 text-sm w-full">
-                    <SelectValue placeholder="All Services" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">All Services</SelectItem>
-                    {services.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="h-2.5 w-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: s.color }}
-                          />
-                          {s.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Month</label>
-                <Select
-                  value={filters.month}
-                  onValueChange={(v) =>
-                    setFilters((f) => ({ ...f, month: v === '__all__' ? '' : v }))
-                  }
-                >
-                  <SelectTrigger className="h-9 text-sm w-full">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MONTHS.map((m) => (
-                      <SelectItem key={m.value || '__all__'} value={m.value || '__all__'}>
-                        {m.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Quarter</label>
-                <Select
-                  value={filters.quarter}
-                  onValueChange={(v) =>
-                    setFilters((f) => ({ ...f, quarter: v === '__all__' ? '' : v }))
-                  }
-                >
-                  <SelectTrigger className="h-9 text-sm w-full">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {QUARTERS.map((q) => (
-                      <SelectItem key={q.value || '__all__'} value={q.value || '__all__'}>
-                        {q.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Year</label>
-                <Select
-                  value={filters.year}
-                  onValueChange={(v) => setFilters((f) => ({ ...f, year: v }))}
-                >
-                  <SelectTrigger className="h-9 text-sm w-full">
+                  <SelectTrigger className="h-7 w-20 border-0 bg-transparent text-white text-sm font-medium p-0 focus:ring-0 [&>svg]:text-white/70">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -738,58 +576,52 @@ export default function CRMDashboard() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-transparent">Action</label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={clearFilters}
-                  className="h-9 w-full text-sm gap-1.5"
-                  disabled={!hasActiveFilters}
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Clear
-                </Button>
+              {/* Last updated pill */}
+              <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-emerald-100 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/15">
+                <Clock className="h-3 w-3" />
+                {format(new Date(), 'MMM dd, HH:mm')}
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* ── Row 1: KPI Cards (with animated counters) ────────────────── */}
+        {/* ═══════════════ KPI CARDS ROW ═══════════════ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Total Business */}
-          <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
+          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/80 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden">
+            <div className="h-1 w-full bg-gradient-to-r from-emerald-400 to-emerald-600" />
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <p className="text-sm font-medium text-muted-foreground">Total Business</p>
-                  <p className="text-2xl font-bold text-gray-900 tracking-tight">
+                  <p className="text-3xl font-bold text-gray-900 tracking-tight">
                     <AnimatedValue value={dashboard.totalBusiness} />
                   </p>
                   <p className="text-xs text-muted-foreground">
                     From {wonCount} won proposals
                   </p>
                 </div>
-                <div className="h-11 w-11 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-                  <TrendingUp className="h-5 w-5 text-emerald-600" />
+                <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                  <TrendingUp className="h-6 w-6 text-emerald-600" />
                 </div>
               </div>
-              <div className="mt-3 flex items-center gap-1.5">
+              <div className="mt-4 flex items-center gap-1.5">
                 <ArrowUpRight className="h-3.5 w-3.5 text-emerald-500" />
-                <span className="text-xs font-medium text-emerald-600">
+                <span className="text-xs font-semibold text-emerald-600">
                   {dashboard.targetVsActual.percentageAchieved}% of target
                 </span>
               </div>
             </CardContent>
           </Card>
 
-          {/* Target vs Actual */}
-          <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
+          {/* Target Achievement */}
+          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/80 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden">
+            <div className="h-1 w-full bg-gradient-to-r from-teal-400 to-teal-600" />
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Target vs Actual</p>
-                  <p className="text-2xl font-bold text-gray-900 tracking-tight">
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Target Achievement</p>
+                  <p className="text-3xl font-bold text-gray-900 tracking-tight">
                     {dashboard.targetVsActual.percentageAchieved}%
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -799,107 +631,75 @@ export default function CRMDashboard() {
                 <div className="relative shrink-0">
                   <CircularProgress
                     percentage={dashboard.targetVsActual.percentageAchieved}
-                    size={64}
-                    strokeWidth={7}
+                    size={60}
+                    strokeWidth={6}
+                    accentColor="#14b8a6"
                   />
-                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-gray-700">
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-teal-700">
                     {dashboard.targetVsActual.percentageAchieved}%
                   </span>
                 </div>
               </div>
-              <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+              <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
                 <span>
-                  Target:{' '}
-                  <span className="font-medium text-gray-700">
-                    {formatCompactPKR(dashboard.targetVsActual.target)}
-                  </span>
+                  Target: <span className="font-medium text-gray-700">{formatCompactPKR(dashboard.targetVsActual.target)}</span>
                 </span>
                 <span>
-                  Actual:{' '}
-                  <span className="font-medium text-emerald-600">
-                    {formatCompactPKR(dashboard.targetVsActual.actual)}
-                  </span>
+                  Actual: <span className="font-medium text-teal-600">{formatCompactPKR(dashboard.targetVsActual.actual)}</span>
                 </span>
               </div>
             </CardContent>
           </Card>
 
           {/* Monthly Progress */}
-          <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
+          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/80 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden">
+            <div className="h-1 w-full bg-gradient-to-r from-amber-400 to-amber-500" />
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <p className="text-sm font-medium text-muted-foreground">Monthly Progress</p>
-                  <p className="text-2xl font-bold text-gray-900 tracking-tight">
-                    {currentMonthData
-                      ? formatCompactPKR(currentMonthData.actual)
-                      : '₨ 0'}
+                  <p className="text-3xl font-bold text-gray-900 tracking-tight">
+                    {currentMonthData ? formatCompactPKR(currentMonthData.actual) : '₨ 0'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    of{' '}
-                    {currentMonthData
-                      ? formatCompactPKR(currentMonthData.target)
-                      : '₨ 0'}{' '}
-                    target
+                    of {currentMonthData ? formatCompactPKR(currentMonthData.target) : '₨ 0'} target
                   </p>
                 </div>
-                <div className="h-11 w-11 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
-                  <Calendar className="h-5 w-5 text-teal-600" />
+                <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                  <Calendar className="h-6 w-6 text-amber-600" />
                 </div>
               </div>
-              <div className="mt-3 space-y-1.5">
-                <Progress
-                  value={
-                    currentMonthData && currentMonthData.target > 0
-                      ? Math.min(
-                          (currentMonthData.actual / currentMonthData.target) * 100,
-                          100
-                        )
-                      : 0
-                  }
-                  className="h-2"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>
-                    {currentMonthData && currentMonthData.target > 0
-                      ? Math.round(
-                          (currentMonthData.actual / currentMonthData.target) * 100
-                        )
-                      : 0}
-                    % achieved
-                  </span>
-                  <span>{format(new Date(), 'MMMM yyyy')}</span>
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-amber-700">{currentMonthName}</span>
+                  <span className="text-xs font-semibold text-gray-700">{monthlyProgressPct}% achieved</span>
                 </div>
+                <Progress value={monthlyProgressPct} className="h-2.5" />
               </div>
             </CardContent>
           </Card>
 
-          {/* Proposal Status */}
-          <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
+          {/* Proposal Pipeline */}
+          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/80 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden">
+            <div className="h-1 w-full bg-gradient-to-r from-purple-400 to-purple-600" />
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Proposal Status</p>
-                  <p className="text-2xl font-bold text-gray-900 tracking-tight">
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Proposal Pipeline</p>
+                  <p className="text-3xl font-bold text-gray-900 tracking-tight">
                     {wonCount}
-                    <span className="text-base font-normal text-muted-foreground">
-                      {' '}
-                      / {totalProposals}
-                    </span>
+                    <span className="text-lg font-normal text-muted-foreground"> / {totalProposals}</span>
                   </p>
                   <p className="text-xs text-muted-foreground">Proposals won</p>
                 </div>
                 <div className="relative shrink-0 flex items-center justify-center">
-                  <MiniDonut won={wonCount} total={totalProposals} />
+                  <ProposalPipelineDonut statusSummary={dashboard.proposalStatusSummary || {}} />
                   <span className="absolute text-[9px] font-bold text-gray-700">
-                    {totalProposals > 0
-                      ? Math.round((wonCount / totalProposals) * 100)
-                      : 0}
-                    %
+                    {totalProposals > 0 ? Math.round((wonCount / totalProposals) * 100) : 0}%
                   </span>
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-1.5">
+              <div className="mt-4 flex flex-wrap gap-1.5">
                 {Object.entries(dashboard.proposalStatusSummary || {}).map(
                   ([status, count]) =>
                     count > 0 && (
@@ -917,18 +717,18 @@ export default function CRMDashboard() {
           </Card>
         </div>
 
-        {/* ── Row 2: Quick Stats ──────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Average Proposal Value */}
-          <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
+        {/* ═══════════════ QUICK STATS ROW ═══════════════ */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Avg Proposal Value */}
+          <Card className="rounded-xl border shadow-none bg-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-                  <DollarSign className="h-4.5 w-4.5 text-emerald-600" />
+                  <DollarSign className="h-4 w-4 text-emerald-600" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Avg Proposal Value</p>
-                  <p className="text-lg font-bold text-gray-900 tracking-tight">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground">Avg Proposal Value</p>
+                  <p className="text-lg font-bold text-gray-900 tracking-tight truncate">
                     {formatCompactPKR(pipelineStats.averageProposalValue || 0)}
                   </p>
                 </div>
@@ -937,14 +737,14 @@ export default function CRMDashboard() {
           </Card>
 
           {/* Conversion Rate */}
-          <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
+          <Card className="rounded-xl border shadow-none bg-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-lg bg-teal-50 flex items-center justify-center shrink-0">
-                  <Percent className="h-4.5 w-4.5 text-teal-600" />
+                  <Percent className="h-4 w-4 text-teal-600" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Conversion Rate</p>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground">Conversion Rate</p>
                   <p className="text-lg font-bold text-gray-900 tracking-tight">
                     {pipelineStats.conversionRate || 0}%
                   </p>
@@ -953,15 +753,15 @@ export default function CRMDashboard() {
             </CardContent>
           </Card>
 
-          {/* Average Days to Win */}
-          <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
+          {/* Avg Days to Win */}
+          <Card className="rounded-xl border shadow-none bg-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-                  <Timer className="h-4.5 w-4.5 text-amber-600" />
+                  <Timer className="h-4 w-4 text-amber-600" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Avg Days to Win</p>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground">Avg Days to Win</p>
                   <p className="text-lg font-bold text-gray-900 tracking-tight">
                     {pipelineStats.avgDaysToWin || 0} days
                   </p>
@@ -971,15 +771,15 @@ export default function CRMDashboard() {
           </Card>
 
           {/* Pipeline Value */}
-          <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
+          <Card className="rounded-xl border shadow-none bg-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-rose-50 flex items-center justify-center shrink-0">
-                  <Activity className="h-4.5 w-4.5 text-rose-600" />
+                <div className="h-9 w-9 rounded-lg bg-purple-50 flex items-center justify-center shrink-0">
+                  <Activity className="h-4 w-4 text-purple-600" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Pipeline Value</p>
-                  <p className="text-lg font-bold text-gray-900 tracking-tight">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground">Pipeline Value</p>
+                  <p className="text-lg font-bold text-gray-900 tracking-tight truncate">
                     {formatCompactPKR(pipelineStats.pipelineValue || 0)}
                   </p>
                 </div>
@@ -988,39 +788,46 @@ export default function CRMDashboard() {
           </Card>
         </div>
 
-        {/* ── Row 3: Target vs Actual + Win Rate Funnel ──────────────── */}
+        {/* ═══════════════ CHARTS SECTION (2x2) ═══════════════ */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Target vs Actual Bar Chart */}
-          <Card className="rounded-xl shadow-sm border bg-white">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold text-gray-900">
-                Target vs Actual — {filters.quarter !== '' ? 'Quarterly' : 'Monthly'}
-              </CardTitle>
+          {/* Target vs Actual — Monthly Bar Chart */}
+          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+            <CardHeader className="pb-2 pt-5 px-5">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold text-gray-900">
+                  Target vs Actual — Monthly
+                </CardTitle>
+                <Badge variant="outline" className="text-[10px] h-5 bg-gray-50 text-gray-600 border-gray-200 rounded-lg">
+                  {selectedYear}
+                </Badge>
+              </div>
             </CardHeader>
-            <CardContent className="pb-4">
+            <CardContent className="pb-5 px-5">
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={targetActualChartData}
                     margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                     <XAxis
                       dataKey="name"
                       tick={{ fontSize: 11, fill: '#64748b' }}
                       axisLine={{ stroke: '#e2e8f0' }}
+                      tickLine={false}
                     />
                     <YAxis
                       tick={{ fontSize: 11, fill: '#64748b' }}
-                      axisLine={{ stroke: '#e2e8f0' }}
+                      axisLine={false}
+                      tickLine={false}
                       tickFormatter={(v) => formatCompactPKR(v)}
                     />
                     <Tooltip
                       formatter={(value: number) => formatPKR(value)}
                       contentStyle={{
-                        borderRadius: '8px',
+                        borderRadius: '12px',
                         border: '1px solid #e2e8f0',
-                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                        boxShadow: '0 8px 16px -4px rgb(0 0 0 / 0.1)',
                         fontSize: '12px',
                       }}
                     />
@@ -1028,65 +835,57 @@ export default function CRMDashboard() {
                       wrapperStyle={{ fontSize: '12px' }}
                       iconType="rounded"
                     />
-                    <Bar
-                      dataKey="Target"
-                      fill="#3b82f6"
-                      radius={[4, 4, 0, 0]}
-                      maxBarSize={40}
-                    />
-                    <Bar
-                      dataKey="Actual"
-                      fill="#10b981"
-                      radius={[4, 4, 0, 0]}
-                      maxBarSize={40}
-                    />
+                    <Bar dataKey="Target" fill="#0d9488" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                    <Bar dataKey="Actual" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={36} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
 
-          {/* Win Rate Funnel */}
-          <Card className="rounded-xl shadow-sm border bg-white">
-            <CardHeader className="pb-2">
+          {/* Proposal Pipeline Funnel */}
+          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+            <CardHeader className="pb-2 pt-5 px-5">
               <div className="flex items-center gap-2">
-                <Funnel className="h-4 w-4 text-gray-500" />
+                <div className="h-7 w-7 rounded-lg bg-purple-100 flex items-center justify-center">
+                  <Activity className="h-4 w-4 text-purple-600" />
+                </div>
                 <CardTitle className="text-base font-semibold text-gray-900">
-                  Win Rate Funnel
+                  Proposal Pipeline
                 </CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="pb-4">
+            <CardContent className="pb-5 px-5">
               <div className="space-y-3">
                 {funnelData.map((stage, index) => {
                   const maxCount = funnelData.length > 0 ? funnelData[0].count : 1
                   const widthPct = maxCount > 0 ? Math.max((stage.count / maxCount) * 100, 8) : 8
 
                   return (
-                    <div key={stage.status} className="space-y-1">
+                    <div key={stage.status} className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div
-                            className="h-3 w-3 rounded-sm shrink-0"
+                            className="h-3 w-3 rounded-full shrink-0"
                             style={{ backgroundColor: stage.color }}
                           />
                           <span className="text-sm font-medium text-gray-800">{stage.status}</span>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-gray-900">{stage.count}</span>
                           {index > 0 && stage.dropOff > 0 && (
-                            <span className="text-[10px] font-medium text-red-500 bg-red-50 px-1.5 py-0.5 rounded">
-                              -{stage.dropOff}% drop
+                            <span className="text-[10px] font-medium text-red-500 bg-red-50 px-1.5 py-0.5 rounded-md">
+                              -{stage.dropOff}%
                             </span>
                           )}
-                          <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                            {stage.conversion}% of total
+                          <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                            {stage.conversion}%
                           </span>
                         </div>
                       </div>
                       <div className="flex justify-center">
                         <div
-                          className="h-8 rounded-lg transition-all duration-700 ease-out flex items-center justify-center"
+                          className="h-9 rounded-xl transition-all duration-700 ease-out flex items-center justify-center"
                           style={{
                             width: `${widthPct}%`,
                             backgroundColor: stage.color,
@@ -1094,15 +893,15 @@ export default function CRMDashboard() {
                             minWidth: '40px',
                           }}
                         >
-                          <span className="text-[10px] font-semibold text-white">
+                          <span className="text-[10px] font-semibold text-white drop-shadow-sm">
                             {stage.count}
                           </span>
                         </div>
                       </div>
                       {index < funnelData.length - 1 && (
                         <div className="flex justify-center">
-                          <svg width="16" height="12" className="text-gray-300">
-                            <path d="M4 0 L8 8 L12 0" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                          <svg width="14" height="10" className="text-gray-300">
+                            <path d="M3 0 L7 7 L11 0" fill="none" stroke="currentColor" strokeWidth="1.5" />
                           </svg>
                         </div>
                       )}
@@ -1111,14 +910,12 @@ export default function CRMDashboard() {
                 })}
 
                 {funnelData.length > 1 && (
-                  <div className="mt-3 pt-3 border-t">
+                  <div className="mt-4 pt-3 border-t border-gray-100">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-muted-foreground">Overall Win Rate</span>
                       <span className="text-sm font-bold text-emerald-600">
                         {funnelData[0].count > 0
-                          ? Math.round(
-                              ((funnelData[funnelData.length - 1].count) / funnelData[0].count) * 100
-                            )
+                          ? Math.round((funnelData[funnelData.length - 1].count / funnelData[0].count) * 100)
                           : 0}
                         %
                       </span>
@@ -1128,439 +925,20 @@ export default function CRMDashboard() {
               </div>
             </CardContent>
           </Card>
-        </div>
 
-        {/* ── Row 4: Service-wise + Client Analytics ─────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Service-wise Business Summary */}
-          <Card className="rounded-xl shadow-sm border bg-white">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold text-gray-900">
-                Service-wise Business Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pb-4">
-              <div className="h-72">
-                {serviceChartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={serviceChartData}
-                      layout="vertical"
-                      margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="#f1f5f9"
-                        horizontal={false}
-                      />
-                      <XAxis
-                        type="number"
-                        tick={{ fontSize: 11, fill: '#64748b' }}
-                        axisLine={{ stroke: '#e2e8f0' }}
-                        tickFormatter={(v) => formatCompactPKR(v)}
-                      />
-                      <YAxis
-                        type="category"
-                        dataKey="name"
-                        tick={{ fontSize: 11, fill: '#64748b' }}
-                        axisLine={{ stroke: '#e2e8f0' }}
-                        width={120}
-                      />
-                      <Tooltip
-                        formatter={(value: number, _name: string, props: { payload?: { fullName?: string } }) => [
-                          formatPKR(value),
-                          props.payload?.fullName || 'Won Value',
-                        ]}
-                        contentStyle={{
-                          borderRadius: '8px',
-                          border: '1px solid #e2e8f0',
-                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                          fontSize: '12px',
-                        }}
-                      />
-                      <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={28}>
-                        {serviceChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                    No won business data available
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Client Analytics */}
-          <Card className="rounded-xl shadow-sm border bg-white">
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-gray-500" />
-                <CardTitle className="text-base font-semibold text-gray-900">
-                  Client Analytics
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="pb-4">
-              <div className="grid grid-cols-3 gap-4 mb-5">
-                {/* Active/Inactive Donut */}
-                <div className="col-span-1 flex flex-col items-center justify-center">
-                  <div className="relative">
-                    <ActiveInactiveDonut
-                      active={clientAnalytics?.activeClients || 0}
-                      inactive={clientAnalytics?.inactiveClients || 0}
-                    />
-                    <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-700">
-                      {clientAnalytics?.activeClients || 0}
-                    </span>
-                  </div>
-                  <div className="mt-2 text-center">
-                    <p className="text-[10px] text-muted-foreground">Active / Inactive</p>
-                    <p className="text-xs font-semibold text-gray-700">
-                      {clientAnalytics?.activeClients || 0} / {clientAnalytics?.inactiveClients || 0}
-                    </p>
-                  </div>
-                </div>
-
-                {/* New clients metric */}
-                <div className="col-span-2 flex flex-col justify-center gap-3">
-                  <div className="bg-emerald-50 rounded-lg p-3">
-                    <p className="text-xs font-medium text-emerald-600">New Clients This Month</p>
-                    <p className="text-2xl font-bold text-emerald-700">{clientAnalytics?.newClientsThisMonth || 0}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs font-medium text-gray-500">Total Clients</p>
-                    <p className="text-2xl font-bold text-gray-900">{dashboard.clientCounts?.total || 0}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Top 5 Clients */}
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">Top 5 Clients by Won Value</p>
-                <div className="space-y-2.5">
-                  {(topClients || []).length > 0 ? (
-                    (topClients || []).map((client, idx) => (
-                      <div key={client.id} className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-gray-400 w-4">
-                              {idx + 1}
-                            </span>
-                            <span className="text-xs font-medium text-gray-800 truncate max-w-[140px]">
-                              {client.name}
-                            </span>
-                          </div>
-                          <span className="text-xs font-semibold text-gray-900">
-                            {formatCompactPKR(client.wonValue)}
-                          </span>
-                        </div>
-                        <div className="ml-6 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-emerald-400 transition-all duration-700 ease-out"
-                            style={{
-                              width: `${maxClientValue > 0 ? (client.wonValue / maxClientValue) * 100 : 0}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-muted-foreground text-center py-4">
-                      No client data available
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ── Row 5: Proposal Status Pie + Quarterly Progress ─────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Proposal Status Summary - Pie Chart */}
-          <Card className="rounded-xl shadow-sm border bg-white">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold text-gray-900">
-                Proposal Status Distribution
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pb-4">
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="h-64 w-full sm:w-1/2">
-                  {proposalStatusData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={proposalStatusData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={55}
-                          outerRadius={90}
-                          paddingAngle={3}
-                          dataKey="value"
-                          stroke="none"
-                        >
-                          {proposalStatusData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          formatter={(value: number) => [value, 'Proposals']}
-                          contentStyle={{
-                            borderRadius: '8px',
-                            border: '1px solid #e2e8f0',
-                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                            fontSize: '12px',
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                      No proposal data
-                    </div>
-                  )}
-                </div>
-                <div className="w-full sm:w-1/2 space-y-3">
-                  {proposalStatusData.map((item) => (
-                    <div key={item.name} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className="h-3 w-3 rounded-sm shrink-0"
-                          style={{ backgroundColor: item.color }}
-                        />
-                        <span className="text-sm text-gray-700">{item.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-gray-900">
-                          {item.value}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          ({totalProposals > 0 ? Math.round((item.value / totalProposals) * 100) : 0}%)
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="pt-2 border-t">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">Total</span>
-                      <span className="text-sm font-bold text-gray-900">
-                        {totalProposals}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quarterly/Annual Progress */}
-          <Card className="rounded-xl shadow-sm border bg-white">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold text-gray-900">
-                Quarterly Progress — {filters.year}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pb-4 space-y-5">
-              {(dashboard.quarterlyProgress || []).map((q) => {
-                const pct =
-                  q.target > 0 ? Math.round((q.actual / q.target) * 100) : 0
-                const isOverAchieved = pct >= 100
-
-                return (
-                  <div key={q.quarter} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-gray-800">
-                          {q.quarter}
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] h-5 ${
-                            isOverAchieved
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-gray-50 text-gray-600 border-gray-200'
-                          }`}
-                        >
-                          {pct}%
-                        </Badge>
-                      </div>
-                      <div className="text-xs text-muted-foreground space-x-2">
-                        <span>
-                          Achieved:{' '}
-                          <span className="font-medium text-gray-700">
-                            {formatCompactPKR(q.actual)}
-                          </span>
-                        </span>
-                        <span>
-                          Target:{' '}
-                          <span className="font-medium text-gray-500">
-                            {formatCompactPKR(q.target)}
-                          </span>
-                        </span>
-                      </div>
-                    </div>
-                    <div className="relative h-6 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className={`absolute left-0 top-0 h-full rounded-full transition-all duration-700 ease-out ${
-                          isOverAchieved ? 'bg-emerald-500' : 'bg-blue-500'
-                        }`}
-                        style={{
-                          width: `${Math.min(pct, 100)}%`,
-                        }}
-                      />
-                      {q.target > 0 && pct > 0 && (
-                        <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white mix-blend-difference">
-                          {formatCompactPKR(q.actual)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-
-              {/* Annual total */}
-              <div className="pt-3 border-t space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Target className="h-4 w-4 text-blue-500" />
-                    <span className="text-sm font-semibold text-gray-800">
-                      Annual Total
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] h-5 ${
-                        dashboard.targetVsActual.percentageAchieved >= 100
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-blue-50 text-blue-700 border-blue-200'
-                      }`}
-                    >
-                      {dashboard.targetVsActual.percentageAchieved}%
-                    </Badge>
-                  </div>
-                  <div className="text-xs text-muted-foreground space-x-2">
-                    <span>
-                      Achieved:{' '}
-                      <span className="font-medium text-gray-700">
-                        {formatCompactPKR(dashboard.annualProgress.actual)}
-                      </span>
-                    </span>
-                    <span>
-                      Target:{' '}
-                      <span className="font-medium text-gray-500">
-                        {formatCompactPKR(dashboard.annualProgress.target)}
-                      </span>
-                    </span>
-                  </div>
-                </div>
-                <div className="relative h-8 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className={`absolute left-0 top-0 h-full rounded-full transition-all duration-700 ease-out ${
-                      dashboard.targetVsActual.percentageAchieved >= 100
-                        ? 'bg-emerald-500'
-                        : 'bg-blue-500'
-                    }`}
-                    style={{
-                      width: `${Math.min(dashboard.targetVsActual.percentageAchieved, 100)}%`,
-                    }}
-                  />
-                  <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-white mix-blend-difference">
-                    {formatCompactPKR(dashboard.annualProgress.actual)} /{' '}
-                    {formatCompactPKR(dashboard.annualProgress.target)}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ── Row 6: Team Performance + Revenue Trend ─────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Team Performance Leaderboard */}
-          <Card className="rounded-xl shadow-sm border bg-white">
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-amber-500" />
-                <CardTitle className="text-base font-semibold text-gray-900">
-                  Team Performance
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="pb-4">
-              <div className="space-y-3 max-h-72 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
-                {teamPerformance.length > 0 ? (
-                  teamPerformance.map((member, idx) => {
-                    const rankBadges = ['🥇', '🥈', '🥉']
-                    const rankBadge = idx < 3 ? rankBadges[idx] : null
-                    const barPct = maxTeamValue > 0 ? (member.wonValue / maxTeamValue) * 100 : 0
-
-                    return (
-                      <div key={member.id} className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <span className="w-6 text-center text-sm">
-                              {rankBadge || (
-                                <span className="text-xs font-bold text-gray-400">
-                                  {idx + 1}
-                                </span>
-                              )}
-                            </span>
-                            <div>
-                              <span className="text-sm font-medium text-gray-800">
-                                {member.name}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground ml-1.5">
-                                {member.wonProposals} won
-                              </span>
-                            </div>
-                          </div>
-                          <span className="text-sm font-bold text-gray-900">
-                            {formatCompactPKR(member.wonValue)}
-                          </span>
-                        </div>
-                        <div className="ml-8 h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-700 ease-out ${
-                              idx === 0
-                                ? 'bg-amber-400'
-                                : idx === 1
-                                  ? 'bg-gray-400'
-                                  : idx === 2
-                                    ? 'bg-orange-400'
-                                    : 'bg-emerald-400'
-                            }`}
-                            style={{ width: `${barPct}%` }}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })
-                ) : (
-                  <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
-                    No team performance data
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Revenue Trend Sparkline */}
-          <Card className="rounded-xl shadow-sm border bg-white">
-            <CardHeader className="pb-2">
+          {/* Revenue Trend — Area Chart */}
+          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+            <CardHeader className="pb-2 pt-5 px-5">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold text-gray-900">
-                  Revenue Trend — {filters.year}
+                  Revenue Trend
                 </CardTitle>
-                <Badge variant="outline" className="text-[10px] h-5 bg-emerald-50 text-emerald-700 border-emerald-200">
+                <Badge variant="outline" className="text-[10px] h-5 bg-emerald-50 text-emerald-700 border-emerald-200 rounded-lg">
                   12 Month
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="pb-4">
+            <CardContent className="pb-5 px-5">
               <div className="h-72">
                 {revenueTrendData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
@@ -1570,27 +948,29 @@ export default function CRMDashboard() {
                     >
                       <defs>
                         <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
                           <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                       <XAxis
                         dataKey="month"
                         tick={{ fontSize: 11, fill: '#64748b' }}
                         axisLine={{ stroke: '#e2e8f0' }}
+                        tickLine={false}
                       />
                       <YAxis
                         tick={{ fontSize: 11, fill: '#64748b' }}
-                        axisLine={{ stroke: '#e2e8f0' }}
+                        axisLine={false}
+                        tickLine={false}
                         tickFormatter={(v) => formatCompactPKR(v)}
                       />
                       <Tooltip
                         formatter={(value: number) => [formatPKR(value), 'Revenue']}
                         contentStyle={{
-                          borderRadius: '8px',
+                          borderRadius: '12px',
                           border: '1px solid #e2e8f0',
-                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          boxShadow: '0 8px 16px -4px rgb(0 0 0 / 0.1)',
                           fontSize: '12px',
                         }}
                       />
@@ -1613,154 +993,465 @@ export default function CRMDashboard() {
               </div>
             </CardContent>
           </Card>
-        </div>
 
-        {/* ── Row 7: Recent Proposals + Upcoming Deadlines ────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Recent Proposals */}
-          <Card className="rounded-xl shadow-sm border bg-white">
-            <CardHeader className="pb-2">
+          {/* Service Distribution — Horizontal Bar */}
+          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+            <CardHeader className="pb-2 pt-5 px-5">
               <CardTitle className="text-base font-semibold text-gray-900">
-                Recent Proposals
+                Service Distribution
               </CardTitle>
             </CardHeader>
-            <CardContent className="pb-3">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Name</TableHead>
-                    <TableHead className="text-xs">Client</TableHead>
-                    <TableHead className="text-xs text-right">Value</TableHead>
-                    <TableHead className="text-xs">Status</TableHead>
-                    <TableHead className="text-xs text-right">Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(dashboard.recentProposals || []).length > 0 ? (
-                    (dashboard.recentProposals || []).map((p) => (
-                      <TableRow key={p.id}>
-                        <TableCell className="text-sm font-medium max-w-[160px] truncate">
-                          {p.name}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-[120px] truncate">
-                          {p.client.name}
-                        </TableCell>
-                        <TableCell className="text-sm text-right font-medium">
-                          {formatCompactPKR(p.value)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] px-1.5 py-0 h-5 ${
-                              STATUS_BG[p.status] || 'bg-gray-100 text-gray-600'
-                            }`}
-                          >
-                            {p.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground text-right">
-                          {format(parseISO(p.createdAt), 'MMM dd')}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
-                        No recent proposals
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+            <CardContent className="pb-5 px-5">
+              <div className="h-72">
+                {serviceChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={serviceChartData}
+                      layout="vertical"
+                      margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="#f1f5f9"
+                        horizontal={false}
+                      />
+                      <XAxis
+                        type="number"
+                        tick={{ fontSize: 11, fill: '#64748b' }}
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(v) => formatCompactPKR(v)}
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        tick={{ fontSize: 11, fill: '#64748b' }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={110}
+                      />
+                      <Tooltip
+                        formatter={(value: number, _name: string, props: { payload?: { fullName?: string } }) => [
+                          formatPKR(value),
+                          props.payload?.fullName || 'Won Value',
+                        ]}
+                        contentStyle={{
+                          borderRadius: '12px',
+                          border: '1px solid #e2e8f0',
+                          boxShadow: '0 8px 16px -4px rgb(0 0 0 / 0.1)',
+                          fontSize: '12px',
+                        }}
+                      />
+                      <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={24}>
+                        {serviceChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                    No won business data available
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ═══════════════ BOTTOM SECTION ═══════════════ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Top Clients */}
+          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+            <CardHeader className="pb-2 pt-5 px-5">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-emerald-100 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-emerald-600" />
+                </div>
+                <CardTitle className="text-base font-semibold text-gray-900">Top Clients</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pb-5 px-5">
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+                {(topClients || []).length > 0 ? (
+                  (topClients || []).map((client, idx) => (
+                    <div key={client.id} className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[10px] font-bold text-gray-400 w-4 shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className="text-xs font-medium text-gray-800 truncate">
+                            {client.name}
+                          </span>
+                        </div>
+                        <span className="text-xs font-semibold text-gray-900 shrink-0 ml-2">
+                          {formatCompactPKR(client.wonValue)}
+                        </span>
+                      </div>
+                      <div className="ml-6 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-emerald-400 transition-all duration-700 ease-out"
+                          style={{
+                            width: `${maxClientValue > 0 ? (client.wonValue / maxClientValue) * 100 : 0}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-6">
+                    No client data available
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
 
-          {/* Upcoming Deadlines */}
-          <Card className="rounded-xl shadow-sm border bg-white">
-            <CardHeader className="pb-2">
+          {/* Team Leaderboard */}
+          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+            <CardHeader className="pb-2 pt-5 px-5">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-base font-semibold text-gray-900">
-                  Upcoming Deadlines
-                </CardTitle>
-                <Badge variant="outline" className="text-[10px] h-5 bg-red-50 text-red-600 border-red-200">
-                  Within 7 days
-                </Badge>
+                <div className="h-7 w-7 rounded-lg bg-amber-100 flex items-center justify-center">
+                  <Trophy className="h-4 w-4 text-amber-600" />
+                </div>
+                <CardTitle className="text-base font-semibold text-gray-900">Team Leaderboard</CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="pb-3">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Name</TableHead>
-                    <TableHead className="text-xs">Deadline</TableHead>
-                    <TableHead className="text-xs">Status</TableHead>
-                    <TableHead className="text-xs text-right">Days Left</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(dashboard.upcomingDeadlines || []).length > 0 ? (
-                    (dashboard.upcomingDeadlines || []).map((p) => {
-                      const deadlineDate = p.deadline
-                        ? parseISO(p.deadline)
-                        : null
-                      const daysLeft = deadlineDate
-                        ? differenceInDays(deadlineDate, new Date())
-                        : null
-                      const isOverdue = daysLeft !== null && daysLeft < 0
-                      const isUrgent = daysLeft !== null && daysLeft >= 0 && daysLeft <= 2
+            <CardContent className="pb-5 px-5">
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+                {teamPerformance.length > 0 ? (
+                  teamPerformance.map((member, idx) => {
+                    const barPct = maxTeamValue > 0 ? (member.wonValue / maxTeamValue) * 100 : 0
+                    const medalColors = ['text-amber-500', 'text-gray-400', 'text-orange-400']
 
-                      return (
-                        <TableRow key={p.id}>
-                          <TableCell className="text-sm font-medium max-w-[180px] truncate">
-                            {p.name}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {deadlineDate
-                              ? format(deadlineDate, 'MMM dd, yyyy')
-                              : '—'}
-                          </TableCell>
-                          <TableCell>
+                    return (
+                      <div key={member.id} className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {idx < 3 ? (
+                              <Medal className={`h-4 w-4 shrink-0 ${medalColors[idx]}`} />
+                            ) : (
+                              <span className="w-4 text-center text-[10px] font-bold text-gray-400 shrink-0">
+                                {idx + 1}
+                              </span>
+                            )}
+                            <div className="min-w-0">
+                              <span className="text-xs font-medium text-gray-800 truncate block">
+                                {member.name}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {member.wonProposals} won
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-xs font-bold text-gray-900 shrink-0 ml-2">
+                            {formatCompactPKR(member.wonValue)}
+                          </span>
+                        </div>
+                        <div className="ml-6 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-700 ease-out ${
+                              idx === 0
+                                ? 'bg-amber-400'
+                                : idx === 1
+                                  ? 'bg-gray-400'
+                                  : idx === 2
+                                    ? 'bg-orange-400'
+                                    : 'bg-emerald-400'
+                            }`}
+                            style={{ width: `${barPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-6">
+                    No team data available
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Upcoming Deadlines — Timeline */}
+          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+            <CardHeader className="pb-2 pt-5 px-5">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-red-100 flex items-center justify-center">
+                  <Clock className="h-4 w-4 text-red-500" />
+                </div>
+                <CardTitle className="text-base font-semibold text-gray-900">Upcoming Deadlines</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pb-5 px-5">
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+                {(dashboard.upcomingDeadlines || []).length > 0 ? (
+                  (dashboard.upcomingDeadlines || []).map((p) => {
+                    const deadlineDate = p.deadline ? parseISO(p.deadline) : null
+                    const daysLeft = deadlineDate ? differenceInDays(deadlineDate, new Date()) : null
+                    const isOverdue = daysLeft !== null && daysLeft < 0
+                    const isUrgent = daysLeft !== null && daysLeft >= 0 && daysLeft <= 2
+
+                    return (
+                      <div key={p.id} className="flex items-start gap-3">
+                        {/* Date badge */}
+                        <div className={`shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-center ${
+                          isOverdue
+                            ? 'bg-red-50'
+                            : isUrgent
+                              ? 'bg-amber-50'
+                              : 'bg-gray-50'
+                        }`}>
+                          <span className={`text-[10px] font-semibold uppercase ${
+                            isOverdue ? 'text-red-600' : isUrgent ? 'text-amber-600' : 'text-gray-500'
+                          }`}>
+                            {deadlineDate ? format(deadlineDate, 'MMM') : '—'}
+                          </span>
+                          <span className={`text-sm font-bold leading-none ${
+                            isOverdue ? 'text-red-700' : isUrgent ? 'text-amber-700' : 'text-gray-700'
+                          }`}>
+                            {deadlineDate ? format(deadlineDate, 'dd') : '—'}
+                          </span>
+                        </div>
+                        {/* Info */}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-gray-800 truncate">{p.name}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{p.client.name}</p>
+                          <div className="flex items-center gap-1.5 mt-1">
                             <Badge
                               variant="outline"
-                              className={`text-[10px] px-1.5 py-0 h-5 ${
-                                STATUS_BG[p.status] || 'bg-gray-100 text-gray-600'
-                              }`}
+                              className={`text-[9px] px-1 py-0 h-4 ${STATUS_BG[p.status] || 'bg-gray-100 text-gray-600'}`}
                             >
                               {p.status}
                             </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {daysLeft !== null ? (
-                              <span
-                                className={`text-sm font-semibold ${
-                                  isOverdue
-                                    ? 'text-red-600'
-                                    : isUrgent
-                                      ? 'text-amber-600'
-                                      : 'text-gray-700'
-                                }`}
-                              >
-                                {isOverdue ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d`}
+                            {daysLeft !== null && (
+                              <span className={`text-[10px] font-semibold ${
+                                isOverdue ? 'text-red-600' : isUrgent ? 'text-amber-600' : 'text-gray-500'
+                              }`}>
+                                {isOverdue ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d left`}
                               </span>
-                            ) : (
-                              <span className="text-sm text-muted-foreground">—</span>
                             )}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-8">
-                        No upcoming deadlines within 7 days
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-6">
+                    No upcoming deadlines within 7 days
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Recent Activity — Compact Proposal List */}
+          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+            <CardHeader className="pb-2 pt-5 px-5">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-teal-100 flex items-center justify-center">
+                  <FileText className="h-4 w-4 text-teal-600" />
+                </div>
+                <CardTitle className="text-base font-semibold text-gray-900">Recent Activity</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pb-5 px-5">
+              <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+                {(dashboard.recentProposals || []).length > 0 ? (
+                  (dashboard.recentProposals || []).map((p) => (
+                    <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50/80 transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-gray-800 truncate">{p.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{p.client.name} · {format(parseISO(p.createdAt), 'MMM dd')}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-semibold text-gray-900">{formatCompactPKR(p.value)}</p>
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] px-1 py-0 h-4 ${STATUS_BG[p.status] || 'bg-gray-100 text-gray-600'}`}
+                        >
+                          {p.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-6">
+                    No recent proposals
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* ═══════════════ QUARTERLY PROGRESS ═══════════════ */}
+        <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+          <CardHeader className="pb-2 pt-5 px-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-teal-100 flex items-center justify-center">
+                  <Target className="h-4 w-4 text-teal-600" />
+                </div>
+                <CardTitle className="text-base font-semibold text-gray-900">
+                  Quarterly Progress — {selectedYear}
+                </CardTitle>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pb-5 px-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {(dashboard.quarterlyProgress || []).map((q) => {
+                const pct = q.target > 0 ? Math.round((q.actual / q.target) * 100) : 0
+                const isOverAchieved = pct >= 100
+
+                return (
+                  <div key={q.quarter} className="rounded-xl bg-gray-50/80 p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-gray-800">{q.quarter}</span>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] h-5 rounded-lg ${
+                          isOverAchieved
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-gray-100 text-gray-600 border-gray-200'
+                        }`}
+                      >
+                        {pct}%
+                      </Badge>
+                    </div>
+                    <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={`absolute left-0 top-0 h-full rounded-full transition-all duration-700 ease-out ${
+                          isOverAchieved ? 'bg-emerald-500' : 'bg-teal-500'
+                        }`}
+                        style={{ width: `${Math.min(pct, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>Achieved: <span className="font-medium text-gray-700">{formatCompactPKR(q.actual)}</span></span>
+                      <span>Target: <span className="font-medium text-gray-500">{formatCompactPKR(q.target)}</span></span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            {/* Annual summary */}
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-teal-500" />
+                  <span className="text-sm font-semibold text-gray-800">Annual Total</span>
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] h-5 rounded-lg ${
+                      dashboard.targetVsActual.percentageAchieved >= 100
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-teal-50 text-teal-700 border-teal-200'
+                    }`}
+                  >
+                    {dashboard.targetVsActual.percentageAchieved}%
+                  </Badge>
+                </div>
+                <div className="text-xs text-muted-foreground space-x-3">
+                  <span>
+                    Achieved: <span className="font-medium text-gray-700">{formatCompactPKR(dashboard.annualProgress.actual)}</span>
+                  </span>
+                  <span>
+                    Target: <span className="font-medium text-gray-500">{formatCompactPKR(dashboard.annualProgress.target)}</span>
+                  </span>
+                </div>
+              </div>
+              <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className={`absolute left-0 top-0 h-full rounded-full transition-all duration-700 ease-out ${
+                    dashboard.targetVsActual.percentageAchieved >= 100 ? 'bg-emerald-500' : 'bg-teal-500'
+                  }`}
+                  style={{ width: `${Math.min(dashboard.targetVsActual.percentageAchieved, 100)}%` }}
+                />
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white mix-blend-difference">
+                  {formatCompactPKR(dashboard.annualProgress.actual)} / {formatCompactPKR(dashboard.annualProgress.target)}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ═══════════════ PROPOSAL STATUS PIE ═══════════════ */}
+        <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+          <CardHeader className="pb-2 pt-5 px-5">
+            <CardTitle className="text-base font-semibold text-gray-900">
+              Proposal Status Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-5 px-5">
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <div className="h-56 w-full sm:w-1/2">
+                {proposalStatusData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={proposalStatusData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={85}
+                        paddingAngle={3}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {proposalStatusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: number) => [value, 'Proposals']}
+                        contentStyle={{
+                          borderRadius: '12px',
+                          border: '1px solid #e2e8f0',
+                          boxShadow: '0 8px 16px -4px rgb(0 0 0 / 0.1)',
+                          fontSize: '12px',
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                    No proposal data
+                  </div>
+                )}
+              </div>
+              <div className="w-full sm:w-1/2 space-y-3">
+                {proposalStatusData.map((item) => (
+                  <div key={item.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className="h-3 w-3 rounded-full shrink-0"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <span className="text-sm text-gray-700">{item.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-900">{item.value}</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({totalProposals > 0 ? Math.round((item.value / totalProposals) * 100) : 0}%)
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                <div className="pt-2 border-t border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">Total</span>
+                    <span className="text-sm font-bold text-gray-900">{totalProposals}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
       </div>
     </div>
   )

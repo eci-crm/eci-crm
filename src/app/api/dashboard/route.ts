@@ -219,7 +219,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Proposal status summary
-    const statusOrder = ['Submitted', 'In Process', 'In Evaluation', 'Pending', 'Won']
+    const statusOrder = ['Submitted', 'In Process', 'In Evaluation', 'Pending', 'Won', 'Rejected']
     const proposalStatusSummary: Record<string, number> = {}
     for (const status of statusOrder) {
       const count = await db.proposal.count({

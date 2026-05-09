@@ -132,7 +132,7 @@ interface ProposalFormData {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const STATUS_OPTIONS = ['Submitted', 'In Process', 'In Evaluation', 'Pending', 'Won'] as const
+const STATUS_OPTIONS = ['Submitted', 'In Process', 'In Evaluation', 'Pending', 'Won', 'Rejected'] as const
 
 const WINNING_CHANCES_OPTIONS = ['Low', 'Medium', 'High'] as const
 
@@ -142,6 +142,7 @@ const STATUS_BADGE_STYLES: Record<string, string> = {
   'In Evaluation': 'bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100',
   Pending: 'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-100',
   Won: 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100',
+  Rejected: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100',
 }
 
 const WINNING_CHANCES_STYLES: Record<string, string> = {

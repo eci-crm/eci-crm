@@ -69,7 +69,9 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface Filters {
+  clientId: string
   serviceId: string
+  thematicAreaId: string
   startDate: string
   endDate: string
   month: string
@@ -82,6 +84,18 @@ interface Service {
   name: string
   color: string
   sortOrder: number
+}
+
+interface ClientOption {
+  id: string
+  name: string
+  status: string
+}
+
+interface ThematicAreaOption {
+  id: string
+  name: string
+  color: string
 }
 
 // Clients Report
@@ -165,6 +179,7 @@ const STATUS_COLORS: Record<string, string> = {
   'In Evaluation': '#8b5cf6',
   Pending: '#f97316',
   Won: '#10b981',
+  Rejected: '#ef4444',
 }
 
 const STATUS_BG: Record<string, string> = {
@@ -173,6 +188,7 @@ const STATUS_BG: Record<string, string> = {
   'In Evaluation': 'bg-purple-100 text-purple-700 border-purple-200',
   Pending: 'bg-orange-100 text-orange-700 border-orange-200',
   Won: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  Rejected: 'bg-red-100 text-red-700 border-red-200',
 }
 
 const MONTHS = [
@@ -227,7 +243,9 @@ export default function CRMReports() {
   const currentYear = String(new Date().getFullYear())
 
   const [filters, setFilters] = useState<Filters>({
+    clientId: '',
     serviceId: '',
+    thematicAreaId: '',
     startDate: '',
     endDate: '',
     month: '',
@@ -236,7 +254,9 @@ export default function CRMReports() {
   })
 
   const [appliedFilters, setAppliedFilters] = useState<Filters>({
+    clientId: '',
     serviceId: '',
+    thematicAreaId: '',
     startDate: '',
     endDate: '',
     month: '',
@@ -254,10 +274,24 @@ export default function CRMReports() {
     queryFn: () => fetch('/api/services').then((r) => r.json()),
   })
 
+  // Fetch clients for filter dropdown
+  const { data: clientsList = [] } = useQuery<ClientOption[]>({
+    queryKey: ['clients-list'],
+    queryFn: () => fetch('/api/clients').then((r) => r.json()),
+  })
+
+  // Fetch thematic areas for filter dropdown
+  const { data: thematicAreas = [] } = useQuery<ThematicAreaOption[]>({
+    queryKey: ['thematic-areas-list'],
+    queryFn: () => fetch('/api/thematic-areas').then((r) => r.json()),
+  })
+
   // Build query params from applied filters
   const queryParams = useMemo(() => {
     const params = new URLSearchParams()
+    if (appliedFilters.clientId) params.set('clientId', appliedFilters.clientId)
     if (appliedFilters.serviceId) params.set('serviceId', appliedFilters.serviceId)
+    if (appliedFilters.thematicAreaId) params.set('thematicAreaId', appliedFilters.thematicAreaId)
     if (appliedFilters.startDate) params.set('startDate', appliedFilters.startDate)
     if (appliedFilters.endDate) params.set('endDate', appliedFilters.endDate)
     if (appliedFilters.month !== '') params.set('month', appliedFilters.month)
@@ -398,7 +432,9 @@ export default function CRMReports() {
 
   const clearFilters = () => {
     const reset = {
+      clientId: '',
       serviceId: '',
+      thematicAreaId: '',
       startDate: '',
       endDate: '',
       month: '',
@@ -410,7 +446,9 @@ export default function CRMReports() {
   }
 
   const hasActiveFilters =
+    filters.clientId ||
     filters.serviceId ||
+    filters.thematicAreaId ||
     filters.startDate ||
     filters.endDate ||
     filters.month !== '' ||
@@ -1449,24 +1487,29 @@ export default function CRMReports() {
                 </Badge>
               )}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+            {/* Row 1: Client, Service, Thematic Area */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">From</label>
-                <Input
-                  type="date"
-                  value={filters.startDate}
-                  onChange={(e) => setFilters((f) => ({ ...f, startDate: e.target.value }))}
-                  className="h-9 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">To</label>
-                <Input
-                  type="date"
-                  value={filters.endDate}
-                  onChange={(e) => setFilters((f) => ({ ...f, endDate: e.target.value }))}
-                  className="h-9 text-sm"
-                />
+                <label className="text-xs font-medium text-muted-foreground">Client</label>
+                <Select
+                  value={filters.clientId}
+                  onValueChange={(v) => setFilters((f) => ({ ...f, clientId: v === '__all__' ? '' : v }))}
+                >
+                  <SelectTrigger className="h-9 text-sm w-full">
+                    <SelectValue placeholder="All Clients" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All Clients</SelectItem>
+                    {clientsList.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <div className="flex items-center gap-2">
+                          <Users className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{c.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Service</label>
@@ -1489,6 +1532,49 @@ export default function CRMReports() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Thematic Area</label>
+                <Select
+                  value={filters.thematicAreaId}
+                  onValueChange={(v) => setFilters((f) => ({ ...f, thematicAreaId: v === '__all__' ? '' : v }))}
+                >
+                  <SelectTrigger className="h-9 text-sm w-full">
+                    <SelectValue placeholder="All Thematic Areas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All Thematic Areas</SelectItem>
+                    {thematicAreas.map((ta) => (
+                      <SelectItem key={ta.id} value={ta.id}>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: ta.color }} />
+                          <span className="truncate">{ta.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {/* Row 2: From Date, To Date, Month, Quarter, Year, Apply/Clear */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">From</label>
+                <Input
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => setFilters((f) => ({ ...f, startDate: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">To</label>
+                <Input
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => setFilters((f) => ({ ...f, endDate: e.target.value }))}
+                  className="h-9 text-sm"
+                />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Month</label>

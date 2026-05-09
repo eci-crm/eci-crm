@@ -48,19 +48,21 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') || 'summary'
     const serviceId = searchParams.get('serviceId')
+    const clientId = searchParams.get('clientId')
+    const thematicAreaId = searchParams.get('thematicAreaId')
     const { startDate, endDate, year } = getFilterDates(searchParams)
 
     switch (type) {
       case 'clients':
-        return await handleClientsReport(startDate, endDate)
+        return await handleClientsReport(startDate, endDate, clientId)
       case 'proposals':
-        return await handleProposalsReport(startDate, endDate, serviceId)
+        return await handleProposalsReport(startDate, endDate, serviceId, clientId, thematicAreaId)
       case 'summary':
-        return await handleSummaryReport(startDate, endDate, year, serviceId)
+        return await handleSummaryReport(startDate, endDate, year, serviceId, clientId, thematicAreaId)
       case 'thematic':
-        return await handleThematicReport(startDate, endDate, serviceId)
+        return await handleThematicReport(startDate, endDate, serviceId, clientId, thematicAreaId)
       case 'service':
-        return await handleServiceReport(startDate, endDate, year)
+        return await handleServiceReport(startDate, endDate, year, clientId, thematicAreaId)
       default:
         return NextResponse.json({ error: 'Invalid report type' }, { status: 400 })
     }
@@ -70,8 +72,14 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function handleClientsReport(startDate: Date, endDate: Date) {
+async function handleClientsReport(startDate: Date, endDate: Date, clientId: string | null) {
+  const where: Record<string, unknown> = {}
+  if (clientId) {
+    where.id = clientId
+  }
+
   const clients = await db.client.findMany({
+    where,
     include: {
       proposals: {
         where: {
@@ -100,13 +108,21 @@ async function handleClientsReport(startDate: Date, endDate: Date) {
   return NextResponse.json({ type: 'clients', data: report })
 }
 
-async function handleProposalsReport(startDate: Date, endDate: Date, serviceId: string | null) {
+async function handleProposalsReport(startDate: Date, endDate: Date, serviceId: string | null, clientId: string | null, thematicAreaId: string | null) {
   const where: Record<string, unknown> = {
     createdAt: { gte: startDate, lte: endDate },
   }
 
   if (serviceId) {
     where.services = { some: { serviceId } }
+  }
+
+  if (clientId) {
+    where.clientId = clientId
+  }
+
+  if (thematicAreaId) {
+    where.thematicAreas = { some: { thematicAreaId } }
   }
 
   const proposals = await db.proposal.findMany({
@@ -141,14 +157,24 @@ async function handleProposalsReport(startDate: Date, endDate: Date, serviceId: 
   })
 }
 
-async function handleSummaryReport(startDate: Date, endDate: Date, year: number, serviceId: string | null) {
+async function handleSummaryReport(startDate: Date, endDate: Date, year: number, serviceId: string | null, clientId: string | null, thematicAreaId: string | null) {
   // Client summary
-  const totalClients = await db.client.count()
-  const activeClients = await db.client.count({ where: { status: 'Active' } })
+  const clientWhere: Record<string, unknown> = {}
+  if (clientId) {
+    clientWhere.id = clientId
+  }
+  const totalClients = await db.client.count({ where: clientWhere })
+  const activeClients = await db.client.count({ where: { ...clientWhere, status: 'Active' } })
 
   // Proposal summary
   const proposalWhere: Record<string, unknown> = {
     createdAt: { gte: startDate, lte: endDate },
+  }
+  if (clientId) {
+    proposalWhere.clientId = clientId
+  }
+  if (thematicAreaId) {
+    proposalWhere.thematicAreas = { some: { thematicAreaId } }
   }
 
   const totalProposals = await db.proposal.count({ where: proposalWhere })
@@ -184,8 +210,19 @@ async function handleSummaryReport(startDate: Date, endDate: Date, year: number,
       .filter((t) => t.month === m)
       .reduce((sum, t) => sum + t.amount, 0)
 
+    const monthProposalWhere: Record<string, unknown> = {
+      status: 'Won',
+      createdAt: { gte: monthStart, lte: monthEnd },
+    }
+    if (clientId) {
+      monthProposalWhere.clientId = clientId
+    }
+    if (thematicAreaId) {
+      monthProposalWhere.thematicAreas = { some: { thematicAreaId } }
+    }
+
     const monthWon = await db.proposal.findMany({
-      where: { status: 'Won', createdAt: { gte: monthStart, lte: monthEnd } },
+      where: monthProposalWhere,
       select: { value: true, services: { select: { serviceId: true } } },
     })
 
@@ -221,8 +258,14 @@ async function handleSummaryReport(startDate: Date, endDate: Date, year: number,
   })
 }
 
-async function handleThematicReport(startDate: Date, endDate: Date, serviceId: string | null) {
+async function handleThematicReport(startDate: Date, endDate: Date, serviceId: string | null, clientId: string | null, thematicAreaId: string | null) {
+  const where: Record<string, unknown> = {}
+  if (thematicAreaId) {
+    where.id = thematicAreaId
+  }
+
   const areas = await db.thematicArea.findMany({
+    where,
     orderBy: { sortOrder: 'asc' },
     include: {
       proposals: {
@@ -244,7 +287,8 @@ async function handleThematicReport(startDate: Date, endDate: Date, serviceId: s
       const pDate = new Date(p.createdAt)
       const inDateRange = pDate >= startDate && pDate <= endDate
       const matchesService = !serviceId || p.services.some((s) => s.serviceId === serviceId)
-      return inDateRange && matchesService
+      const matchesClient = !clientId || p.clientId === clientId
+      return inDateRange && matchesService && matchesClient
     })
 
     const proposals = filteredProposals.map((pt) => pt.proposal)
@@ -271,7 +315,7 @@ async function handleThematicReport(startDate: Date, endDate: Date, serviceId: s
   return NextResponse.json({ type: 'thematic', data: report })
 }
 
-async function handleServiceReport(startDate: Date, endDate: Date, year: number) {
+async function handleServiceReport(startDate: Date, endDate: Date, year: number, clientId: string | null, thematicAreaId: string | null) {
   const services = await db.service.findMany({
     orderBy: { sortOrder: 'asc' },
     include: {
@@ -280,6 +324,7 @@ async function handleServiceReport(startDate: Date, endDate: Date, year: number)
           proposal: {
             include: {
               client: true,
+              thematicAreas: { include: { thematicArea: true } },
             },
           },
         },
@@ -296,7 +341,10 @@ async function handleServiceReport(startDate: Date, endDate: Date, year: number)
     const filteredProposals = service.proposals.filter((ps) => {
       const p = ps.proposal
       const pDate = new Date(p.createdAt)
-      return pDate >= startDate && pDate <= endDate
+      const inDateRange = pDate >= startDate && pDate <= endDate
+      const matchesClient = !clientId || p.clientId === clientId
+      const matchesThematic = !thematicAreaId || p.thematicAreas.some((ta) => ta.thematicAreaId === thematicAreaId)
+      return inDateRange && matchesClient && matchesThematic
     })
 
     const proposals = filteredProposals.map((ps) => ps.proposal)
@@ -332,15 +380,34 @@ async function handleServiceReport(startDate: Date, endDate: Date, year: number)
 
   // Overall service summary
   const totalServices = services.length
+  const proposalWhere: Record<string, unknown> = {
+    createdAt: { gte: startDate, lte: endDate },
+    services: { some: {} },
+  }
+  if (clientId) {
+    proposalWhere.clientId = clientId
+  }
+  if (thematicAreaId) {
+    proposalWhere.thematicAreas = { some: { thematicAreaId } }
+  }
+
   const proposalsWithServices = await db.proposal.findMany({
-    where: {
-      createdAt: { gte: startDate, lte: endDate },
-      services: { some: {} },
-    },
+    where: proposalWhere,
     select: { id: true },
   })
+
+  const totalWhere: Record<string, unknown> = {
+    createdAt: { gte: startDate, lte: endDate },
+  }
+  if (clientId) {
+    totalWhere.clientId = clientId
+  }
+  if (thematicAreaId) {
+    totalWhere.thematicAreas = { some: { thematicAreaId } }
+  }
+
   const totalProposalsInPeriod = await db.proposal.count({
-    where: { createdAt: { gte: startDate, lte: endDate } },
+    where: totalWhere,
   })
   const serviceCoverage = totalProposalsInPeriod > 0
     ? Math.round((proposalsWithServices.length / totalProposalsInPeriod) * 100)
