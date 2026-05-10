@@ -588,18 +588,20 @@ export default function CRMDashboard() {
     }))
   }, [dashboard])
 
-  // Service-wise chart data
+  // Service-wise chart data — show services with any proposals (not just won)
   const serviceChartData = useMemo(() => {
     if (!dashboard) return []
     if (!dashboard.serviceWiseSummary) return []
     return dashboard.serviceWiseSummary
-      .filter((s) => s.wonValue > 0)
-      .sort((a, b) => b.wonValue - a.wonValue)
+      .filter((s) => s.proposals > 0)
+      .sort((a, b) => b.totalValue - a.totalValue)
       .map((s) => ({
         name: s.service.name.length > 15 ? s.service.name.substring(0, 15) + '...' : s.service.name,
-        value: s.wonValue,
+        Total: s.totalValue,
+        Won: s.wonValue,
         color: s.service.color,
         fullName: s.service.name,
+        proposals: s.proposals,
       }))
   }, [dashboard])
 
@@ -938,10 +940,18 @@ export default function CRMDashboard() {
                 </div>
               </div>
               <div className="mt-4 flex items-center gap-1.5">
-                <ArrowUpRight className={`h-3.5 w-3.5 ${isECITheme ? 'text-blue-500' : 'text-emerald-500'}`} />
-                <span className={`text-xs font-semibold ${isECITheme ? 'text-blue-600' : 'text-emerald-600'}`}>
-                  {dashboard.targetVsActual.percentageAchieved}% of target
-                </span>
+                {dashboard.targetVsActual.target > 0 ? (
+                  <>
+                    <ArrowUpRight className={`h-3.5 w-3.5 ${isECITheme ? 'text-blue-500' : 'text-emerald-500'}`} />
+                    <span className={`text-xs font-semibold ${isECITheme ? 'text-blue-600' : 'text-emerald-600'}`}>
+                      {dashboard.targetVsActual.percentageAchieved}% of target
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs font-medium text-amber-600">
+                    No target set for {selectedYear}
+                  </span>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -956,30 +966,40 @@ export default function CRMDashboard() {
                     Target Achievement{kpiPeriodSuffix}
                   </p>
                   <p className="text-3xl font-bold text-gray-900 tracking-tight">
-                    {dashboard.targetVsActual.percentageAchieved}%
+                    {dashboard.targetVsActual.target > 0
+                      ? `${dashboard.targetVsActual.percentageAchieved}%`
+                      : '—'
+                    }
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Remaining: {formatCompactPKR(dashboard.targetVsActual.remaining)}
-                    {!isFullYear && periodInfo && (
+                    {dashboard.targetVsActual.target > 0 ? (
+                      <>Remaining: {formatCompactPKR(dashboard.targetVsActual.remaining)}</>
+                    ) : (
+                      <>No target set for {selectedYear}</>
+                    )}
+                    {!isFullYear && periodInfo && dashboard.targetVsActual.target > 0 && (
                       <span className="text-amber-600 ml-1">({periodInfo.yearProportion}% of annual)</span>
                     )}
                   </p>
                 </div>
                 <div className="relative shrink-0">
                   <CircularProgress
-                    percentage={dashboard.targetVsActual.percentageAchieved}
+                    percentage={dashboard.targetVsActual.target > 0 ? dashboard.targetVsActual.percentageAchieved : 0}
                     size={60}
                     strokeWidth={6}
                     accentColor={isECITheme ? '#2563eb' : '#14b8a6'}
                   />
                   <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-bold ${isECITheme ? 'text-blue-700' : 'text-teal-700'}`}>
-                    {dashboard.targetVsActual.percentageAchieved}%
+                    {dashboard.targetVsActual.target > 0
+                      ? `${dashboard.targetVsActual.percentageAchieved}%`
+                      : 'N/A'
+                    }
                   </span>
                 </div>
               </div>
               <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
                 <span>
-                  Target: <span className="font-medium text-gray-700">{formatCompactPKR(dashboard.targetVsActual.target)}</span>
+                  Target: <span className="font-medium text-gray-700">{dashboard.targetVsActual.target > 0 ? formatCompactPKR(dashboard.targetVsActual.target) : 'Not set'}</span>
                 </span>
                 <span>
                   Actual: <span className={`font-medium ${isECITheme ? 'text-blue-600' : 'text-teal-600'}`}>{formatCompactPKR(dashboard.targetVsActual.actual)}</span>
@@ -1337,12 +1357,26 @@ export default function CRMDashboard() {
             </CardContent>
           </Card>
 
-          {/* Service Distribution — Horizontal Bar */}
+          {/* Service Distribution — Horizontal Bar with Total & Won */}
           <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm ring-1 ring-gray-900/[0.03] hover:shadow-lg transition-all duration-300">
             <CardHeader className="pb-2 pt-5 px-5">
-              <CardTitle className="text-base font-semibold text-gray-900">
-                Service Distribution
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold text-gray-900">
+                  Service Distribution
+                </CardTitle>
+                {serviceChartData.length > 0 && (
+                  <div className="flex items-center gap-4 text-[10px] font-medium text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <span className={`h-2.5 w-2.5 rounded-sm ${isECITheme ? 'bg-blue-400' : 'bg-emerald-400'}`} />
+                      Total Value
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-amber-400" />
+                      Won Value
+                    </span>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="pb-5 px-5">
               <div className="h-72">
@@ -1374,9 +1408,9 @@ export default function CRMDashboard() {
                         width={110}
                       />
                       <Tooltip
-                        formatter={(value: number, _name: string, props: { payload?: { fullName?: string } }) => [
+                        formatter={(value: number, name: string) => [
                           formatPKR(value),
-                          props.payload?.fullName || 'Won Value',
+                          name === 'Won' ? 'Won Value' : 'Total Value',
                         ]}
                         contentStyle={{
                           borderRadius: '12px',
@@ -1385,16 +1419,15 @@ export default function CRMDashboard() {
                           fontSize: '12px',
                         }}
                       />
-                      <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={24}>
-                        {serviceChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Bar>
+                      <Bar dataKey="Total" fill={isECITheme ? '#60a5fa' : '#34d399'} radius={[0, 6, 6, 0]} maxBarSize={20} />
+                      <Bar dataKey="Won" fill="#fbbf24" radius={[0, 6, 6, 0]} maxBarSize={20} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                    No won business data available
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                    <Activity className="h-8 w-8 mb-2 opacity-30" />
+                    <p className="text-sm">No service data available</p>
+                    <p className="text-[11px] text-muted-foreground/70 mt-1">Assign services to proposals to see distribution</p>
                   </div>
                 )}
               </div>
