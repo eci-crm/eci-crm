@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MessageCircle, X, Send, Bot, User, Sparkles } from 'lucide-react'
+import { MessageCircle, X, Send, Bot, User, Sparkles, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useCRMStore } from '@/lib/store'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -20,18 +21,21 @@ interface ChatMessage {
 // ─── Suggestion Chips ────────────────────────────────────────────────────────
 
 const DEFAULT_SUGGESTIONS = [
-  'Show dashboard summary',
+  'Dashboard summary',
   'Proposal win rate',
   'Target progress',
-  'Top services',
+  'Upcoming deadlines',
 ]
 
 const FOLLOW_UP_SUGGESTIONS_MAP: Record<string, string[]> = {
-  dashboard: ['Show monthly trends', 'Recent proposals', 'Client count'],
-  win: ['Compare with last quarter', 'Top clients', 'Proposal pipeline'],
-  target: ['Quarterly breakdown', 'Service-wise targets', 'Gap analysis'],
-  service: ['Revenue by service', 'Service growth rate', 'Service mix'],
-  default: ['Show more details', 'Export report', 'View timeline'],
+  dashboard: ['Monthly trends', 'Top clients', 'Team performance'],
+  win: ['Compare with last year', 'Service-wise wins', 'How to improve'],
+  target: ['Quarterly breakdown', 'Remaining target', 'Gap analysis'],
+  deadline: ['Overdue proposals', 'This week deadlines', 'Pipeline status'],
+  service: ['Revenue by service', 'Service growth', 'Best performing service'],
+  client: ['Active vs inactive', 'Top clients', 'Client acquisition'],
+  team: ['Team leaderboard', 'Individual performance', 'Workload distribution'],
+  default: ['Show more details', 'Historical comparison', 'Strategic insights'],
 }
 
 function getFollowUpSuggestions(lastMessage: string): string[] {
@@ -45,21 +49,56 @@ function getFollowUpSuggestions(lastMessage: string): string[] {
   if (lower.includes('target') || lower.includes('progress') || lower.includes('goal')) {
     return FOLLOW_UP_SUGGESTIONS_MAP.target
   }
+  if (lower.includes('deadline') || lower.includes('overdue') || lower.includes('due')) {
+    return FOLLOW_UP_SUGGESTIONS_MAP.deadline
+  }
   if (lower.includes('service') || lower.includes('revenue') || lower.includes('business')) {
     return FOLLOW_UP_SUGGESTIONS_MAP.service
+  }
+  if (lower.includes('client') || lower.includes('customer')) {
+    return FOLLOW_UP_SUGGESTIONS_MAP.client
+  }
+  if (lower.includes('team') || lower.includes('member') || lower.includes('performance')) {
+    return FOLLOW_UP_SUGGESTIONS_MAP.team
   }
   return FOLLOW_UP_SUGGESTIONS_MAP.default
 }
 
+// ─── Message Formatting ──────────────────────────────────────────────────────
+
+function formatMessageContent(content: string): React.ReactNode {
+  // Simple formatting: bold text between ** ** and bullet points
+  const lines = content.split('\n')
+  return lines.map((line, i) => {
+    // Handle bullet points
+    if (line.trim().startsWith('•') || line.trim().startsWith('-')) {
+      return <div key={i} className="ml-2">{line}</div>
+    }
+    // Handle bold text
+    const parts = line.split(/\*\*(.*?)\*\*/g)
+    if (parts.length > 1) {
+      return (
+        <div key={i}>
+          {parts.map((part, j) =>
+            j % 2 === 1 ? <strong key={j}>{part}</strong> : part
+          )}
+        </div>
+      )
+    }
+    return line ? <div key={i}>{line}</div> : <br key={i} />
+  })
+}
+
 // ─── Loading Dots Animation ──────────────────────────────────────────────────
 
-function LoadingDots() {
+function LoadingDots({ isECITheme }: { isECITheme: boolean }) {
   return (
-    <div className="flex items-center gap-1 px-1">
+    <div className="flex items-center gap-1.5">
+      <span className="text-[11px] text-muted-foreground mr-1">Thinking</span>
       {[0, 1, 2].map((i) => (
         <motion.span
           key={i}
-          className="inline-block h-2 w-2 rounded-full bg-emerald-400"
+          className={`inline-block h-1.5 w-1.5 rounded-full ${isECITheme ? 'bg-blue-400' : 'bg-emerald-400'}`}
           animate={{ opacity: [0.3, 1, 0.3], scale: [0.85, 1.1, 0.85] }}
           transition={{
             duration: 1.2,
@@ -92,6 +131,9 @@ function formatMessageTime(dateStr: string): string {
 // ─── Chatbot Component ───────────────────────────────────────────────────────
 
 export function CRMChatbot() {
+  const { theme } = useCRMStore()
+  const isECITheme = theme === 'eci'
+
   const [isOpen, setIsOpen] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>(DEFAULT_SUGGESTIONS)
@@ -132,6 +174,24 @@ export function CRMChatbot() {
       toast.error('Failed to send message. Please try again.')
     },
   })
+
+  // Clear chat mutation
+  const clearChat = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/chat', { method: 'DELETE' })
+      if (!res.ok) throw new Error('Failed to clear chat')
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-messages'] })
+      setSuggestions(DEFAULT_SUGGESTIONS)
+      toast.success('Chat history cleared')
+    },
+  })
+
+  const handleClearChat = useCallback(() => {
+    clearChat.mutate()
+  }, [clearChat])
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -192,6 +252,41 @@ export function CRMChatbot() {
     [handleSend]
   )
 
+  // Theme-aware class helpers
+  const floatingBtnBg = isECITheme
+    ? 'bg-gradient-to-br from-blue-700 to-red-600'
+    : 'bg-gradient-to-br from-emerald-500 to-teal-600'
+  const floatingBtnShadow = isECITheme
+    ? 'shadow-blue-500/30 hover:shadow-blue-500/40'
+    : 'shadow-emerald-500/30 hover:shadow-emerald-500/40'
+  const pingDot = isECITheme ? 'bg-blue-400' : 'bg-emerald-400'
+  const pingDotSolid = isECITheme ? 'bg-blue-500' : 'bg-emerald-500'
+  const headerGradient = isECITheme
+    ? 'bg-gradient-to-r from-blue-700 to-red-600'
+    : 'bg-gradient-to-r from-emerald-500 to-teal-600'
+  const headerSubtitle = isECITheme ? 'text-blue-100' : 'text-emerald-100'
+  const botAvatarBg = isECITheme
+    ? 'bg-blue-100 dark:bg-blue-950/40'
+    : 'bg-emerald-100 dark:bg-emerald-950/40'
+  const botIconColor = isECITheme
+    ? 'text-blue-600 dark:text-blue-400'
+    : 'text-emerald-600 dark:text-emerald-400'
+  const emptyIconBg = isECITheme
+    ? 'bg-blue-50 dark:bg-blue-950/30'
+    : 'bg-emerald-50 dark:bg-emerald-950/30'
+  const emptyIconColor = isECITheme
+    ? 'text-blue-600 dark:text-blue-400'
+    : 'text-emerald-600 dark:text-emerald-400'
+  const sendBtnGradient = isECITheme
+    ? 'bg-gradient-to-br from-blue-600 to-red-600 hover:from-blue-700 hover:to-red-700'
+    : 'bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700'
+  const inputFocusRing = isECITheme
+    ? 'focus-visible:ring-blue-500/30'
+    : 'focus-visible:ring-emerald-500/30'
+  const suggestionHover = isECITheme
+    ? 'hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 dark:hover:border-blue-700 dark:hover:bg-blue-950/30 dark:hover:text-blue-400'
+    : 'hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-400'
+
   return (
     <>
       {/* Floating Button */}
@@ -203,13 +298,13 @@ export function CRMChatbot() {
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-shadow"
+            className={`fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg ${floatingBtnBg} ${floatingBtnShadow} transition-shadow`}
             aria-label="Open CRM Assistant"
           >
             <MessageCircle className="h-6 w-6" />
             <span className="absolute -top-1 -right-1 flex h-4 w-4">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-4 w-4 rounded-full bg-emerald-500" />
+              <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${pingDot} opacity-75`} />
+              <span className={`relative inline-flex h-4 w-4 rounded-full ${pingDotSolid}`} />
             </span>
           </motion.button>
         )}
@@ -227,23 +322,33 @@ export function CRMChatbot() {
             style={{ width: 400, height: 560 }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between border-b bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3">
+            <div className={`flex items-center justify-between border-b ${headerGradient} px-4 py-3`}>
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
                   <Sparkles className="h-4 w-4 text-white" />
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-white">CRM Assistant</h3>
-                  <p className="text-[10px] text-emerald-100">Powered by AI</p>
+                  <p className={`text-[10px] ${headerSubtitle}`}>Powered by AI</p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="rounded-md p-1.5 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-                aria-label="Close chat"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleClearChat}
+                  className="rounded-md p-1.5 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                  aria-label="Clear chat history"
+                  title="Clear chat history"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="rounded-md p-1.5 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                  aria-label="Close chat"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             {/* Messages Area */}
@@ -254,12 +359,12 @@ export function CRMChatbot() {
             >
               {messages.length === 0 && !sendMessage.isPending ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/30">
-                    <Bot className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                  <div className={`mb-3 flex h-12 w-12 items-center justify-center rounded-full ${emptyIconBg}`}>
+                    <Bot className={`h-6 w-6 ${emptyIconColor}`} />
                   </div>
                   <p className="text-sm font-medium text-foreground">Hello! 👋</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    I&apos;m your CRM assistant. Ask me anything about your proposals, clients, or targets.
+                  <p className="mt-1 text-xs text-muted-foreground max-w-[260px]">
+                    I&apos;m your CRM assistant with real-time access to all your data. Ask me about proposals, clients, targets, deadlines, or any business insights.
                   </p>
                 </div>
               ) : (
@@ -274,8 +379,8 @@ export function CRMChatbot() {
                     >
                       {/* Avatar */}
                       {msg.role === 'assistant' ? (
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40">
-                          <Bot className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${botAvatarBg}`}>
+                          <Bot className={`h-3.5 w-3.5 ${botIconColor}`} />
                         </div>
                       ) : (
                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary">
@@ -292,7 +397,9 @@ export function CRMChatbot() {
                         }`}
                         style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}
                       >
-                        <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}>{msg.content}</p>
+                        <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}>
+                          {formatMessageContent(msg.content)}
+                        </p>
                         <p
                           className={`mt-1 text-[10px] ${
                             msg.role === 'user'
@@ -314,11 +421,11 @@ export function CRMChatbot() {
                       transition={{ duration: 0.25, ease: 'easeOut' }}
                       className="flex gap-2"
                     >
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40">
-                        <Bot className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${botAvatarBg}`}>
+                        <Bot className={`h-3.5 w-3.5 ${botIconColor}`} />
                       </div>
                       <div className="rounded-2xl bg-muted px-4 py-3">
-                        <LoadingDots />
+                        <LoadingDots isECITheme={isECITheme} />
                       </div>
                     </motion.div>
                   )}
@@ -337,7 +444,7 @@ export function CRMChatbot() {
                     key={suggestion}
                     onClick={() => handleSuggestionClick(suggestion)}
                     disabled={sendMessage.isPending}
-                    className="shrink-0 rounded-full border bg-background px-3 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`shrink-0 rounded-full border bg-background px-3 py-1 text-[11px] font-medium text-muted-foreground transition-colors ${suggestionHover} disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {suggestion}
                   </button>
@@ -355,13 +462,13 @@ export function CRMChatbot() {
                   onKeyDown={handleKeyDown}
                   placeholder="Ask me anything..."
                   disabled={sendMessage.isPending}
-                  className="h-9 flex-1 rounded-full border-border/50 bg-muted/50 text-sm focus-visible:ring-emerald-500/30"
+                  className={`h-9 flex-1 rounded-full border-border/50 bg-muted/50 text-sm ${inputFocusRing}`}
                 />
                 <Button
                   size="icon"
                   onClick={handleSend}
                   disabled={!inputValue.trim() || sendMessage.isPending}
-                  className="h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-sm"
+                  className={`h-9 w-9 shrink-0 rounded-full ${sendBtnGradient} shadow-sm`}
                 >
                   <Send className="h-4 w-4" />
                   <span className="sr-only">Send message</span>

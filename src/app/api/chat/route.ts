@@ -2,6 +2,11 @@ import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import ZAI from 'z-ai-web-dev-sdk'
 
+// ─── CRM Summary Cache ───────────────────────────────────────────────────────
+
+let summaryCache: { data: string; timestamp: number } | null = null
+const SUMMARY_CACHE_TTL = 30000 // 30 seconds
+
 // ─── Helper: Date range calculation ──────────────────────────────────────────
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -50,58 +55,103 @@ function getProposalDate(p: { submissionDate: Date | null; createdAt: Date }): D
   return p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
 }
 
-// ─── Fetch CRM Summary Data (Optimized: 6 parallel queries instead of 30+) ──
+// ─── Fetch CRM Summary Data (Optimized: parallel queries + cache + enhanced context) ──
 
 async function fetchCRMSummary(): Promise<string> {
+  // Return cached summary if still fresh
+  if (summaryCache && Date.now() - summaryCache.timestamp < SUMMARY_CACHE_TTL) {
+    return summaryCache.data
+  }
+
   const now = new Date()
   const year = now.getFullYear()
   const yearStart = new Date(year, 0, 1)
   const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999)
 
   // ── Batch all independent queries in parallel ──────────────────────────────
-  // Previously: 30+ sequential queries. Now: 6 parallel queries.
-  const [allProposals, allServices, allThematicAreas, activeMembers, allClients, targets] =
-    await Promise.all([
-      // 1. All proposals with every relation needed for downstream computation
-      db.proposal.findMany({
-        select: {
-          id: true,
-          name: true,
-          value: true,
-          status: true,
-          createdAt: true,
-          submissionDate: true,
-          deadline: true,
-          clientId: true,
-          assignedMemberId: true,
-          client: { select: { name: true } },
-          assignedMember: { select: { name: true, role: true } },
-          services: { select: { serviceId: true, service: { select: { name: true } } } },
-          thematicAreas: { select: { thematicAreaId: true, thematicArea: { select: { name: true } } } },
-        },
-      }),
-      // 2. All services ordered by sortOrder
-      db.service.findMany({
-        orderBy: { sortOrder: 'asc' },
-        select: { id: true, name: true },
-      }),
-      // 3. All thematic areas ordered by sortOrder
-      db.thematicArea.findMany({
-        orderBy: { sortOrder: 'asc' },
-        select: { id: true, name: true },
-      }),
-      // 4. Active team members
-      db.teamMember.findMany({
-        where: { isActive: true },
-        select: { id: true, name: true, role: true },
-      }),
-      // 5. All clients (for status counts & new-this-month)
-      db.client.findMany({
-        select: { status: true, createdAt: true },
-      }),
-      // 6. Business targets for the year
-      db.businessTarget.findMany({ where: { year } }),
-    ])
+  const [
+    allProposals,
+    allServices,
+    allThematicAreas,
+    activeMembers,
+    allClients,
+    targets,
+    resourceCount,
+    folderCount,
+    settings,
+    // Historical data for previous 2 years
+    prevYear1Proposals,
+    prevYear2Proposals,
+  ] = await Promise.all([
+    // 1. All proposals with every relation needed for downstream computation
+    db.proposal.findMany({
+      select: {
+        id: true,
+        name: true,
+        value: true,
+        status: true,
+        createdAt: true,
+        submissionDate: true,
+        deadline: true,
+        clientId: true,
+        assignedMemberId: true,
+        client: { select: { name: true } },
+        assignedMember: { select: { name: true, role: true } },
+        services: { select: { serviceId: true, service: { select: { name: true } } } },
+        thematicAreas: { select: { thematicAreaId: true, thematicArea: { select: { name: true } } } },
+      },
+    }),
+    // 2. All services ordered by sortOrder
+    db.service.findMany({
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, name: true },
+    }),
+    // 3. All thematic areas ordered by sortOrder
+    db.thematicArea.findMany({
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, name: true },
+    }),
+    // 4. Active team members
+    db.teamMember.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, role: true },
+    }),
+    // 5. All clients (for status counts & new-this-month)
+    db.client.findMany({
+      select: { status: true, createdAt: true },
+    }),
+    // 6. Business targets for the year
+    db.businessTarget.findMany({ where: { year } }),
+    // 7. Resource counts
+    db.resource.count(),
+    // 8. Folder counts
+    db.resourceFolder.count(),
+    // 9. Company settings
+    db.setting.findMany(),
+    // 10. Proposals from 2 years ago for historical comparison
+    db.proposal.findMany({
+      where: {
+        OR: [
+          { submissionDate: { gte: new Date(year - 1, 0, 1), lte: new Date(year - 1, 11, 31, 23, 59, 59, 999) } },
+          { submissionDate: null, createdAt: { gte: new Date(year - 1, 0, 1), lte: new Date(year - 1, 11, 31, 23, 59, 59, 999) } },
+        ],
+      },
+      select: { status: true, value: true },
+    }),
+    // 11. Proposals from 3 years ago for historical comparison
+    db.proposal.findMany({
+      where: {
+        OR: [
+          { submissionDate: { gte: new Date(year - 2, 0, 1), lte: new Date(year - 2, 11, 31, 23, 59, 59, 999) } },
+          { submissionDate: null, createdAt: { gte: new Date(year - 2, 0, 1), lte: new Date(year - 2, 11, 31, 23, 59, 59, 999) } },
+        ],
+      },
+      select: { status: true, value: true },
+    }),
+  ])
+
+  // ── Company name from settings ─────────────────────────────────────────────
+  const companyName = settings.find(s => s.key === 'companyName')?.value || 'ECI CRM'
 
   // ── Client counts (single-pass over allClients) ────────────────────────────
   const totalClients = allClients.length
@@ -186,12 +236,32 @@ async function fetchCRMSummary(): Promise<string> {
     }
   }
 
-  // ── Annual target ──────────────────────────────────────────────────────────
+  // ── Historical Comparison (previous 2 years) ───────────────────────────────
+  const prevYear1WonCount = prevYear1Proposals.filter(p => p.status === 'Won').length
+  const prevYear1WonValue = prevYear1Proposals.filter(p => p.status === 'Won').reduce((s, p) => s + p.value, 0)
+  const prevYear1TotalCount = prevYear1Proposals.length
+
+  const prevYear2WonCount = prevYear2Proposals.filter(p => p.status === 'Won').length
+  const prevYear2WonValue = prevYear2Proposals.filter(p => p.status === 'Won').reduce((s, p) => s + p.value, 0)
+  const prevYear2TotalCount = prevYear2Proposals.length
+
+  // ── Annual target & remaining months' targets ──────────────────────────────
   const annualTargetRow = targets.find((t) => t.month === null)
   const annualTarget = annualTargetRow
     ? annualTargetRow.amount
     : targets.reduce((sum, t) => sum + t.amount, 0)
   const percentageAchieved = annualTarget > 0 ? Math.round((totalBusinessWon / annualTarget) * 100) : 0
+
+  // Remaining months' targets
+  const currentMonth = now.getMonth() + 1 // 1-based
+  const remainingMonthTargets = targets
+    .filter(t => t.month !== null && t.month >= currentMonth)
+    .sort((a, b) => (a.month ?? 0) - (b.month ?? 0))
+
+  const remainingTargetLines = remainingMonthTargets.map(t =>
+    `  • ${MONTH_NAMES[(t.month ?? 1) - 1]}: ${formatCurrency(t.amount)}`
+  )
+  const remainingTargetTotal = remainingMonthTargets.reduce((s, t) => s + t.amount, 0)
 
   // ── Services summary (computed from allProposals, no N+1) ──────────────────
   const serviceStats = new Map<string, { totalCount: number; wonValueYear: number }>()
@@ -315,9 +385,9 @@ async function fetchCRMSummary(): Promise<string> {
     quarterlyBreakdown.push(`  • Q${q + 1}: ${formatCurrency(quarterlyValues[q])}`)
   }
 
-  // ── Build the summary (identical format to original) ───────────────────────
+  // ── Build the summary ──────────────────────────────────────────────────────
   const summary = `## Current CRM Summary (as of ${formatDate(now)}):
-  
+
 - Total Clients: ${totalClients} (Active: ${activeClients}, Inactive: ${inactiveClients})
 - New Clients This Month: ${newClientsThisMonth}
 - Total Proposals (all time): ${totalProposals}
@@ -354,7 +424,20 @@ ${teamLines.join('\n') || '  No active team members'}
 ${recentLines.join('\n') || '  No proposals yet'}
 
 ## Upcoming Deadlines (next 7 days):
-${deadlineLines.join('\n') || '  No upcoming deadlines in the next 7 days'}`
+${deadlineLines.join('\n') || '  No upcoming deadlines in the next 7 days'}
+
+## Historical Comparison:
+- ${year - 1}: ${prevYear1TotalCount} proposals, ${prevYear1WonCount} won, Won value: ${formatCurrency(prevYear1WonValue)}
+- ${year - 2}: ${prevYear2TotalCount} proposals, ${prevYear2WonCount} won, Won value: ${formatCurrency(prevYear2WonValue)}
+
+## Future Targets (remaining months in ${year}):
+${remainingTargetLines.join('\n') || '  No monthly targets set for remaining months'}
+- Total Remaining Monthly Target: ${formatCurrency(remainingTargetTotal)}
+
+## Resources: ${resourceCount} files in ${folderCount} folders`
+
+  // Cache the summary
+  summaryCache = { data: summary, timestamp: Date.now() }
 
   return summary
 }
@@ -415,8 +498,7 @@ async function detectAndFetchQueryContext(userMessage: string): Promise<QueryCon
 ${proposalDetails.map((d) => `  • ${d}`).join('\n')}`)
   }
 
-  // Pre-fetch lookup tables in parallel (only if no date-range context was found,
-  // we still need these for entity detection; these are small tables)
+  // Pre-fetch lookup tables in parallel
   const [allClients, allServices, allThematicAreasForDetection, allMembers] = await Promise.all([
     db.client.findMany({ select: { id: true, name: true } }),
     db.service.findMany({ select: { id: true, name: true } }),
@@ -658,6 +740,18 @@ export async function GET() {
   }
 }
 
+export async function DELETE() {
+  try {
+    await db.chatMessage.deleteMany()
+    // Invalidate the summary cache on reset
+    summaryCache = null
+    return NextResponse.json({ success: true, message: 'Chat history cleared' })
+  } catch (error) {
+    console.error('Error clearing chat history:', error)
+    return NextResponse.json({ error: 'Failed to clear chat history' }, { status: 500 })
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -675,10 +769,10 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Get recent conversation context
+    // Get recent conversation context (limited to last 10 messages)
     const recentMessages = await db.chatMessage.findMany({
       orderBy: { createdAt: 'desc' },
-      take: 20,
+      take: 10,
     })
 
     const conversationHistory = recentMessages
@@ -688,45 +782,73 @@ export async function POST(request: NextRequest) {
         content: msg.content,
       }))
 
-    // Fetch real-time CRM summary data (optimized: 6 parallel queries instead of 30+)
+    // Fetch real-time CRM summary data (with caching)
     const crmSummary = await fetchCRMSummary()
 
     // Detect specific query context and fetch relevant data
     const { additionalContext } = await detectAndFetchQueryContext(message)
 
+    // Get company name from settings (already fetched in summary, use cache)
+    const settings = await db.setting.findMany()
+    const companyName = settings.find(s => s.key === 'companyName')?.value || 'ECI CRM'
+
     // Build comprehensive system prompt
-    const systemPrompt = `You are a CRM assistant for ECI CRM. You have access to the following REAL-TIME CRM data. When users ask about CRM data, provide EXACT numbers from this data. Be concise and helpful. Format currency as ₨ (Pakistani Rupee). If the data shows a specific number, use that exact number in your response. If you're unsure or the data isn't available, say so clearly.
+    const systemPrompt = `You are an AI assistant for ${companyName} CRM system. You have COMPLETE, REAL-TIME access to all CRM data including clients, proposals, services, thematic areas, team performance, business targets, and historical trends.
+
+When answering questions:
+- ALWAYS use EXACT numbers from the data provided
+- Format currency as ₨ (Pakistani Rupee), e.g., ₨ 1,500,000
+- Be concise but thorough — give key numbers first, then context
+- When asked about trends, compare current data with historical data
+- When asked about the future, reference targets and project based on current pace
+- If data isn't available for a specific question, say so clearly
+- You can help with: proposals, clients, services, targets, thematic areas, team performance, business analytics, deadlines, resources, and strategic insights
+- When comparing periods, use the data provided and note the time range
+- For pipeline questions, reference Pipeline Value and status breakdowns
+- Provide actionable insights when relevant (e.g., "You're 15% behind target - to catch up you need ₨ X per month")
 
 ${crmSummary}
-${additionalContext}
+${additionalContext}`
 
-Important guidelines:
-- Always use EXACT numbers from the data above when answering questions
-- Format all currency amounts as ₨ (Pakistani Rupee), e.g., ₨ 1,500,000
-- When asked about win rate, calculate: (Won proposals / Total proposals) × 100
-- When asked about progress toward target, use the target and actual values shown
-- If the user asks about a specific time period, client, service, thematic area, or team member, check the additional context above for specific data
-- When asked about monthly or quarterly performance, refer to the Monthly Business Breakdown and Quarterly Breakdown sections above
-- When asked about thematic areas, check the Thematic Areas section for detailed information
-- Be concise but thorough — give the key numbers first, then brief context
-- If the user asks something not covered by the data, let them know you can help with CRM-related queries about proposals, clients, services, targets, thematic areas, team performance, and business analytics
-- When comparing periods, use the data provided and note the time range
-- For pipeline-related questions, reference the Pipeline Value and status breakdowns`
-
-    // Use z-ai-web-dev-sdk LLM
+    // Use z-ai-web-dev-sdk LLM with retry logic
     const zai = await ZAI.create()
-    const response = await zai.chat.completions.create({
-      model: 'glm-4-flash',
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt,
-        },
-        ...conversationHistory,
-      ],
-    })
 
-    const assistantContent = response.choices?.[0]?.message?.content || 'I apologize, but I could not generate a response.'
+    let response
+    let lastError: unknown = null
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        response = await zai.chat.completions.create({
+          messages: [
+            {
+              role: 'assistant',
+              content: systemPrompt,
+            },
+            ...conversationHistory,
+          ],
+        })
+        break // Success — exit retry loop
+      } catch (sdkError) {
+        lastError = sdkError
+        console.error(`LLM SDK call failed (attempt ${attempt + 1}/2):`, sdkError)
+        if (attempt === 0) {
+          // Brief pause before retry
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      }
+    }
+
+    if (!response) {
+      console.error('LLM SDK call failed after 2 attempts:', lastError)
+      return NextResponse.json({
+        id: `fallback-${Date.now()}`,
+        role: 'assistant',
+        content: 'I\'m sorry, I\'m having trouble connecting to the AI service right now. Please try again in a moment. If the issue persists, contact your system administrator.',
+        createdAt: new Date().toISOString(),
+      })
+    }
+
+    const assistantContent = response.choices?.[0]?.message?.content || 'I apologize, but I could not generate a response. Please try again.'
 
     // Save assistant response
     const assistantMessage = await db.chatMessage.create({
@@ -739,11 +861,11 @@ Important guidelines:
     return NextResponse.json(assistantMessage)
   } catch (error) {
     console.error('Error in chat:', error)
-    // Return a fallback response without DB access to avoid double-fault when DB is down
+    // Return a helpful fallback response
     return NextResponse.json({
       id: `fallback-${Date.now()}`,
       role: 'assistant',
-      content: 'I apologize, but I encountered an error. Please try again later.',
+      content: 'I apologize, but I encountered an error processing your request. Please try again. If the issue persists, try clearing the chat history and starting fresh.',
       createdAt: new Date().toISOString(),
     })
   }
