@@ -133,21 +133,25 @@ export function CRMChatbot() {
     const scrollToBottom = () => {
       const container = messagesContainerRef.current
       if (container) {
-        // Direct scrollTop manipulation is more reliable than scrollIntoView
-        container.scrollTop = container.scrollHeight
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: 'smooth',
+        })
       }
     }
     // Use requestAnimationFrame to ensure DOM has updated
     const rafId = requestAnimationFrame(() => {
       requestAnimationFrame(scrollToBottom)
     })
-    // Fallback timeout for delayed renders (images, async content)
-    const timer = setTimeout(scrollToBottom, 150)
-    const laterTimer = setTimeout(scrollToBottom, 400)
+    // Fallback timeouts for delayed renders
+    const timer = setTimeout(scrollToBottom, 100)
+    const laterTimer = setTimeout(scrollToBottom, 300)
+    const finalTimer = setTimeout(scrollToBottom, 600)
     return () => {
       cancelAnimationFrame(rafId)
       clearTimeout(timer)
       clearTimeout(laterTimer)
+      clearTimeout(finalTimer)
     }
   }, [messages, sendMessage.isPending])
 
@@ -314,7 +318,8 @@ export function CRMChatbot() {
                     </motion.div>
                   )}
 
-                  {/* Scroll anchor - scroll is handled via scrollTop on the container */}
+                  {/* Scroll anchor */}
+                  <div className="h-1" />
                 </div>
               )}
             </div>

@@ -45,7 +45,12 @@ function formatCurrency(value: number): string {
   return `₨ ${value.toLocaleString('en-PK')}`
 }
 
-// ─── Fetch CRM Summary Data ──────────────────────────────────────────────────
+/** Get the effective date for a proposal (submissionDate or createdAt fallback) */
+function getProposalDate(p: { submissionDate: Date | null; createdAt: Date }): Date {
+  return p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
+}
+
+// ─── Fetch CRM Summary Data (Optimized: 6 parallel queries instead of 30+) ──
 
 async function fetchCRMSummary(): Promise<string> {
   const now = new Date()
@@ -53,272 +58,264 @@ async function fetchCRMSummary(): Promise<string> {
   const yearStart = new Date(year, 0, 1)
   const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999)
 
-  // Client counts
-  const totalClients = await db.client.count()
-  const activeClients = await db.client.count({ where: { status: 'Active' } })
-  const inactiveClients = await db.client.count({ where: { status: 'Inactive' } })
+  // ── Batch all independent queries in parallel ──────────────────────────────
+  // Previously: 30+ sequential queries. Now: 6 parallel queries.
+  const [allProposals, allServices, allThematicAreas, activeMembers, allClients, targets] =
+    await Promise.all([
+      // 1. All proposals with every relation needed for downstream computation
+      db.proposal.findMany({
+        select: {
+          id: true,
+          name: true,
+          value: true,
+          status: true,
+          createdAt: true,
+          submissionDate: true,
+          deadline: true,
+          clientId: true,
+          assignedMemberId: true,
+          client: { select: { name: true } },
+          assignedMember: { select: { name: true, role: true } },
+          services: { select: { serviceId: true, service: { select: { name: true } } } },
+          thematicAreas: { select: { thematicAreaId: true, thematicArea: { select: { name: true } } } },
+        },
+      }),
+      // 2. All services ordered by sortOrder
+      db.service.findMany({
+        orderBy: { sortOrder: 'asc' },
+        select: { id: true, name: true },
+      }),
+      // 3. All thematic areas ordered by sortOrder
+      db.thematicArea.findMany({
+        orderBy: { sortOrder: 'asc' },
+        select: { id: true, name: true },
+      }),
+      // 4. Active team members
+      db.teamMember.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, role: true },
+      }),
+      // 5. All clients (for status counts & new-this-month)
+      db.client.findMany({
+        select: { status: true, createdAt: true },
+      }),
+      // 6. Business targets for the year
+      db.businessTarget.findMany({ where: { year } }),
+    ])
 
-  // Proposal counts by status (all time)
+  // ── Client counts (single-pass over allClients) ────────────────────────────
+  const totalClients = allClients.length
+  let activeClients = 0
+  let inactiveClients = 0
+  let newClientsThisMonth = 0
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+
+  for (const c of allClients) {
+    if (c.status === 'Active') activeClients++
+    else if (c.status === 'Inactive') inactiveClients++
+    if (new Date(c.createdAt) >= monthStart) newClientsThisMonth++
+  }
+
+  // ── Proposal status counts (all time & this year) ──────────────────────────
   const statusOrder = ['Submitted', 'In Process', 'In Evaluation', 'Pending', 'Won', 'Rejected']
   const statusCounts: Record<string, number> = {}
-  let totalProposals = 0
-  for (const status of statusOrder) {
-    const count = await db.proposal.count({ where: { status } })
-    statusCounts[status] = count
-    totalProposals += count
-  }
-
-  // Proposal counts by status (this year)
   const yearStatusCounts: Record<string, number> = {}
-  let yearTotalProposals = 0
-  for (const status of statusOrder) {
-    const count = await db.proposal.count({
-      where: { status, createdAt: { gte: yearStart, lte: yearEnd } },
-    })
-    yearStatusCounts[status] = count
-    yearTotalProposals += count
+  for (const s of statusOrder) {
+    statusCounts[s] = 0
+    yearStatusCounts[s] = 0
   }
+  let totalProposals = 0
+  let yearTotalProposals = 0
 
-  // Total business (Won proposals this year)
-  const wonProposalsThisYear = await db.proposal.findMany({
-    where: { status: 'Won' },
-    select: { value: true, createdAt: true, submissionDate: true },
-  })
-
-  let totalBusinessWon = 0
-  for (const p of wonProposalsThisYear) {
-    const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
-    if (pDate >= yearStart && pDate <= yearEnd) {
-      totalBusinessWon += p.value
+  // Pre-compute per-proposal flags in a single pass
+  const proposalInYear: boolean[] = new Array(allProposals.length).fill(false)
+  for (let i = 0; i < allProposals.length; i++) {
+    const p = allProposals[i]
+    if (statusOrder.includes(p.status)) {
+      statusCounts[p.status]++
+      totalProposals++
+    }
+    const pDate = getProposalDate(p)
+    const inYear = pDate >= yearStart && pDate <= yearEnd
+    proposalInYear[i] = inYear
+    if (inYear && statusOrder.includes(p.status)) {
+      yearStatusCounts[p.status]++
+      yearTotalProposals++
     }
   }
 
-  // Annual target
-  const targets = await db.businessTarget.findMany({ where: { year } })
+  // ── Won proposals this year (reused for business won, monthly/quarterly, top clients, team) ──
+  let totalBusinessWon = 0
+  const monthlyValues = new Array(12).fill(0)
+  const quarterlyValues = new Array(4).fill(0)
+  const clientWonMap: Record<string, { name: string; wonValue: number }> = {}
+  const memberWonMap = new Map<string, { wonCount: number; wonValue: number }>()
+  for (const m of activeMembers) {
+    memberWonMap.set(m.id, { wonCount: 0, wonValue: 0 })
+  }
+
+  for (let i = 0; i < allProposals.length; i++) {
+    const p = allProposals[i]
+    if (p.status !== 'Won') continue
+
+    const pDate = getProposalDate(p)
+    if (pDate < yearStart || pDate > yearEnd) continue
+
+    // Total business won
+    totalBusinessWon += p.value
+
+    // Monthly breakdown (single pass instead of 12 separate queries)
+    monthlyValues[pDate.getMonth()] += p.value
+
+    // Quarterly breakdown (single pass instead of 4 separate queries)
+    quarterlyValues[Math.floor(pDate.getMonth() / 3)] += p.value
+
+    // Top clients
+    if (!clientWonMap[p.clientId]) {
+      clientWonMap[p.clientId] = { name: p.client.name, wonValue: 0 }
+    }
+    clientWonMap[p.clientId].wonValue += p.value
+
+    // Team member performance
+    if (p.assignedMemberId) {
+      const entry = memberWonMap.get(p.assignedMemberId)
+      if (entry) {
+        entry.wonCount++
+        entry.wonValue += p.value
+      }
+    }
+  }
+
+  // ── Annual target ──────────────────────────────────────────────────────────
   const annualTargetRow = targets.find((t) => t.month === null)
-  const annualTarget = annualTargetRow ? annualTargetRow.amount : targets.reduce((sum, t) => sum + t.amount, 0)
+  const annualTarget = annualTargetRow
+    ? annualTargetRow.amount
+    : targets.reduce((sum, t) => sum + t.amount, 0)
   const percentageAchieved = annualTarget > 0 ? Math.round((totalBusinessWon / annualTarget) * 100) : 0
 
-  // Services summary
-  const allServices = await db.service.findMany({ orderBy: { sortOrder: 'asc' } })
+  // ── Services summary (computed from allProposals, no N+1) ──────────────────
+  const serviceStats = new Map<string, { totalCount: number; wonValueYear: number }>()
+  for (const s of allServices) {
+    serviceStats.set(s.id, { totalCount: 0, wonValueYear: 0 })
+  }
+  for (let i = 0; i < allProposals.length; i++) {
+    const p = allProposals[i]
+    for (const ps of p.services) {
+      const stat = serviceStats.get(ps.serviceId)
+      if (!stat) continue
+      stat.totalCount++
+      if (p.status === 'Won' && proposalInYear[i]) {
+        stat.wonValueYear += p.value
+      }
+    }
+  }
+
   const serviceLines: string[] = []
   for (const service of allServices) {
-    const serviceProposals = await db.proposal.findMany({
-      where: {
-        services: { some: { serviceId: service.id } },
-        status: 'Won',
-      },
-      select: { value: true, createdAt: true, submissionDate: true },
-    })
-    let wonValue = 0
-    for (const p of serviceProposals) {
-      const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
-      if (pDate >= yearStart && pDate <= yearEnd) {
-        wonValue += p.value
-      }
-    }
-    const totalCount = await db.proposal.count({
-      where: { services: { some: { serviceId: service.id } } },
-    })
-    serviceLines.push(`  • ${service.name}: ${totalCount} proposals, Won value: ${formatCurrency(wonValue)}`)
+    const stat = serviceStats.get(service.id)!
+    serviceLines.push(
+      `  • ${service.name}: ${stat.totalCount} proposals, Won value: ${formatCurrency(stat.wonValueYear)}`
+    )
   }
 
-  // Top clients
-  const allWonWithClient = await db.proposal.findMany({
-    where: { status: 'Won' },
-    select: {
-      value: true,
-      createdAt: true,
-      submissionDate: true,
-      clientId: true,
-      client: { select: { name: true } },
-    },
-  })
-
-  const clientWonMap: Record<string, { name: string; wonValue: number }> = {}
-  for (const p of allWonWithClient) {
-    const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
-    if (pDate >= yearStart && pDate <= yearEnd) {
-      if (!clientWonMap[p.clientId]) {
-        clientWonMap[p.clientId] = { name: p.client.name, wonValue: 0 }
-      }
-      clientWonMap[p.clientId].wonValue += p.value
-    }
-  }
-
+  // ── Top clients ────────────────────────────────────────────────────────────
   const topClients = Object.values(clientWonMap)
     .sort((a, b) => b.wonValue - a.wonValue)
     .slice(0, 5)
     .map((c) => `  • ${c.name}: ${formatCurrency(c.wonValue)}`)
 
-  // Team members performance
-  const activeMembers = await db.teamMember.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true, role: true },
-  })
-
-  const allWonWithMember = await db.proposal.findMany({
-    where: { status: 'Won', assignedMemberId: { not: null } },
-    select: {
-      value: true,
-      createdAt: true,
-      submissionDate: true,
-      assignedMemberId: true,
-    },
-  })
-
+  // ── Team members performance ───────────────────────────────────────────────
   const teamLines: string[] = []
   for (const member of activeMembers) {
-    let wonCount = 0
-    let wonValue = 0
-    for (const p of allWonWithMember) {
-      if (p.assignedMemberId !== member.id) continue
-      const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
-      if (pDate >= yearStart && pDate <= yearEnd) {
-        wonCount++
-        wonValue += p.value
-      }
-    }
-    teamLines.push(`  • ${member.name} (${member.role}): ${wonCount} won proposals, ${formatCurrency(wonValue)}`)
+    const stat = memberWonMap.get(member.id)!
+    teamLines.push(
+      `  • ${member.name} (${member.role}): ${stat.wonCount} won proposals, ${formatCurrency(stat.wonValue)}`
+    )
   }
 
-  // Recent proposals (last 5)
-  const recentProposals = await db.proposal.findMany({
-    include: {
-      client: { select: { name: true } },
-      assignedMember: { select: { name: true } },
-      services: { include: { service: { select: { name: true } } } },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 5,
-  })
+  // ── Recent proposals (last 5, sorted in-memory) ───────────────────────────
+  const recentProposals = allProposals
+    .slice() // shallow copy before sorting
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5)
 
   const recentLines = recentProposals.map(
     (p) =>
       `  • "${p.name}" for ${p.client.name} | Status: ${p.status} | Value: ${formatCurrency(p.value)}${p.assignedMember ? ` | Assigned: ${p.assignedMember.name}` : ''} | Services: ${p.services.map((s) => s.service.name).join(', ')} | Created: ${formatDate(new Date(p.createdAt))}`
   )
 
-  // Upcoming deadlines (7 days)
+  // ── Upcoming deadlines (next 7 days, filtered in-memory) ───────────────────
   const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-  const upcomingDeadlines = await db.proposal.findMany({
-    where: { deadline: { gte: now, lte: sevenDaysLater } },
-    include: {
-      client: { select: { name: true } },
-      assignedMember: { select: { name: true } },
-    },
-    orderBy: { deadline: 'asc' },
-    take: 10,
-  })
+  const upcomingDeadlines = allProposals
+    .filter((p) => p.deadline && new Date(p.deadline) >= now && new Date(p.deadline) <= sevenDaysLater)
+    .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
+    .slice(0, 10)
 
   const deadlineLines = upcomingDeadlines.map(
     (p) =>
       `  • "${p.name}" for ${p.client.name} | Deadline: ${formatDate(new Date(p.deadline!))}${p.assignedMember ? ` | Assigned: ${p.assignedMember.name}` : ''} | Value: ${formatCurrency(p.value)}`
   )
 
-  // New clients this month
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-  const newClientsThisMonth = await db.client.count({
-    where: {
-      createdAt: { gte: monthStart },
-    },
-  })
-
-  // All proposals for pipeline stats
-  const allProposalsForPipeline = await db.proposal.findMany({
-    select: {
-      value: true,
-      status: true,
-      createdAt: true,
-      submissionDate: true,
-      services: { select: { serviceId: true } },
-    },
-  })
-
-  const proposalsInRange = allProposalsForPipeline.filter((p) => {
-    const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
-    return pDate >= yearStart && pDate <= yearEnd
-  })
-
-  const totalProposalValue = proposalsInRange.reduce((sum, p) => sum + p.value, 0)
-  const proposalsInRangeCount = proposalsInRange.length
-
-  // Win rate
+  // ── Win rate & pipeline stats ──────────────────────────────────────────────
   const wonCount = statusCounts['Won'] || 0
   const winRate = totalProposals > 0 ? Math.round((wonCount / totalProposals) * 100) : 0
-  const yearWinRate = yearTotalProposals > 0 ? Math.round((yearStatusCounts['Won'] / yearTotalProposals) * 100) : 0
+  const yearWinRate =
+    yearTotalProposals > 0 ? Math.round((yearStatusCounts['Won'] / yearTotalProposals) * 100) : 0
 
-  // Thematic Areas summary
-  const allThematicAreas = await db.thematicArea.findMany({ orderBy: { sortOrder: 'asc' } })
-  const thematicLines: string[] = []
-  for (const area of allThematicAreas) {
-    const areaProposals = await db.proposal.findMany({
-      where: {
-        thematicAreas: { some: { thematicAreaId: area.id } },
-      },
-      select: { value: true, status: true, createdAt: true, submissionDate: true },
-    })
-    const wonValue = areaProposals
-      .filter((p) => p.status === 'Won')
-      .reduce((sum, p) => {
-        const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
-        return pDate >= yearStart && pDate <= yearEnd ? sum + p.value : sum
-      }, 0)
-    const totalCount = areaProposals.length
-    const statusBreakdown: Record<string, number> = {}
-    for (const p of areaProposals) {
-      statusBreakdown[p.status] = (statusBreakdown[p.status] || 0) + 1
-    }
-    thematicLines.push(`  • ${area.name}: ${totalCount} proposals, Won value: ${formatCurrency(wonValue)}, Status: ${Object.entries(statusBreakdown).map(([k, v]) => `${k}: ${v}`).join(', ')}`)
-  }
+  const proposalsInRange = allProposals.filter((_, i) => proposalInYear[i])
+  const totalProposalValue = proposalsInRange.reduce((sum, p) => sum + p.value, 0)
+  const proposalsInRangeCount = proposalsInRange.length
+  const avgProposalValue =
+    proposalsInRangeCount > 0 ? Math.round(totalProposalValue / proposalsInRangeCount) : 0
 
-  // Monthly breakdown of won proposals
-  const monthlyBreakdown: string[] = []
-  for (let m = 0; m < 12; m++) {
-    const mStart = new Date(year, m, 1)
-    const mEnd = new Date(year, m + 1, 0, 23, 59, 59, 999)
-    const monthWon = await db.proposal.findMany({
-      where: { status: 'Won' },
-      select: { value: true, createdAt: true, submissionDate: true },
-    })
-    let mValue = 0
-    for (const p of monthWon) {
-      const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
-      if (pDate >= mStart && pDate <= mEnd) {
-        mValue += p.value
-      }
-    }
-    if (mValue > 0) {
-      monthlyBreakdown.push(`  • ${MONTH_NAMES[m]}: ${formatCurrency(mValue)}`)
-    }
-  }
-
-  // Quarterly breakdown
-  const quarterlyBreakdown: string[] = []
-  for (let q = 1; q <= 4; q++) {
-    const startMonth = (q - 1) * 3
-    const qStart = new Date(year, startMonth, 1)
-    const qEnd = new Date(year, startMonth + 3, 0, 23, 59, 59, 999)
-    const qWon = await db.proposal.findMany({
-      where: { status: 'Won' },
-      select: { value: true, createdAt: true, submissionDate: true },
-    })
-    let qValue = 0
-    for (const p of qWon) {
-      const pDate = p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
-      if (pDate >= qStart && pDate <= qEnd) {
-        qValue += p.value
-      }
-    }
-    quarterlyBreakdown.push(`  • Q${q}: ${formatCurrency(qValue)}`)
-  }
-
-  // Pipeline stats
-  const pipelineValue = allProposalsForPipeline
+  const pipelineValue = allProposals
     .filter((p) => p.status !== 'Won' && p.status !== 'Rejected')
     .reduce((sum, p) => sum + p.value, 0)
-  const avgProposalValue = proposalsInRangeCount > 0 ? Math.round(totalProposalValue / proposalsInRangeCount) : 0
 
-  // Build the summary
+  // ── Thematic Areas summary (computed from allProposals, no N+1) ────────────
+  const thematicStats = new Map<
+    string,
+    { totalCount: number; wonValueYear: number; statusBreakdown: Record<string, number> }
+  >()
+  for (const area of allThematicAreas) {
+    thematicStats.set(area.id, { totalCount: 0, wonValueYear: 0, statusBreakdown: {} })
+  }
+  for (let i = 0; i < allProposals.length; i++) {
+    const p = allProposals[i]
+    for (const ta of p.thematicAreas) {
+      const stat = thematicStats.get(ta.thematicAreaId)
+      if (!stat) continue
+      stat.totalCount++
+      stat.statusBreakdown[p.status] = (stat.statusBreakdown[p.status] || 0) + 1
+      if (p.status === 'Won' && proposalInYear[i]) {
+        stat.wonValueYear += p.value
+      }
+    }
+  }
+
+  const thematicLines: string[] = []
+  for (const area of allThematicAreas) {
+    const stat = thematicStats.get(area.id)!
+    thematicLines.push(
+      `  • ${area.name}: ${stat.totalCount} proposals, Won value: ${formatCurrency(stat.wonValueYear)}, Status: ${Object.entries(stat.statusBreakdown).map(([k, v]) => `${k}: ${v}`).join(', ')}`
+    )
+  }
+
+  // ── Monthly breakdown (already computed in single pass above) ──────────────
+  const monthlyBreakdown: string[] = []
+  for (let m = 0; m < 12; m++) {
+    if (monthlyValues[m] > 0) {
+      monthlyBreakdown.push(`  • ${MONTH_NAMES[m]}: ${formatCurrency(monthlyValues[m])}`)
+    }
+  }
+
+  // ── Quarterly breakdown (already computed in single pass above) ────────────
+  const quarterlyBreakdown: string[] = []
+  for (let q = 0; q < 4; q++) {
+    quarterlyBreakdown.push(`  • Q${q + 1}: ${formatCurrency(quarterlyValues[q])}`)
+  }
+
+  // ── Build the summary (identical format to original) ───────────────────────
   const summary = `## Current CRM Summary (as of ${formatDate(now)}):
   
 - Total Clients: ${totalClients} (Active: ${activeClients}, Inactive: ${inactiveClients})
@@ -418,8 +415,16 @@ async function detectAndFetchQueryContext(userMessage: string): Promise<QueryCon
 ${proposalDetails.map((d) => `  • ${d}`).join('\n')}`)
   }
 
+  // Pre-fetch lookup tables in parallel (only if no date-range context was found,
+  // we still need these for entity detection; these are small tables)
+  const [allClients, allServices, allThematicAreasForDetection, allMembers] = await Promise.all([
+    db.client.findMany({ select: { id: true, name: true } }),
+    db.service.findMany({ select: { id: true, name: true } }),
+    db.thematicArea.findMany({ select: { id: true, name: true } }),
+    db.teamMember.findMany({ where: { isActive: true }, select: { id: true, name: true } }),
+  ])
+
   // Specific client detection
-  const allClients = await db.client.findMany({ select: { id: true, name: true } })
   for (const client of allClients) {
     if (lower.includes(client.name.toLowerCase())) {
       const clientProposals = await db.proposal.findMany({
@@ -447,7 +452,6 @@ ${clientDetails.map((d) => `  • ${d}`).join('\n')}`)
   }
 
   // Specific service detection
-  const allServices = await db.service.findMany({ select: { id: true, name: true } })
   for (const service of allServices) {
     if (lower.includes(service.name.toLowerCase())) {
       const serviceProposals = await db.proposal.findMany({
@@ -572,7 +576,6 @@ ${upcomingDetails.map((d) => `  • ${d}`).join('\n')}`)
   }
 
   // Thematic area detection
-  const allThematicAreasForDetection = await db.thematicArea.findMany({ select: { id: true, name: true } })
   for (const area of allThematicAreasForDetection) {
     if (lower.includes(area.name.toLowerCase()) || lower.includes('thematic')) {
       const areaProposals = await db.proposal.findMany({
@@ -608,7 +611,6 @@ ${areaDetails.map((d) => `  • ${d}`).join('\n')}`)
   }
 
   // Team member detection
-  const allMembers = await db.teamMember.findMany({ where: { isActive: true }, select: { id: true, name: true } })
   for (const member of allMembers) {
     if (lower.includes(member.name.toLowerCase())) {
       const memberProposals = await db.proposal.findMany({
@@ -686,7 +688,7 @@ export async function POST(request: NextRequest) {
         content: msg.content,
       }))
 
-    // Fetch real-time CRM summary data
+    // Fetch real-time CRM summary data (optimized: 6 parallel queries instead of 30+)
     const crmSummary = await fetchCRMSummary()
 
     // Detect specific query context and fetch relevant data
