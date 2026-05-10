@@ -788,24 +788,33 @@ export async function POST(request: NextRequest) {
     // Detect specific query context and fetch relevant data
     const { additionalContext } = await detectAndFetchQueryContext(message)
 
-    // Get company name from settings (already fetched in summary, use cache)
-    const settings = await db.setting.findMany()
+    // Get company name from settings (retrieved during fetchCRMSummary, cached)
+    const settings = await db.setting.findMany({ select: { key: true, value: true } })
     const companyName = settings.find(s => s.key === 'companyName')?.value || 'ECI CRM'
 
     // Build comprehensive system prompt
-    const systemPrompt = `You are an AI assistant for ${companyName} CRM system. You have COMPLETE, REAL-TIME access to all CRM data including clients, proposals, services, thematic areas, team performance, business targets, and historical trends.
+    const systemPrompt = `You are the AI assistant for ${companyName} CRM system. You have COMPLETE, REAL-TIME access to ALL CRM data — clients, proposals, services, thematic areas, team performance, business targets, resources, and historical trends. Your knowledge updates automatically as the CRM data changes.
 
-When answering questions:
-- ALWAYS use EXACT numbers from the data provided
+## YOUR CAPABILITIES:
+- Answer questions about ANY data in the CRM: proposals, clients, services, targets, deadlines, team performance, resources, thematic areas
+- Provide historical comparisons (past years) and future projections (based on targets and current pace)
+- Give strategic business insights and actionable recommendations
+- Track pipeline status, win rates, and business progress
+- Identify overdue proposals, upcoming deadlines, and at-risk deals
+
+## RESPONSE RULES:
+- ALWAYS use EXACT numbers from the data provided below — never estimate or guess
 - Format currency as ₨ (Pakistani Rupee), e.g., ₨ 1,500,000
-- Be concise but thorough — give key numbers first, then context
-- When asked about trends, compare current data with historical data
+- Be concise but thorough — lead with key numbers, then provide context
+- When asked about trends, compare current data with historical data provided
 - When asked about the future, reference targets and project based on current pace
-- If data isn't available for a specific question, say so clearly
-- You can help with: proposals, clients, services, targets, thematic areas, team performance, business analytics, deadlines, resources, and strategic insights
+- If data isn't available for a specific question, say so clearly rather than making up information
 - When comparing periods, use the data provided and note the time range
 - For pipeline questions, reference Pipeline Value and status breakdowns
-- Provide actionable insights when relevant (e.g., "You're 15% behind target - to catch up you need ₨ X per month")
+- Provide actionable insights (e.g., "You're 15% behind target — to catch up you need ₨ X per month")
+- Always respond in a professional, helpful tone
+
+## CURRENT CRM DATA (real-time, auto-updated):
 
 ${crmSummary}
 ${additionalContext}`
@@ -821,7 +830,7 @@ ${additionalContext}`
         response = await zai.chat.completions.create({
           messages: [
             {
-              role: 'assistant',
+              role: 'system',
               content: systemPrompt,
             },
             ...conversationHistory,
@@ -840,12 +849,14 @@ ${additionalContext}`
 
     if (!response) {
       console.error('LLM SDK call failed after 2 attempts:', lastError)
-      return NextResponse.json({
-        id: `fallback-${Date.now()}`,
-        role: 'assistant',
-        content: 'I\'m sorry, I\'m having trouble connecting to the AI service right now. Please try again in a moment. If the issue persists, contact your system administrator.',
-        createdAt: new Date().toISOString(),
+      // Save fallback response to DB so it persists in chat history
+      const fallbackMessage = await db.chatMessage.create({
+        data: {
+          role: 'assistant',
+          content: 'I\'m sorry, I\'m having trouble connecting to the AI service right now. Please try again in a moment. If the issue persists, contact your system administrator.',
+        },
       })
+      return NextResponse.json(fallbackMessage)
     }
 
     const assistantContent = response.choices?.[0]?.message?.content || 'I apologize, but I could not generate a response. Please try again.'
@@ -861,12 +872,22 @@ ${additionalContext}`
     return NextResponse.json(assistantMessage)
   } catch (error) {
     console.error('Error in chat:', error)
-    // Return a helpful fallback response
-    return NextResponse.json({
-      id: `fallback-${Date.now()}`,
-      role: 'assistant',
-      content: 'I apologize, but I encountered an error processing your request. Please try again. If the issue persists, try clearing the chat history and starting fresh.',
-      createdAt: new Date().toISOString(),
-    })
+    // Save error fallback to DB so it persists in chat history
+    try {
+      const errorMessage = await db.chatMessage.create({
+        data: {
+          role: 'assistant',
+          content: 'I apologize, but I encountered an error processing your request. Please try again. If the issue persists, try clearing the chat history and starting fresh.',
+        },
+      })
+      return NextResponse.json(errorMessage)
+    } catch {
+      return NextResponse.json({
+        id: `fallback-${Date.now()}`,
+        role: 'assistant',
+        content: 'I apologize, but I encountered an error processing your request. Please try again.',
+        createdAt: new Date().toISOString(),
+      })
+    }
   }
 }
