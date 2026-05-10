@@ -304,15 +304,43 @@ function CompanyBrandingTab() {
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Logo must be under 2MB");
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Logo must be under 5MB");
       return;
     }
+
+    // Resize and compress the image before storing
+    const img = new Image();
     const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
-      setCompanyLogo(base64);
-      setLogoPreview(base64);
+    reader.onload = (event) => {
+      img.src = event.target?.result as string;
+    };
+    img.onload = () => {
+      const MAX_SIZE = 256; // Max width/height for logo
+      const canvas = document.createElement("canvas");
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_SIZE) {
+          height = Math.round((height * MAX_SIZE) / width);
+          width = MAX_SIZE;
+        }
+      } else {
+        if (height > MAX_SIZE) {
+          width = Math.round((width * MAX_SIZE) / height);
+          height = MAX_SIZE;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0, width, height);
+      const compressed = canvas.toDataURL("image/png", 0.85);
+      setCompanyLogo(compressed);
+      setLogoPreview(compressed);
     };
     reader.readAsDataURL(file);
   };
@@ -390,7 +418,7 @@ function CompanyBrandingTab() {
                   )}
                 </div>
                 <p className="mt-1.5 text-xs text-muted-foreground">
-                  PNG, JPG, or SVG. Max 2MB.
+                  PNG, JPG, or SVG. Max 5MB. Image will be resized to 256px.
                 </p>
               </div>
             </div>

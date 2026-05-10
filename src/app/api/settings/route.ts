@@ -39,6 +39,15 @@ export async function POST(request: NextRequest) {
 
     const results = []
     for (const setting of settings) {
+      // If the value is an empty string, delete the setting instead of storing empty
+      if (setting.value === '' && setting.key === 'companyLogo') {
+        try {
+          await db.setting.delete({ where: { key: setting.key } })
+        } catch {
+          // Setting may not exist, that's fine
+        }
+        continue
+      }
       const result = await db.setting.upsert({
         where: { key: setting.key },
         update: { value: setting.value },
@@ -79,6 +88,15 @@ export async function PUT(request: NextRequest) {
 
     const results = []
     for (const setting of settings) {
+      // If the value is an empty string, delete the setting instead of storing empty
+      if (setting.value === '' && setting.key === 'companyLogo') {
+        try {
+          await db.setting.delete({ where: { key: setting.key } })
+        } catch {
+          // Setting may not exist, that's fine
+        }
+        continue
+      }
       const result = await db.setting.upsert({
         where: { key: setting.key },
         update: { value: setting.value },

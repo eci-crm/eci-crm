@@ -48,3 +48,26 @@ Stage Summary:
 - **Deployment:** Pushed to GitHub (eci-crm/eci-crm) and deployed to Vercel
   - Production URL: https://my-project-sigma-ruby-33.vercel.app
   - Build: Successful, all routes working
+
+---
+Task ID: 2
+Agent: Main
+Task: Fix proposal form scrolling, logo upload, and delete seed data
+
+Work Log:
+- Fixed proposal form scrolling by replacing ScrollArea with plain div with overflow-y-auto
+- Changed DialogContent to have overflow-hidden and max-h-[90vh] for proper height constraints
+- Removed unused ScrollArea import from proposals.tsx
+- Fixed logo upload by adding client-side image resizing (256px max) and compression
+- Updated file size limit from 2MB to 5MB with automatic compression
+- Added special handling in settings API for empty companyLogo (delete instead of store empty)
+- Created cleanup API endpoint and ran seed data removal script
+- Deleted 20 seed proposals, 10 seed clients, 5 seed team members, 8 notifications, 15 business targets, 24 chat messages
+- Disabled cleanup endpoint after running (returns 403)
+- Remaining data: 1 admin user (Ahmed Khan), 8 thematic areas, 6 services, 1 setting (companyName=ECI CRM)
+
+Stage Summary:
+- Proposal form now scrolls properly with all fields accessible
+- Logo upload works with automatic image compression (256px resize)
+- All seed/dummy data removed from database - only actual user data remains
+- Structural data (thematic areas, services) preserved as they're needed for the system
