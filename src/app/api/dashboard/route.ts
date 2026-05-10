@@ -95,8 +95,15 @@ export async function GET(request: NextRequest) {
       return date >= startDate && date <= endDate
     }
 
-    // ─── Helper: get the effective date for a proposal (submissionDate or createdAt) ─
+    // ─── Helper: get the effective date for a proposal ─
+    // Use createdAt as the primary date for year/period filtering (when the proposal was added to CRM).
+    // submissionDate is used only for business metrics (e.g., days to win, monthly revenue in month actually won).
     function getProposalDate(p: { createdAt: Date; submissionDate: Date | null }): Date {
+      return new Date(p.createdAt)
+    }
+
+    // ─── Helper: get the business date for a proposal (for revenue/won calculations by month/quarter) ─
+    function getBusinessDate(p: { createdAt: Date; submissionDate: Date | null }): Date {
       return p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
     }
 
@@ -166,7 +173,7 @@ export async function GET(request: NextRequest) {
         : (annualTarget > 0 ? Math.round(annualTarget / 12) : 0)
 
       const monthWon = wonProposalsInRange.filter((p) => {
-        const pDate = getProposalDate(p)
+        const pDate = getBusinessDate(p)
         return pDate >= monthStart && pDate <= monthEnd
       })
       const monthActual = monthWon.reduce((sum, p) => sum + p.value, 0)
@@ -194,7 +201,7 @@ export async function GET(request: NextRequest) {
         : (annualTarget > 0 ? Math.round(annualTarget / 4) : 0)
 
       const qWon = wonProposalsInRange.filter((p) => {
-        const pDate = getProposalDate(p)
+        const pDate = getBusinessDate(p)
         return pDate >= qStart && pDate <= qEnd
       })
       const qActual = qWon.reduce((sum, p) => sum + p.value, 0)
@@ -361,7 +368,7 @@ export async function GET(request: NextRequest) {
       if (mEnd < startDate || mStart > endDate) continue
 
       const mWon = wonProposalsInRange.filter((p) => {
-        const pDate = getProposalDate(p)
+        const pDate = getBusinessDate(p)
         return pDate >= mStart && pDate <= mEnd
       })
       const mRevenue = mWon.reduce((sum, p) => sum + p.value, 0)

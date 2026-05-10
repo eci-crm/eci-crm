@@ -49,6 +49,7 @@ import CRMDashboard from '@/components/crm/dashboard'
 import CRMProposals from '@/components/crm/proposals'
 import CRMReports from '@/components/crm/reports'
 import CRMSettings from '@/components/crm/settings'
+import CRMResources from '@/components/crm/resources'
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -60,23 +61,7 @@ const navItems = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
-function ResourcesPlaceholder() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <h2 className="text-2xl font-bold tracking-tight">Resources</h2>
-      <p className="mt-1 text-muted-foreground">
-        Manage your files and documents here.
-      </p>
-      <div className="mt-8 flex h-64 items-center justify-center rounded-xl border border-dashed border-muted-foreground/25 bg-muted/30">
-        <FolderOpen className="h-12 w-12 text-muted-foreground/40" />
-      </div>
-    </motion.div>
-  )
-}
+
 
 export function CRMLayout() {
   const { user, currentPage, sidebarOpen, setCurrentPage, setSidebarOpen, logout } =
@@ -374,7 +359,7 @@ export function CRMLayout() {
               ) : currentPage === 'reports' ? (
                 <CRMReports />
               ) : currentPage === 'resources' ? (
-                <ResourcesPlaceholder />
+                <CRMResources />
               ) : currentPage === 'settings' ? (
                 <CRMSettings />
               ) : (
