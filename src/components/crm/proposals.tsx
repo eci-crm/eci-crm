@@ -972,7 +972,7 @@ export default function Proposals() {
       {/* ── Add/Edit Dialog ──────────────────────────────────────────────────── */}
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+        <DialogContent className="sm:max-w-3xl p-0 gap-0" showCloseButton={true}>
           <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
             <DialogTitle>{editingProposal ? 'Edit Proposal' : 'Add Proposal'}</DialogTitle>
             <DialogDescription>
@@ -982,7 +982,7 @@ export default function Proposals() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto px-6 min-h-0">
+          <div className="flex-1 overflow-y-auto px-6 min-h-0" style={{ scrollbarGutter: 'stable' }}>
             <div className="space-y-6 pb-6">
               {/* ── Basic Info ────────────────────────────────────────── */}
               <div>
