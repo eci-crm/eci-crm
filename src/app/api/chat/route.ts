@@ -822,6 +822,7 @@ ${crmSummary}
 ${additionalContext}`
 
     // Call LLM with priority-based approach:
+    //   Priority 0: Database settings (user-configured API key from Settings page)
     //   Priority 1: new ZAI(config) with env vars (works on both sandbox and Vercel)
     //   Priority 2: ZAI.create() auto-config from .z-ai-config file (sandbox fallback)
     //   Priority 3: Direct fetch to AI_API_BASE_URL (last resort)
@@ -843,6 +844,70 @@ ${additionalContext}`
           setTimeout(() => reject(new Error(`LLM call timed out after ${ms}ms`)), ms)
         ),
       ])
+    }
+
+    // ── Priority 0: Database settings (user-configured from Settings > AI Config) ──
+    // This takes highest priority — if the user has configured their own API key in
+    // the Settings page, use that instead of env vars or SDK defaults.
+    const dbAiProvider = settings.find(s => s.key === 'ai_provider')?.value
+    const dbAiApiKey = settings.find(s => s.key === 'ai_api_key')?.value
+    const dbAiBaseUrl = settings.find(s => s.key === 'ai_base_url')?.value
+    const dbAiModel = settings.find(s => s.key === 'ai_model')?.value
+    const dbAiEnabled = settings.find(s => s.key === 'ai_enabled')?.value
+
+    if (dbAiApiKey && dbAiBaseUrl && dbAiEnabled !== 'false') {
+      try {
+        const dbUrl = `${dbAiBaseUrl.replace(/\/$/, '')}/chat/completions`
+        const dbHeaders: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${dbAiApiKey}`,
+        }
+
+        // Use the model from DB settings, but fallback to glm-4.5-flash if not set
+        // Also auto-upgrade deprecated model names (glm-4-flash doesn't exist on Z.ai)
+        let effectiveModel = dbAiModel || 'glm-4.5-flash'
+        const deprecatedModels = ['glm-4-flash', 'glm-4', 'glm-3-turbo', 'chatglm_turbo']
+        if (deprecatedModels.includes(effectiveModel)) {
+          effectiveModel = 'glm-4.5-flash'
+        }
+
+        const dbRequestBody: Record<string, unknown> = {
+          model: effectiveModel,
+          messages,
+          thinking: { type: 'disabled' },
+        }
+
+        const dbResponse = await withTimeout(
+          fetch(dbUrl, {
+            method: 'POST',
+            headers: dbHeaders,
+            body: JSON.stringify(dbRequestBody),
+          }),
+          LLM_TIMEOUT_MS
+        )
+
+        if (dbResponse.ok) {
+          const dbData = await dbResponse.json()
+          const msg = dbData.choices?.[0]?.message
+          if (msg?.content) {
+            assistantContent = msg.content
+            console.log('LLM call succeeded via Priority 0: Database settings (user API key)')
+          } else if (msg?.reasoning_content) {
+            // Fallback: some reasoning models put content in reasoning_content
+            assistantContent = msg.reasoning_content
+            console.log('LLM call succeeded via Priority 0 (reasoning_content fallback)')
+          }
+        } else {
+          const errorText = await dbResponse.text().catch(() => 'Unknown error')
+          console.log(`Priority 0 (DB settings) failed with status ${dbResponse.status}: ${errorText}`)
+        }
+      } catch (p0Error) {
+        console.log('Priority 0 (DB settings) failed:', p0Error instanceof Error ? p0Error.message : p0Error)
+      }
+    } else if (!dbAiApiKey) {
+      console.log('Priority 0 skipped: No API key configured in database settings')
+    } else if (dbAiEnabled === 'false') {
+      console.log('Priority 0 skipped: AI is disabled in settings')
     }
 
     // ── Priority 1: new ZAI(config) with explicit environment variables ────────
@@ -933,7 +998,7 @@ ${additionalContext}`
             fetch(url, {
               method: 'POST',
               headers,
-              body: JSON.stringify({ messages, thinking: { type: 'disabled' } }),
+              body: JSON.stringify({ model: 'glm-4.5-flash', messages, thinking: { type: 'disabled' } }),
             }),
             LLM_TIMEOUT_MS
           )
@@ -944,9 +1009,13 @@ ${additionalContext}`
           }
 
           const data = await fetchResponse.json()
-          if (data.choices?.[0]?.message?.content) {
-            assistantContent = data.choices[0].message.content
+          const msg = data.choices?.[0]?.message
+          if (msg?.content) {
+            assistantContent = msg.content
             console.log('LLM call succeeded via Priority 3: direct fetch')
+          } else if (msg?.reasoning_content) {
+            assistantContent = msg.reasoning_content
+            console.log('LLM call succeeded via Priority 3 (reasoning_content fallback)')
           }
         } catch (p3Error) {
           console.error('Priority 3 (direct fetch) failed:', p3Error instanceof Error ? p3Error.message : p3Error)

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MessageCircle, X, Send, Bot, User, Sparkles, Trash2, AlertTriangle, RefreshCw } from 'lucide-react'
+import { MessageCircle, X, Send, Bot, User, Sparkles, Trash2, AlertTriangle, RefreshCw, Wifi, WifiOff, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -131,7 +131,7 @@ function formatMessageTime(dateStr: string): string {
 // ─── Chatbot Component ───────────────────────────────────────────────────────
 
 export function CRMChatbot() {
-  const { theme } = useCRMStore()
+  const { theme, setCurrentPage } = useCRMStore()
   const isECITheme = theme === 'eci'
 
   const [isOpen, setIsOpen] = useState(false)
@@ -153,6 +153,20 @@ export function CRMChatbot() {
   })
 
   const [chatError, setChatError] = useState<string | null>(null)
+
+  // Check AI configuration status from settings
+  const { data: aiSettings } = useQuery<Array<{key: string; value: string}>>({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const res = await fetch('/api/settings')
+      if (!res.ok) return []
+      return res.json()
+    },
+    staleTime: 30000,
+  })
+  const aiApiKey = aiSettings?.find(s => s.key === 'ai_api_key')?.value
+  const aiEnabled = aiSettings?.find(s => s.key === 'ai_enabled')?.value !== 'false'
+  const isAIConfigured = !!(aiApiKey && aiEnabled)
 
   // Send message mutation
   const sendMessage = useMutation({
@@ -333,7 +347,19 @@ export function CRMChatbot() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-white">CRM Assistant</h3>
-                  <p className={`text-[10px] ${headerSubtitle}`}>Powered by AI</p>
+                  <div className="flex items-center gap-1.5">
+                    {isAIConfigured ? (
+                      <>
+                        <Wifi className="h-2.5 w-2.5 text-emerald-300" />
+                        <span className={`text-[10px] text-emerald-200`}>AI Connected</span>
+                      </>
+                    ) : (
+                      <>
+                        <WifiOff className="h-2.5 w-2.5 text-amber-300" />
+                        <span className={`text-[10px] text-amber-200`}>No AI Key</span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -368,8 +394,20 @@ export function CRMChatbot() {
                   </div>
                   <p className="text-sm font-medium text-foreground">Hello! 👋</p>
                   <p className="mt-1 text-xs text-muted-foreground max-w-[260px]">
-                    I&apos;m your CRM assistant with real-time access to all your data. Ask me about proposals, clients, targets, deadlines, or any business insights.
+                    {isAIConfigured
+                      ? "I'm your AI-powered CRM assistant with real-time access to all your data. Ask me anything!"
+                      : "Configure your AI API key in Settings → AI Config to enable smart AI responses."
+                    }
                   </p>
+                  {!isAIConfigured && (
+                    <button
+                      onClick={() => setCurrentPage('settings')}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50"
+                    >
+                      <Settings className="h-3 w-3" />
+                      Configure AI
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">

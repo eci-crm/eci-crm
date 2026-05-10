@@ -44,6 +44,12 @@ import {
   Sun,
   Moon,
   Check,
+  Sparkles,
+  Eye,
+  EyeOff,
+  Zap,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useCRMStore } from "@/lib/store";
@@ -2447,6 +2453,430 @@ function ThemeSwitcherTab() {
 }
 
 // ──────────────────────────────────────────────
+// AI Configuration Tab
+// ──────────────────────────────────────────────
+
+function AIConfigTab() {
+  const queryClient = useQueryClient();
+  const [aiProvider, setAiProvider] = React.useState("zai-glm");
+  const [apiKey, setApiKey] = React.useState("");
+  const [baseUrl, setBaseUrl] = React.useState("https://api.z.ai/api/paas/v4");
+  const [model, setModel] = React.useState("glm-4.5-flash");
+  const [aiEnabled, setAiEnabled] = React.useState(true);
+  const [showApiKey, setShowApiKey] = React.useState(false);
+  const [testStatus, setTestStatus] = React.useState<"idle" | "testing" | "success" | "error">("idle");
+  const [testMessage, setTestMessage] = React.useState("");
+
+  const { data: settings, isLoading } = useQuery<SettingItem[]>({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings");
+      if (!res.ok) throw new Error("Failed to fetch settings");
+      return res.json();
+    },
+  });
+
+  React.useEffect(() => {
+    if (settings) {
+      const provider = settings.find((s) => s.key === "ai_provider");
+      const key = settings.find((s) => s.key === "ai_api_key");
+      const url = settings.find((s) => s.key === "ai_base_url");
+      const mdl = settings.find((s) => s.key === "ai_model");
+      const enabled = settings.find((s) => s.key === "ai_enabled");
+
+      if (provider) setAiProvider(provider.value);
+      if (key) setApiKey(key.value);
+      if (url) setBaseUrl(url.value);
+      if (mdl) setModel(mdl.value);
+      if (enabled) setAiEnabled(enabled.value === "true");
+    }
+  }, [settings]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (items: SettingItem[]) => {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(items),
+      });
+      if (!res.ok) throw new Error("Failed to save settings");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      toast.success("AI configuration saved successfully");
+    },
+    onError: () => {
+      toast.error("Failed to save AI configuration");
+    },
+  });
+
+  const testMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/ai-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test", provider: aiProvider, apiKey, baseUrl, model }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Connection test failed");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setTestStatus("success");
+      setTestMessage(data.message || "Connection successful!");
+      toast.success("AI connection test passed!");
+    },
+    onError: (error: Error) => {
+      setTestStatus("error");
+      setTestMessage(error.message);
+      toast.error("AI connection test failed");
+    },
+  });
+
+  const handleSave = () => {
+    if (!apiKey.trim()) {
+      toast.error("API Key is required to enable AI features");
+      return;
+    }
+    saveMutation.mutate([
+      { key: "ai_provider", value: aiProvider },
+      { key: "ai_api_key", value: apiKey },
+      { key: "ai_base_url", value: baseUrl },
+      { key: "ai_model", value: model },
+      { key: "ai_enabled", value: aiEnabled ? "true" : "false" },
+    ]);
+  };
+
+  const handleTest = () => {
+    if (!apiKey.trim()) {
+      toast.error("Please enter an API Key before testing");
+      return;
+    }
+    setTestStatus("testing");
+    setTestMessage("");
+    testMutation.mutate();
+  };
+
+  const maskApiKey = (key: string) => {
+    if (!key || key.length < 8) return key;
+    return key.slice(0, 4) + "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" + key.slice(-4);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const isConfigured = apiKey.trim().length > 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Quick Setup Banner - shown when not configured */}
+      {!isConfigured && (
+        <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 dark:border-blue-800 dark:from-blue-950/30 dark:to-indigo-950/30">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-900/40">
+                <Sparkles className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-semibold text-blue-900 dark:text-blue-200">Quick Setup: Add Your Z.AI GLM API Key</h3>
+                <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                  To enable AI-powered features in your CRM, simply select <strong>Z.AI GLM</strong> as your provider below and paste your API key. 
+                  The base URL and model are pre-configured for you.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 dark:bg-blue-900/50 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">
+                    <Check className="h-3 w-3" /> Pre-configured URL
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 dark:bg-blue-900/50 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">
+                    <Check className="h-3 w-3" /> Optimal model selected
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 dark:bg-blue-900/50 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">
+                    <Check className="h-3 w-3" /> One-click test
+                  </span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Status Card */}
+      <Card className={isConfigured ? "border-emerald-200 dark:border-emerald-800" : "border-amber-200 dark:border-amber-800"}>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-3">
+            {isConfigured ? (
+              <>
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40">
+                  <Wifi className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-emerald-700 dark:text-emerald-400">AI Connected</p>
+                  <p className="text-sm text-muted-foreground">
+                    Using {aiProvider === "zai-glm" ? "Z.AI GLM" : aiProvider === "glm" ? "GLM/ChatGLM" : aiProvider === "openai" ? "OpenAI" : aiProvider === "deepseek" ? "DeepSeek" : "Custom"} — {model}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/40">
+                  <WifiOff className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-amber-700 dark:text-amber-400">AI Not Configured</p>
+                  <p className="text-sm text-muted-foreground">
+                    Add your Z.AI GLM API key below to enable AI-powered features
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Configuration Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="size-5" />
+            AI Configuration
+          </CardTitle>
+          <CardDescription>
+            Configure your AI provider and API key to enable the CRM AI Assistant, smart insights, and automated analysis. Z.AI GLM is the recommended provider.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Enable/Disable Toggle */}
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <Label className="text-base font-medium">Enable AI Features</Label>
+              <p className="text-sm text-muted-foreground">
+                Turn on AI-powered chatbot, smart suggestions, and data analysis
+              </p>
+            </div>
+            <Switch
+              checked={aiEnabled}
+              onCheckedChange={setAiEnabled}
+            />
+          </div>
+
+          {/* Provider Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="ai-provider">AI Provider</Label>
+            <Select value={aiProvider} onValueChange={(val) => {
+              setAiProvider(val);
+              if (val === "zai-glm") {
+                setBaseUrl("https://api.z.ai/api/paas/v4");
+                setModel("glm-4.5-flash");
+              } else if (val === "glm") {
+                setBaseUrl("https://api.z.ai/api/paas/v4");
+                setModel("glm-4.5-flash");
+              } else if (val === "openai") {
+                setBaseUrl("https://api.openai.com/v1");
+                setModel("gpt-4o-mini");
+              } else if (val === "deepseek") {
+                setBaseUrl("https://api.deepseek.com/v1");
+                setModel("deepseek-chat");
+              }
+            }}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select AI provider" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="zai-glm">Z.AI GLM (Recommended)</SelectItem>
+                <SelectItem value="glm">GLM / ChatGLM (Zhipu AI)</SelectItem>
+                <SelectItem value="openai">OpenAI Compatible</SelectItem>
+                <SelectItem value="deepseek">DeepSeek</SelectItem>
+                <SelectItem value="custom">Custom / Other</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {aiProvider === "zai-glm"
+                ? "Z.AI GLM uses the GLM model family. Get your API key from z.ai/manage-apikey/apikey-list"
+                : "Select your AI provider and enter the corresponding API key."}
+            </p>
+          </div>
+
+          {/* API Key */}
+          <div className="space-y-2">
+            <Label htmlFor="ai-api-key">API Key</Label>
+            <div className="relative">
+              <Input
+                id="ai-api-key"
+                type={showApiKey ? "text" : "password"}
+                placeholder="Enter your API key"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {aiProvider === "zai-glm"
+                ? "Get your API key from z.ai/manage-apikey/apikey-list"
+                : aiProvider === "glm"
+                ? "Get your API key from z.ai/manage-apikey/apikey-list"
+                : aiProvider === "openai"
+                ? "Get your API key from platform.openai.com"
+                : aiProvider === "deepseek"
+                ? "Get your API key from platform.deepseek.com"
+                : "Enter the API key for your provider"}
+            </p>
+          </div>
+
+          {/* Base URL */}
+          <div className="space-y-2">
+            <Label htmlFor="ai-base-url">API Base URL</Label>
+            <Input
+              id="ai-base-url"
+              placeholder="https://api.example.com/v1"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              The base URL for the AI API. This is auto-filled based on your provider but can be customized.
+            </p>
+          </div>
+
+          {/* Model */}
+          <div className="space-y-2">
+            <Label htmlFor="ai-model">Model Name</Label>
+            <Input
+              id="ai-model"
+              placeholder="e.g., glm-4.5-flash"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {aiProvider === "zai-glm"
+                ? "Available: glm-4.5-flash (free & fast, recommended), glm-4-plus (most capable, paid), glm-5.1 (latest, paid)"
+                : aiProvider === "glm"
+                ? "Available: glm-4.5-flash (free & fast, recommended), glm-4-plus (most capable, paid), glm-5.1 (latest, paid)"
+                : aiProvider === "openai"
+                ? "Recommended: gpt-4o-mini (fast & affordable), gpt-4o (most capable)"
+                : aiProvider === "deepseek"
+                ? "Recommended: deepseek-chat (general), deepseek-reasoner (reasoning)"
+                : "Enter the model name supported by your provider"}
+            </p>
+          </div>
+
+          {/* Test Connection */}
+          <div className="space-y-3">
+            <Button
+              variant="outline"
+              onClick={handleTest}
+              disabled={!apiKey.trim() || testMutation.isPending}
+              className="gap-2"
+            >
+              {testMutation.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Zap className="size-4" />
+              )}
+              Test Connection
+            </Button>
+
+            {testStatus === "success" && (
+              <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/30">
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <div>
+                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Connection Successful</p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-500">{testMessage}</p>
+                </div>
+              </div>
+            )}
+
+            {testStatus === "error" && (
+              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950/30">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-red-600 dark:text-red-400" />
+                <div>
+                  <p className="text-sm font-medium text-red-700 dark:text-red-400">Connection Failed</p>
+                  <p className="text-xs text-red-600 dark:text-red-500">{testMessage}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Features Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>AI-Powered Features</CardTitle>
+          <CardDescription>
+            When AI is configured, these features become available across your CRM.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex items-start gap-3 rounded-lg border p-4">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40">
+                <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">CRM AI Assistant</p>
+                <p className="text-xs text-muted-foreground">Ask questions about your data in natural language</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 rounded-lg border p-4">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-950/40">
+                <Zap className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Smart Insights</p>
+                <p className="text-xs text-muted-foreground">AI-powered business analysis and recommendations</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 rounded-lg border p-4">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/40">
+                <Target className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Pipeline Analysis</p>
+                <p className="text-xs text-muted-foreground">Identify at-risk deals and winning strategies</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 rounded-lg border p-4">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-950/40">
+                <Briefcase className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Proposal Intelligence</p>
+                <p className="text-xs text-muted-foreground">Win probability analysis and strategic advice</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={saveMutation.isPending} className="gap-2 min-w-[120px]">
+          {saveMutation.isPending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Save className="size-4" />
+          )}
+          Save Configuration
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
 // Main Settings Component
 // ──────────────────────────────────────────────
 
@@ -2496,6 +2926,10 @@ export function CRMSettings() {
             <span className="hidden sm:inline">Backup & Restore</span>
             <span className="sm:hidden">Backup</span>
           </TabsTrigger>
+          <TabsTrigger value="ai" className="gap-1.5 text-xs sm:text-sm">
+            <Sparkles className="size-3.5" />
+            <span className="hidden sm:inline">AI Config</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="branding">
@@ -2524,6 +2958,10 @@ export function CRMSettings() {
 
         <TabsContent value="backup">
           <BackupRestoreTab />
+        </TabsContent>
+
+        <TabsContent value="ai">
+          <AIConfigTab />
         </TabsContent>
       </Tabs>
     </div>
