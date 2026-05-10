@@ -93,3 +93,29 @@ Stage Summary:
 - Vercel auto-seeds on cold starts when database is empty
 - 10 clients, 20 proposals, 6 services, 6 team members available on Vercel
 - CRITICAL NOTE: SQLite on Vercel is ephemeral — data persists only within a container's lifetime. For production persistence, a cloud database (Turso, Vercel Postgres, Supabase) is recommended
+
+---
+Task ID: 7
+Agent: Main
+Task: Fix remaining UI issues and clean up SQLite remnants after PostgreSQL migration
+
+Work Log:
+- **Removed `better-sqlite3` from next.config.ts**: Removed from `serverExternalPackages` array since we're now on PostgreSQL via Neon
+- **Deleted `db/custom.db`** and the `db/` directory: Leftover SQLite database file from before migration
+- **Updated comment in `src/app/api/clients/import/route.ts`**: Changed "case-insensitive via contains for SQLite compatibility" to just "case-insensitive", and added `mode: 'insensitive'` to the Prisma query for proper PostgreSQL case-insensitive comparison
+- **Updated comment in `src/app/api/seed/route.ts`**: Removed "This ensures the app works on Vercel where the database is ephemeral" — no longer applicable with persistent Neon PostgreSQL
+- **Updated comment in `src/components/crm-layout.tsx`**: Changed "important for Vercel cold starts" to "safety net for first deployment"
+- **Updated seed API endpoint data**: Replaced generic IT services (Managed Services, Data Migration, etc.) with ECI-specific services (Research & Evaluation, Training & Capacity Building, Material Development, Project Management, Social Mobilization, Media & Communications). Also updated thematic areas, clients, and proposals to match ECI's consulting/development sector focus
+- **Verified Services API**: Confirmed 6 ECI services load correctly from Neon (Research & Evaluation, Training & Capacity Building, Material Development, Project Management, Social Mobilization, Media & Communications)
+- **Verified Proposal form scrolling**: Already fixed by Task ID 2 — DialogContent has `flex flex-col max-h-[90vh] overflow-hidden`, scrollable div has `flex-1 overflow-y-auto min-h-0`
+- **Verified Logo display**: Settings API returns companyLogo as base64 data (80KB), CompanyBrandingTab handles upload/preview/save correctly, CRMLayout displays logo in sidebar
+- **Verified build script**: `prisma generate && prisma db push --accept-data-loss && next build` is correct for PostgreSQL
+- **Lint passed with no errors**
+- **Build succeeded with no errors**
+
+Stage Summary:
+- All SQLite references cleaned up: removed better-sqlite3 from config, deleted db/custom.db, updated comments
+- Seed API now uses ECI-specific data matching the actual Neon database
+- Client import duplicate check now uses PostgreSQL `mode: 'insensitive'` for proper case-insensitive matching
+- Services, proposals, logo, and scrolling all verified working
+- Zero remaining SQLite references in source code

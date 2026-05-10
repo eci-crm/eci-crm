@@ -2,7 +2,6 @@ import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
 
 // Smart seed endpoint: Only seeds if the database is empty.
-// This ensures the app works on Vercel where the database is ephemeral.
 // POST /api/seed - Seeds if empty, returns status either way.
 
 export async function POST() {
@@ -52,23 +51,23 @@ export async function GET() {
 }
 
 async function seedDatabase() {
-  // ── Services ──────────────────────────────────────────────
-  const managedServices = await db.service.create({ data: { name: 'Managed Services', color: '#8b5cf6', sortOrder: 0 } })
-  const dataMigration = await db.service.create({ data: { name: 'Data Migration', color: '#f59e0b', sortOrder: 1 } })
-  const systemIntegration = await db.service.create({ data: { name: 'System Integration', color: '#3b82f6', sortOrder: 2 } })
-  const itConsulting = await db.service.create({ data: { name: 'IT Consulting', color: '#10b981', sortOrder: 3 } })
-  const securityAuditing = await db.service.create({ data: { name: 'Security Auditing', color: '#ef4444', sortOrder: 4 } })
-  const cloudSolutions = await db.service.create({ data: { name: 'Cloud Solutions', color: '#06b6d4', sortOrder: 5 } })
+  // ── Services (ECI-specific) ──────────────────────────────
+  const researchEvaluation = await db.service.create({ data: { name: 'Research & Evaluation', color: '#3b82f6', sortOrder: 0 } })
+  const trainingCapacity = await db.service.create({ data: { name: 'Training & Capacity Building', color: '#10b981', sortOrder: 1 } })
+  const materialDevelopment = await db.service.create({ data: { name: 'Material Development', color: '#f59e0b', sortOrder: 2 } })
+  const projectManagement = await db.service.create({ data: { name: 'Project Management', color: '#8b5cf6', sortOrder: 3 } })
+  const socialMobilization = await db.service.create({ data: { name: 'Social Mobilization', color: '#ef4444', sortOrder: 4 } })
+  const mediaCommunications = await db.service.create({ data: { name: 'Media & Communications', color: '#06b6d4', sortOrder: 5 } })
 
   // ── Thematic Areas ────────────────────────────────────────
-  const digitalTransformation = await db.thematicArea.create({ data: { name: 'Digital Transformation', color: '#3b82f6', sortOrder: 0 } })
-  const cybersecurity = await db.thematicArea.create({ data: { name: 'Cybersecurity', color: '#ef4444', sortOrder: 1 } })
-  const cloudComputing = await db.thematicArea.create({ data: { name: 'Cloud Computing', color: '#06b6d4', sortOrder: 2 } })
-  const dataAnalytics = await db.thematicArea.create({ data: { name: 'Data Analytics', color: '#8b5cf6', sortOrder: 3 } })
-  const erpSystems = await db.thematicArea.create({ data: { name: 'ERP Systems', color: '#10b981', sortOrder: 4 } })
-  const networkInfrastructure = await db.thematicArea.create({ data: { name: 'Network Infrastructure', color: '#f59e0b', sortOrder: 5 } })
-  const itGovernance = await db.thematicArea.create({ data: { name: 'IT Governance', color: '#ec4899', sortOrder: 6 } })
-  const softwareDevelopment = await db.thematicArea.create({ data: { name: 'Software Development', color: '#14b8a6', sortOrder: 7 } })
+  const education = await db.thematicArea.create({ data: { name: 'Education', color: '#3b82f6', sortOrder: 0 } })
+  const health = await db.thematicArea.create({ data: { name: 'Health', color: '#ef4444', sortOrder: 1 } })
+  const governance = await db.thematicArea.create({ data: { name: 'Governance', color: '#8b5cf6', sortOrder: 2 } })
+  const socialProtection = await db.thematicArea.create({ data: { name: 'Social Protection', color: '#10b981', sortOrder: 3 } })
+  const economicDevelopment = await db.thematicArea.create({ data: { name: 'Economic Development', color: '#f59e0b', sortOrder: 4 } })
+  const environment = await db.thematicArea.create({ data: { name: 'Environment & Climate', color: '#06b6d4', sortOrder: 5 } })
+  const genderEquality = await db.thematicArea.create({ data: { name: 'Gender Equality', color: '#ec4899', sortOrder: 6 } })
+  const digitalInclusion = await db.thematicArea.create({ data: { name: 'Digital Inclusion', color: '#14b8a6', sortOrder: 7 } })
 
   // ── Team Members ──────────────────────────────────────────
   const ahmed = await db.teamMember.create({ data: { name: 'Ahmed Khan', email: 'ahmed@ecicrm.pk', role: 'Admin', password: 'admin123', isActive: true } })
@@ -79,39 +78,39 @@ async function seedDatabase() {
   const ayesha = await db.teamMember.create({ data: { name: 'Ayesha Malik', email: 'ayesha@ecicrm.pk', role: 'Member', isActive: false } })
 
   // ── Clients ───────────────────────────────────────────────
-  const ptcl = await db.client.create({ data: { name: 'PTCL', address: 'G-8/2, Islamabad', status: 'Active' } })
-  const pia = await db.client.create({ data: { name: 'PIA', address: 'PIA Building, Karachi', status: 'Active' } })
-  const pakistanRailways = await db.client.create({ data: { name: 'Pakistan Railways', address: 'Railway Headquarters, Lahore', status: 'Inactive' } })
-  const hbl = await db.client.create({ data: { name: 'HBL', address: 'HBL Plaza, Karachi', status: 'Active' } })
-  const engro = await db.client.create({ data: { name: 'Engro Corporation', address: '24th Floor, The Harbour Front, Karachi', status: 'Active' } })
-  const ssgc = await db.client.create({ data: { name: 'Sui Southern Gas', address: 'Sir Shah Suleman Road, Karachi', status: 'Active' } })
-  const luckyCement = await db.client.create({ data: { name: 'Lucky Cement', address: 'Clifton, Karachi', status: 'Active' } })
-  const nbp = await db.client.create({ data: { name: 'National Bank of Pakistan', address: 'I.I. Chundrigar Road, Karachi', status: 'Active' } })
-  const wapda = await db.client.create({ data: { name: 'WAPDA', address: 'WAPDA House, Lahore', status: 'Active' } })
-  const ogdcl = await db.client.create({ data: { name: 'OGDCL', address: 'Jinnah Avenue, Islamabad', status: 'Active' } })
+  const undp = await db.client.create({ data: { name: 'UNDP Pakistan', address: 'UN House, Islamabad', status: 'Active' } })
+  const worldBank = await db.client.create({ data: { name: 'World Bank', address: 'World Bank Office, Islamabad', status: 'Active' } })
+  const unicef = await db.client.create({ data: { name: 'UNICEF Pakistan', address: 'UNICEF Office, Islamabad', status: 'Active' } })
+  const dfid = await db.client.create({ data: { name: 'FCDO (formerly DFID)', address: 'British High Commission, Islamabad', status: 'Active' } })
+  const usaid = await db.client.create({ data: { name: 'USAID Pakistan', address: 'USAID Office, Islamabad', status: 'Active' } })
+  const giz = await db.client.create({ data: { name: 'GIZ Pakistan', address: 'GIZ Office, Islamabad', status: 'Active' } })
+  const planningCommission = await db.client.create({ data: { name: 'Planning Commission of Pakistan', address: 'P-Block, Islamabad', status: 'Inactive' } })
+  const provincialGovt = await db.client.create({ data: { name: 'Government of Punjab', address: 'Civil Secretariat, Lahore', status: 'Active' } })
+  const who = await db.client.create({ data: { name: 'WHO Pakistan', address: 'WHO Office, Islamabad', status: 'Active' } })
+  const adb = await db.client.create({ data: { name: 'Asian Development Bank', address: 'ADB Office, Islamabad', status: 'Active' } })
 
   // ── Proposals ─────────────────────────────────────────────
   const proposalData = [
-    { name: 'PTCL Network Modernization', rfpNumber: 'RFP-PTCL-2024-001', clientId: ptcl.id, assignedMemberId: ahmed.id, value: 12500000, status: 'Won', winningChances: 'High', focalPerson: 'Asif Mehmood', deadline: new Date('2024-03-15'), submissionDate: new Date('2024-03-10'), serviceIds: [managedServices.id, networkInfrastructure.id], thematicIds: [networkInfrastructure.id, digitalTransformation.id] },
-    { name: 'NBP Cybersecurity Framework', rfpNumber: 'RFP-NBP-2024-001', clientId: nbp.id, assignedMemberId: fatima.id, value: 18000000, status: 'Won', winningChances: 'High', focalPerson: 'Tariq Javed', deadline: new Date('2024-04-20'), submissionDate: new Date('2024-04-15'), serviceIds: [securityAuditing.id, itConsulting.id], thematicIds: [cybersecurity.id, itGovernance.id] },
-    { name: 'WAPDA ERP Implementation', rfpNumber: 'RFP-WAPDA-2024-001', clientId: wapda.id, assignedMemberId: ali.id, value: 25000000, status: 'Won', winningChances: 'High', focalPerson: 'Kamran Yousuf', deadline: new Date('2024-05-30'), submissionDate: new Date('2024-05-25'), serviceIds: [systemIntegration.id, itConsulting.id], thematicIds: [erpSystems.id, digitalTransformation.id] },
-    { name: 'OGDCL Data Analytics Platform', rfpNumber: 'RFP-OGDCL-2024-001', clientId: ogdcl.id, assignedMemberId: sana.id, value: 8500000, status: 'Won', winningChances: 'Medium', focalPerson: 'Naveed Anwar', deadline: new Date('2024-06-10'), submissionDate: new Date('2024-06-05'), serviceIds: [dataMigration.id, itConsulting.id], thematicIds: [dataAnalytics.id, digitalTransformation.id] },
-    { name: 'HBL Cloud Migration', rfpNumber: 'RFP-HBL-2024-001', clientId: hbl.id, assignedMemberId: ahmed.id, value: 15000000, status: 'Won', winningChances: 'High', focalPerson: 'Shahid Iqbal', deadline: new Date('2024-07-15'), submissionDate: new Date('2024-07-10'), serviceIds: [cloudSolutions.id, dataMigration.id], thematicIds: [cloudComputing.id, digitalTransformation.id] },
-    { name: 'Engro Digital Transformation', rfpNumber: 'RFP-ENGRO-2024-001', clientId: engro.id, assignedMemberId: fatima.id, value: 20000000, status: 'Won', winningChances: 'High', focalPerson: 'Bilal Ahmed', deadline: new Date('2024-08-20'), submissionDate: new Date('2024-08-15'), serviceIds: [itConsulting.id, systemIntegration.id], thematicIds: [digitalTransformation.id, itGovernance.id] },
-    { name: 'PIA IT Infrastructure Upgrade', rfpNumber: 'RFP-PIA-2024-001', clientId: pia.id, assignedMemberId: ali.id, value: 9800000, status: 'Submitted', winningChances: 'Medium', focalPerson: 'Rashid Khan', deadline: new Date('2024-09-15'), serviceIds: [managedServices.id, systemIntegration.id], thematicIds: [networkInfrastructure.id, digitalTransformation.id] },
-    { name: 'SSGC Managed IT Services', rfpNumber: 'RFP-SSGC-2024-001', clientId: ssgc.id, assignedMemberId: sana.id, value: 6200000, status: 'Submitted', winningChances: 'Low', focalPerson: 'Faisal Nawaz', deadline: new Date('2024-09-30'), serviceIds: [managedServices.id, itConsulting.id], thematicIds: [itGovernance.id, digitalTransformation.id] },
-    { name: 'Lucky Cement Security Audit', rfpNumber: 'RFP-LC-2024-001', clientId: luckyCement.id, assignedMemberId: ahmed.id, value: 3500000, status: 'Submitted', winningChances: 'Medium', focalPerson: 'Zubair Rana', deadline: new Date('2024-10-15'), serviceIds: [securityAuditing.id], thematicIds: [cybersecurity.id] },
-    { name: 'PTCL Cloud Solutions Design', rfpNumber: 'RFP-PTCL-2024-002', clientId: ptcl.id, assignedMemberId: fatima.id, value: 7200000, status: 'In Process', winningChances: 'Medium', focalPerson: 'Waqar Hassan', deadline: new Date('2024-11-01'), serviceIds: [cloudSolutions.id, itConsulting.id], thematicIds: [cloudComputing.id] },
-    { name: 'NBP ERP Module Extension', rfpNumber: 'RFP-NBP-2024-002', clientId: nbp.id, assignedMemberId: ali.id, value: 5500000, status: 'In Process', winningChances: 'Low', focalPerson: 'Imran Siddiqui', deadline: new Date('2024-11-15'), serviceIds: [systemIntegration.id], thematicIds: [erpSystems.id] },
-    { name: 'WAPDA Network Monitoring System', rfpNumber: 'RFP-WAPDA-2024-002', clientId: wapda.id, assignedMemberId: sana.id, value: 4800000, status: 'In Process', winningChances: 'Medium', focalPerson: 'Ahmed Raza', deadline: new Date('2024-11-30'), serviceIds: [managedServices.id, systemIntegration.id], thematicIds: [networkInfrastructure.id] },
-    { name: 'OGDCL Software Development Platform', rfpNumber: 'RFP-OGDCL-2024-002', clientId: ogdcl.id, assignedMemberId: ahmed.id, value: 11000000, status: 'In Process', winningChances: 'Medium', focalPerson: 'Salman Farooq', deadline: new Date('2024-12-01'), serviceIds: [itConsulting.id, systemIntegration.id], thematicIds: [softwareDevelopment.id, digitalTransformation.id] },
-    { name: 'HBL Data Migration Project', rfpNumber: 'RFP-HBL-2024-002', clientId: hbl.id, assignedMemberId: fatima.id, value: 9000000, status: 'In Process', winningChances: 'High', focalPerson: 'Adeel Hashmi', deadline: new Date('2024-12-10'), serviceIds: [dataMigration.id, cloudSolutions.id], thematicIds: [dataAnalytics.id, cloudComputing.id] },
-    { name: 'PIA Cybersecurity Assessment', rfpNumber: 'RFP-PIA-2024-002', clientId: pia.id, assignedMemberId: ali.id, value: 4200000, status: 'In Evaluation', winningChances: 'Low', focalPerson: 'Nasir Mahmood', deadline: new Date('2024-12-20'), serviceIds: [securityAuditing.id, itConsulting.id], thematicIds: [cybersecurity.id, itGovernance.id] },
-    { name: 'Engro Cloud Infrastructure Setup', rfpNumber: 'RFP-ENGRO-2024-002', clientId: engro.id, assignedMemberId: sana.id, value: 14000000, status: 'In Evaluation', winningChances: 'Medium', focalPerson: 'Hassan Zaidi', deadline: new Date('2025-01-10'), serviceIds: [cloudSolutions.id, systemIntegration.id], thematicIds: [cloudComputing.id, digitalTransformation.id] },
-    { name: 'Lucky Cement IT Consulting', rfpNumber: 'RFP-LC-2024-002', clientId: luckyCement.id, assignedMemberId: ahmed.id, value: 2500000, status: 'In Evaluation', winningChances: 'Low', focalPerson: 'Khalid Pervez', deadline: new Date('2025-01-15'), serviceIds: [itConsulting.id], thematicIds: [itGovernance.id] },
-    { name: 'Pakistan Railways Signal System IT', rfpNumber: 'RFP-PR-2024-001', clientId: pakistanRailways.id, assignedMemberId: null, value: 22000000, status: 'Pending', winningChances: '', focalPerson: '', deadline: new Date('2025-02-01'), serviceIds: [systemIntegration.id, managedServices.id], thematicIds: [networkInfrastructure.id, digitalTransformation.id] },
-    { name: 'SSGC Data Analytics Dashboard', rfpNumber: 'RFP-SSGC-2024-002', clientId: ssgc.id, assignedMemberId: null, value: 3800000, status: 'Pending', winningChances: '', focalPerson: '', deadline: new Date('2025-02-15'), serviceIds: [dataMigration.id, itConsulting.id], thematicIds: [dataAnalytics.id] },
-    { name: 'PTCL Digital Transformation Phase 2', rfpNumber: 'RFP-PTCL-2024-003', clientId: ptcl.id, assignedMemberId: null, value: 16000000, status: 'Pending', winningChances: '', focalPerson: '', deadline: new Date('2025-03-01'), serviceIds: [itConsulting.id, systemIntegration.id, cloudSolutions.id], thematicIds: [digitalTransformation.id, cloudComputing.id] },
+    { name: 'UNDP Education Sector Assessment', rfpNumber: 'RFP-UNDP-2024-001', clientId: undp.id, assignedMemberId: ahmed.id, value: 12500000, status: 'Won', winningChances: 'High', focalPerson: 'Asif Mehmood', deadline: new Date('2024-03-15'), submissionDate: new Date('2024-03-10'), serviceIds: [researchEvaluation.id, trainingCapacity.id], thematicIds: [education.id, governance.id] },
+    { name: 'World Bank Health Systems Evaluation', rfpNumber: 'RFP-WB-2024-001', clientId: worldBank.id, assignedMemberId: fatima.id, value: 18000000, status: 'Won', winningChances: 'High', focalPerson: 'Tariq Javed', deadline: new Date('2024-04-20'), submissionDate: new Date('2024-04-15'), serviceIds: [researchEvaluation.id, projectManagement.id], thematicIds: [health.id, socialProtection.id] },
+    { name: 'UNICEF Social Protection Program', rfpNumber: 'RFP-UNICEF-2024-001', clientId: unicef.id, assignedMemberId: ali.id, value: 25000000, status: 'Won', winningChances: 'High', focalPerson: 'Kamran Yousuf', deadline: new Date('2024-05-30'), submissionDate: new Date('2024-05-25'), serviceIds: [socialMobilization.id, trainingCapacity.id], thematicIds: [socialProtection.id, genderEquality.id] },
+    { name: 'FCDO Governance Reform Project', rfpNumber: 'RFP-FCDO-2024-001', clientId: dfid.id, assignedMemberId: sana.id, value: 8500000, status: 'Won', winningChances: 'Medium', focalPerson: 'Naveed Anwar', deadline: new Date('2024-06-10'), submissionDate: new Date('2024-06-05'), serviceIds: [researchEvaluation.id, projectManagement.id], thematicIds: [governance.id, economicDevelopment.id] },
+    { name: 'USAID Training & Capacity Building', rfpNumber: 'RFP-USAID-2024-001', clientId: usaid.id, assignedMemberId: ahmed.id, value: 15000000, status: 'Won', winningChances: 'High', focalPerson: 'Shahid Iqbal', deadline: new Date('2024-07-15'), submissionDate: new Date('2024-07-10'), serviceIds: [trainingCapacity.id, materialDevelopment.id], thematicIds: [education.id, digitalInclusion.id] },
+    { name: 'GIZ Economic Development Study', rfpNumber: 'RFP-GIZ-2024-001', clientId: giz.id, assignedMemberId: fatima.id, value: 20000000, status: 'Won', winningChances: 'High', focalPerson: 'Bilal Ahmed', deadline: new Date('2024-08-20'), submissionDate: new Date('2024-08-15'), serviceIds: [researchEvaluation.id, mediaCommunications.id], thematicIds: [economicDevelopment.id, governance.id] },
+    { name: 'UNDP Climate Change Adaptation', rfpNumber: 'RFP-UNDP-2024-002', clientId: undp.id, assignedMemberId: ali.id, value: 9800000, status: 'Submitted', winningChances: 'Medium', focalPerson: 'Rashid Khan', deadline: new Date('2024-09-15'), serviceIds: [researchEvaluation.id, projectManagement.id], thematicIds: [environment.id, governance.id] },
+    { name: 'WHO Health Communications Campaign', rfpNumber: 'RFP-WHO-2024-001', clientId: who.id, assignedMemberId: sana.id, value: 6200000, status: 'Submitted', winningChances: 'Low', focalPerson: 'Faisal Nawaz', deadline: new Date('2024-09-30'), serviceIds: [mediaCommunications.id, socialMobilization.id], thematicIds: [health.id, socialProtection.id] },
+    { name: 'ADB Material Development for Education', rfpNumber: 'RFP-ADB-2024-001', clientId: adb.id, assignedMemberId: ahmed.id, value: 3500000, status: 'Submitted', winningChances: 'Medium', focalPerson: 'Zubair Rana', deadline: new Date('2024-10-15'), serviceIds: [materialDevelopment.id, trainingCapacity.id], thematicIds: [education.id] },
+    { name: 'World Bank Social Mobilization Initiative', rfpNumber: 'RFP-WB-2024-002', clientId: worldBank.id, assignedMemberId: fatima.id, value: 7200000, status: 'In Process', winningChances: 'Medium', focalPerson: 'Waqar Hassan', deadline: new Date('2024-11-01'), serviceIds: [socialMobilization.id, trainingCapacity.id], thematicIds: [socialProtection.id] },
+    { name: 'Punjab Govt Project Management Support', rfpNumber: 'RFP-GoPb-2024-001', clientId: provincialGovt.id, assignedMemberId: ali.id, value: 5500000, status: 'In Process', winningChances: 'Low', focalPerson: 'Imran Siddiqui', deadline: new Date('2024-11-15'), serviceIds: [projectManagement.id], thematicIds: [governance.id] },
+    { name: 'UNICEF Gender Equality Program', rfpNumber: 'RFP-UNICEF-2024-002', clientId: unicef.id, assignedMemberId: sana.id, value: 4800000, status: 'In Process', winningChances: 'Medium', focalPerson: 'Ahmed Raza', deadline: new Date('2024-11-30'), serviceIds: [socialMobilization.id, researchEvaluation.id], thematicIds: [genderEquality.id, socialProtection.id] },
+    { name: 'USAID Digital Inclusion Research', rfpNumber: 'RFP-USAID-2024-002', clientId: usaid.id, assignedMemberId: ahmed.id, value: 11000000, status: 'In Process', winningChances: 'Medium', focalPerson: 'Salman Farooq', deadline: new Date('2024-12-01'), serviceIds: [researchEvaluation.id, mediaCommunications.id], thematicIds: [digitalInclusion.id, education.id] },
+    { name: 'FCDO Health Sector Reform', rfpNumber: 'RFP-FCDO-2024-002', clientId: dfid.id, assignedMemberId: fatima.id, value: 9000000, status: 'In Process', winningChances: 'High', focalPerson: 'Adeel Hashmi', deadline: new Date('2024-12-10'), serviceIds: [researchEvaluation.id, projectManagement.id], thematicIds: [health.id, governance.id] },
+    { name: 'GIZ Environmental Assessment', rfpNumber: 'RFP-GIZ-2024-002', clientId: giz.id, assignedMemberId: ali.id, value: 4200000, status: 'In Evaluation', winningChances: 'Low', focalPerson: 'Nasir Mahmood', deadline: new Date('2024-12-20'), serviceIds: [researchEvaluation.id, materialDevelopment.id], thematicIds: [environment.id, economicDevelopment.id] },
+    { name: 'UNDP Capacity Building for Governance', rfpNumber: 'RFP-UNDP-2024-003', clientId: undp.id, assignedMemberId: sana.id, value: 14000000, status: 'In Evaluation', winningChances: 'Medium', focalPerson: 'Hassan Zaidi', deadline: new Date('2025-01-10'), serviceIds: [trainingCapacity.id, projectManagement.id], thematicIds: [governance.id, digitalInclusion.id] },
+    { name: 'Planning Commission Evaluation Study', rfpNumber: 'RFP-PC-2024-001', clientId: planningCommission.id, assignedMemberId: ahmed.id, value: 2500000, status: 'In Evaluation', winningChances: 'Low', focalPerson: 'Khalid Pervez', deadline: new Date('2025-01-15'), serviceIds: [researchEvaluation.id], thematicIds: [governance.id] },
+    { name: 'WHO Media & Communications Strategy', rfpNumber: 'RFP-WHO-2024-002', clientId: who.id, assignedMemberId: null, value: 22000000, status: 'Pending', winningChances: '', focalPerson: '', deadline: new Date('2025-02-01'), serviceIds: [mediaCommunications.id, socialMobilization.id], thematicIds: [health.id, socialProtection.id] },
+    { name: 'ADB Education Materials Development', rfpNumber: 'RFP-ADB-2024-002', clientId: adb.id, assignedMemberId: null, value: 3800000, status: 'Pending', winningChances: '', focalPerson: '', deadline: new Date('2025-02-15'), serviceIds: [materialDevelopment.id, trainingCapacity.id], thematicIds: [education.id] },
+    { name: 'World Bank Social Protection Phase 2', rfpNumber: 'RFP-WB-2024-003', clientId: worldBank.id, assignedMemberId: null, value: 16000000, status: 'Pending', winningChances: '', focalPerson: '', deadline: new Date('2025-03-01'), serviceIds: [socialMobilization.id, projectManagement.id, researchEvaluation.id], thematicIds: [socialProtection.id, genderEquality.id] },
   ]
 
   for (const p of proposalData) {
@@ -156,12 +155,12 @@ async function seedDatabase() {
   const currentYear = new Date().getFullYear()
   await db.businessTarget.createMany({
     data: [
-      { year: currentYear, amount: 150000000, serviceId: managedServices.id },
-      { year: currentYear, amount: 80000000, serviceId: dataMigration.id },
-      { year: currentYear, amount: 120000000, serviceId: systemIntegration.id },
-      { year: currentYear, amount: 60000000, serviceId: itConsulting.id },
-      { year: currentYear, amount: 45000000, serviceId: securityAuditing.id },
-      { year: currentYear, amount: 95000000, serviceId: cloudSolutions.id },
+      { year: currentYear, amount: 150000000, serviceId: researchEvaluation.id },
+      { year: currentYear, amount: 80000000, serviceId: trainingCapacity.id },
+      { year: currentYear, amount: 120000000, serviceId: materialDevelopment.id },
+      { year: currentYear, amount: 60000000, serviceId: projectManagement.id },
+      { year: currentYear, amount: 45000000, serviceId: socialMobilization.id },
+      { year: currentYear, amount: 95000000, serviceId: mediaCommunications.id },
     ],
     skipDuplicates: true,
   })
@@ -169,14 +168,14 @@ async function seedDatabase() {
   // ── Notifications ─────────────────────────────────────────
   await db.notification.createMany({
     data: [
-      { type: 'proposal', title: 'New Proposal Submitted', message: 'PTCL Cloud Solutions Design has been submitted', isRead: false },
-      { type: 'deadline', title: 'Upcoming Deadline', message: 'WAPDA Network Monitoring System deadline approaching', isRead: false },
-      { type: 'win', title: 'Proposal Won! 🎉', message: 'Engro Digital Transformation proposal has been won', isRead: true },
-      { type: 'proposal', title: 'Proposal Status Update', message: 'HBL Data Migration Project moved to In Process', isRead: false },
-      { type: 'deadline', title: 'Deadline Tomorrow', message: 'PIA Cybersecurity Assessment deadline is tomorrow', isRead: false },
-      { type: 'assignment', title: 'New Assignment', message: 'You have been assigned to OGDCL Software Development Platform', isRead: true },
-      { type: 'win', title: 'Proposal Won! 🎉', message: 'NBP Cybersecurity Framework proposal has been won', isRead: true },
-      { type: 'proposal', title: 'Proposal Created', message: 'Pakistan Railways Signal System IT proposal has been created', isRead: false },
+      { type: 'proposal', title: 'New Proposal Submitted', message: 'World Bank Social Mobilization Initiative has been submitted', isRead: false },
+      { type: 'deadline', title: 'Upcoming Deadline', message: 'UNICEF Gender Equality Program deadline approaching', isRead: false },
+      { type: 'win', title: 'Proposal Won!', message: 'GIZ Economic Development Study proposal has been won', isRead: true },
+      { type: 'proposal', title: 'Proposal Status Update', message: 'FCDO Health Sector Reform moved to In Process', isRead: false },
+      { type: 'deadline', title: 'Deadline Tomorrow', message: 'GIZ Environmental Assessment deadline is tomorrow', isRead: false },
+      { type: 'assignment', title: 'New Assignment', message: 'You have been assigned to USAID Digital Inclusion Research', isRead: true },
+      { type: 'win', title: 'Proposal Won!', message: 'World Bank Health Systems Evaluation proposal has been won', isRead: true },
+      { type: 'proposal', title: 'Proposal Created', message: 'WHO Media & Communications Strategy proposal has been created', isRead: false },
     ],
   })
 }

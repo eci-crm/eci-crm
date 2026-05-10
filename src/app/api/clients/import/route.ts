@@ -55,9 +55,9 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      // Check for duplicate name (case-insensitive via contains for SQLite compatibility)
+      // Check for duplicate name (case-insensitive)
       const existing = await db.client.findFirst({
-        where: { name: { equals: row.name.trim() } }
+        where: { name: { equals: row.name.trim(), mode: 'insensitive' } }
       })
 
       if (existing) {
