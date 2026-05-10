@@ -79,8 +79,20 @@ export async function GET(request: NextRequest) {
     }
     const availableYears = Array.from(yearSet).sort((a, b) => a - b)
 
-    // ─── Fetch ALL proposals once (with related data) for efficiency ─────
-    const allProposals = await db.proposal.findMany({
+    // ─── Build database-level filter for date range and service ──────────
+    const whereClause: Record<string, unknown> = {}
+    if (startDate || endDate) {
+      whereClause.createdAt = {}
+      if (startDate) (whereClause.createdAt as Record<string, unknown>).gte = startDate
+      if (endDate) (whereClause.createdAt as Record<string, unknown>).lte = endDate
+    }
+    if (serviceId) {
+      whereClause.services = { some: { serviceId } }
+    }
+
+    // ─── Fetch filtered proposals with related data ─────────────────────
+    const proposalsInRange = await db.proposal.findMany({
+      where: whereClause,
       include: {
         client: { select: { id: true, name: true, status: true } },
         assignedMember: { select: { id: true, name: true, role: true } },
@@ -90,34 +102,10 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
-    // ─── Helper: check if a date falls within the selected range ────────
-    function isInDateRange(date: Date): boolean {
-      return date >= startDate && date <= endDate
-    }
-
-    // ─── Helper: get the effective date for a proposal ─
-    // Use createdAt as the primary date for year/period filtering (when the proposal was added to CRM).
-    // submissionDate is used only for business metrics (e.g., days to win, monthly revenue in month actually won).
-    function getProposalDate(p: { createdAt: Date; submissionDate: Date | null }): Date {
-      return new Date(p.createdAt)
-    }
-
     // ─── Helper: get the business date for a proposal (for revenue/won calculations by month/quarter) ─
     function getBusinessDate(p: { createdAt: Date; submissionDate: Date | null }): Date {
       return p.submissionDate ? new Date(p.submissionDate) : new Date(p.createdAt)
     }
-
-    // ─── Helper: check if proposal matches service filter ──────────────
-    function matchesService(proposalServices: { serviceId: string }[]): boolean {
-      if (!serviceId) return true
-      return proposalServices.some((s) => s.serviceId === serviceId)
-    }
-
-    // ─── Filter proposals by date range and service ──────────────────────
-    const proposalsInRange = allProposals.filter((p) => {
-      const pDate = getProposalDate(p)
-      return isInDateRange(pDate) && matchesService(p.services)
-    })
 
     // ─── Client counts ─────────────────────────────────────────────────
     const totalClients = await db.client.count()

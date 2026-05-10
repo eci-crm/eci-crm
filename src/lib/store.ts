@@ -33,6 +33,8 @@ export const useCRMStore = create<CRMStore>()(
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
         user: state.user,
+        currentPage: state.currentPage,
+        sidebarOpen: state.sidebarOpen,
       }),
     }
   )

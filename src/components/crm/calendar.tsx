@@ -240,27 +240,36 @@ export default function CRMCalendar() {
 
   const deadlineCount = React.useMemo(() => {
     let count = 0
-    for (const events of eventsMap.values()) {
-      count += events.filter((e) => e.type === 'deadline').length
+    for (const [key, events] of eventsMap) {
+      const date = parseISO(key)
+      if (isSameMonth(date, currentMonth)) {
+        count += events.filter((e) => e.type === 'deadline').length
+      }
     }
     return count
-  }, [eventsMap])
+  }, [eventsMap, currentMonth])
 
   const followUpCount = React.useMemo(() => {
     let count = 0
-    for (const events of eventsMap.values()) {
-      count += events.filter((e) => e.type === 'followUp').length
+    for (const [key, events] of eventsMap) {
+      const date = parseISO(key)
+      if (isSameMonth(date, currentMonth)) {
+        count += events.filter((e) => e.type === 'followUp').length
+      }
     }
     return count
-  }, [eventsMap])
+  }, [eventsMap, currentMonth])
 
   const submissionCount = React.useMemo(() => {
     let count = 0
-    for (const events of eventsMap.values()) {
-      count += events.filter((e) => e.type === 'submission').length
+    for (const [key, events] of eventsMap) {
+      const date = parseISO(key)
+      if (isSameMonth(date, currentMonth)) {
+        count += events.filter((e) => e.type === 'submission').length
+      }
     }
     return count
-  }, [eventsMap])
+  }, [eventsMap, currentMonth])
 
   // ── Render ───────────────────────────────────────────────────────────────
 

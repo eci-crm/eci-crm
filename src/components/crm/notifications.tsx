@@ -125,7 +125,11 @@ export function CRMNotifications() {
   // Fetch notifications
   const { data: notifications = [] } = useQuery<Notification[]>({
     queryKey: ['notifications'],
-    queryFn: () => fetch('/api/notifications').then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch('/api/notifications')
+      if (!r.ok) throw new Error('Failed to fetch notifications')
+      return r.json()
+    },
     refetchInterval: 30000, // Poll every 30 seconds
   })
 

@@ -108,16 +108,35 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
-    // Check for related proposals first
-    const proposalCount = await db.proposal.count({ where: { clientId: id } })
-    if (proposalCount > 0) {
-      return NextResponse.json(
-        { error: `Cannot delete client: ${proposalCount} proposal(s) are linked to this client. Remove or reassign them first.` },
-        { status: 409 }
-      )
-    }
+    // Cascade delete: junction records → proposals → client
+    await db.$transaction(async (tx) => {
+      // Get all proposal IDs for this client
+      const proposals = await tx.proposal.findMany({
+        where: { clientId: id },
+        select: { id: true },
+      })
+      const proposalIds = proposals.map((p) => p.id)
 
-    await db.client.delete({ where: { id } })
+      // Delete junction table records first
+      if (proposalIds.length > 0) {
+        await tx.proposalService.deleteMany({
+          where: { proposalId: { in: proposalIds } },
+        })
+        await tx.proposalThematicArea.deleteMany({
+          where: { proposalId: { in: proposalIds } },
+        })
+      }
+
+      // Delete proposals
+      await tx.proposal.deleteMany({
+        where: { clientId: id },
+      })
+
+      // Delete client
+      await tx.client.delete({
+        where: { id },
+      })
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

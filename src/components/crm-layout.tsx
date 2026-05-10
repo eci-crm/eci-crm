@@ -73,6 +73,16 @@ export function CRMLayout() {
   useEffect(() => {
     async function loadInitialData() {
       try {
+        // Check if database needs seeding (important for Vercel cold starts)
+        const seedCheck = await fetch('/api/seed')
+        if (seedCheck.ok) {
+          const seedData = await seedCheck.json()
+          if (!seedData.initialized) {
+            // Database is empty, trigger auto-seed
+            await fetch('/api/seed', { method: 'POST' })
+          }
+        }
+
         const settingsRes = await fetch('/api/settings')
         if (settingsRes.ok) {
           const data: Array<{ key: string; value: string }> = await settingsRes.json()

@@ -972,7 +972,7 @@ export default function Proposals() {
       {/* ── Add/Edit Dialog ──────────────────────────────────────────────────── */}
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="sm:max-w-3xl p-0 gap-0" showCloseButton={true}>
+        <DialogContent className="sm:max-w-3xl p-0 gap-0 flex flex-col max-h-[90vh] overflow-hidden" showCloseButton={true}>
           <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
             <DialogTitle>{editingProposal ? 'Edit Proposal' : 'Add Proposal'}</DialogTitle>
             <DialogDescription>

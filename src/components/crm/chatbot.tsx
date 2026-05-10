@@ -102,7 +102,11 @@ export function CRMChatbot() {
   // Fetch chat history
   const { data: messages = [] } = useQuery<ChatMessage[]>({
     queryKey: ['chat-messages'],
-    queryFn: () => fetch('/api/chat').then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch('/api/chat')
+      if (!r.ok) throw new Error('Failed to fetch chat history')
+      return r.json()
+    },
     enabled: isOpen,
   })
 
