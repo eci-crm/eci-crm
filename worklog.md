@@ -85,3 +85,25 @@ Stage Summary:
   - Priority 3 (direct fetch) works in sandbox, fails on Vercel (expected)
   - Smart fallback provides relevant CRM data on Vercel when all LLM approaches fail
 - For full AI capabilities on Vercel, a public AI API endpoint would need to be configured
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Fix dashboard Total Business showing 0 and Service Distribution blank
+
+Work Log:
+- Investigated the dashboard API - confirmed totalBusiness=58696000 for 2026 (correct)
+- Found that Total Business "showing 0" was due to Target Achievement card showing "0% of target" when no BusinessTarget exists for 2026
+- Fixed Total Business KPI card: when target is 0, shows "No target set for 2026" instead of "0% of target"
+- Fixed Target Achievement card: when target is 0, shows "—" and "N/A" instead of "0%", and "Not set" instead of "₨ 0"
+- Fixed Service Distribution chart: changed filter from wonValue > 0 to proposals > 0 so services with ANY proposals show up
+- Added Total and Won grouped bars to Service Distribution chart for better visibility
+- Added better empty state for Service Distribution with actionable hint "Assign services to proposals"
+- Tested proposal creation API - works correctly (returns 201 with services)
+- Deployed to GitHub (eci-crm/eci-crm) and Vercel (my-project-sigma-ruby-33.vercel.app)
+
+Stage Summary:
+- Total Business now correctly shows ₨ 58.7M for 2026 with clear "No target set" messaging
+- Service Distribution now shows 3 services with proposals (Research & Evaluation, Training & Capacity Building, Material Development)
+- Target Achievement card gracefully handles years without business targets
+- All changes deployed to production
