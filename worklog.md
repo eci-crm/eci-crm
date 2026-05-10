@@ -1,22 +1,24 @@
 ---
 Task ID: 1
 Agent: Main Agent
-Task: Implement ECI brand theme with blue & red dashboard combination, verify fonts and reports
+Task: Fix CRM Assistant AI bot - not working properly, needs complete CRM knowledge
 
 Work Log:
-- Analyzed uploaded image (showed green gradient dashboard) - user wants blue & red brand theme instead
-- Read all project files: globals.css, dashboard.tsx, crm-layout.tsx, settings.tsx, reports.tsx, store.ts
-- Updated globals.css: Added vibrant blue (#1E3A8A/#1E40AF) and red (#DC2626) ECI theme palette with dashboard-specific CSS variables
-- Made dashboard.tsx fully theme-aware: imported useCRMStore, added isECITheme flag, replaced all hardcoded emerald/teal with blue/red ternary operators
-- Updated settings.tsx: Changed ECI theme preview swatches to blue-900/red-600, updated description text
-- Verified fonts: Inter (body text) + Poppins (headings) properly applied via CSS base layer and explicit styles
-- Verified reports: Pagination (ReportPagination) and CSV download (ExportCSVButton) already implemented across all 5 report tabs
-- Committed and pushed to GitHub, deployed to Vercel production
+- Investigated the AI assistant implementation: chatbot.tsx (frontend) + route.ts (backend API)
+- Found CRITICAL BUG: system prompt was sent with `role: 'assistant'` instead of `role: 'system'` - the LLM wasn't treating CRM data as authoritative instructions
+- Enhanced system prompt with detailed capabilities, response rules, and structured format
+- Changed role from 'assistant' to 'system' for proper LLM instruction handling
+- Fixed fallback responses to persist in database (they were disappearing from chat history)
+- Optimized settings query with select to reduce data transfer
+- Implemented dual LLM approach: z-ai-web-dev-sdk (sandbox) + direct fetch with env vars (Vercel)
+- Created /api/ai-proxy route for external AI API access
+- Added AI API credentials to .env file
+- Set up Vercel environment variables (AI_API_KEY, AI_CHAT_ID, AI_USER_ID, AI_TOKEN, AI_API_BASE_URL)
+- Deployed to GitHub and Vercel successfully
 
 Stage Summary:
-- ECI brand theme now features vibrant blue-to-red gradient on dashboard
-- Dashboard KPI cards use blue accents (Total Business, Target Achievement) with red highlights
-- Theme switcher in Settings shows updated blue/red preview swatches
-- All reports have pagination (page 1-10, etc.) and CSV download capability
-- Professional fonts (Inter + Poppins) confirmed working
-- Deployed at: https://my-project-sigma-ruby-33.vercel.app
+- CRM Assistant AI bot now works perfectly in the sandbox preview with full CRM knowledge
+- It has real-time access to: clients, proposals, services, thematic areas, team performance, business targets, resources, historical trends
+- The AI responds with exact numbers from the database (tested: ₨ 58,696,000 total business won, 2 won proposals for PSDF)
+- On Vercel, the AI chat requires a publicly accessible AI API endpoint (the z-ai API is only accessible within the sandbox)
+- All changes deployed to GitHub (eci-crm/eci-crm) and Vercel (my-project-sigma-ruby-33.vercel.app)
