@@ -54,10 +54,13 @@ export async function PUT(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     const markAll = searchParams.get('markAll')
+    const userId = searchParams.get('userId')
 
     if (markAll === 'true') {
+      const where: Record<string, unknown> = { isRead: false }
+      if (userId) where.userId = userId
       await db.notification.updateMany({
-        where: { isRead: false },
+        where,
         data: { isRead: true },
       })
       return NextResponse.json({ success: true, message: 'All notifications marked as read' })

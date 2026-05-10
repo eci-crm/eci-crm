@@ -120,9 +120,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
-    // Unassign from proposals first, then delete
-    await db.proposal.updateMany({ where: { assignedMemberId: id }, data: { assignedMemberId: null } })
-    await db.teamMember.delete({ where: { id } })
+    // Unassign from proposals first, then delete — wrapped in transaction for atomicity
+    await db.$transaction([
+      db.proposal.updateMany({ where: { assignedMemberId: id }, data: { assignedMemberId: null } }),
+      db.teamMember.delete({ where: { id } }),
+    ])
 
     return NextResponse.json({ success: true })
   } catch (error) {

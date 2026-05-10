@@ -9,16 +9,31 @@ import { NextRequest, NextResponse } from 'next/server'
  * The API key, chat ID, token, and user ID are injected from environment variables.
  */
 
-const ZAI_BASE_URL = process.env.AI_PROXY_TARGET_URL || 'http://172.25.136.193:8080/v1'
+const ZAI_BASE_URL = process.env.AI_PROXY_TARGET_URL || process.env.AI_API_BASE_URL || ''
 
 export async function POST(request: NextRequest) {
   try {
+    if (!ZAI_BASE_URL) {
+      return NextResponse.json(
+        { error: 'AI proxy target URL not configured. Set AI_PROXY_TARGET_URL or AI_API_BASE_URL env var.' },
+        { status: 503 }
+      )
+    }
+
     const body = await request.json()
 
     // Build headers with credentials from environment variables
+    const aiApiKey = process.env.AI_API_KEY
+    if (!aiApiKey) {
+      return NextResponse.json(
+        { error: 'AI API key not configured. Set AI_API_KEY env var.' },
+        { status: 503 }
+      )
+    }
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.AI_API_KEY || 'Z.ai'}`,
+      'Authorization': `Bearer ${aiApiKey}`,
       'X-Z-AI-From': 'Z',
     }
 

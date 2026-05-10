@@ -96,75 +96,80 @@ export async function POST(request: NextRequest) {
     // Deduplicate years to prevent data loss from duplicate entries
     const uniqueYears = [...new Set(targets.map((t) => t.year))]
 
-    // Delete existing targets for all unique years at once
-    await db.businessTarget.deleteMany({
-      where: { year: { in: uniqueYears } },
-    })
+    // Wrap deleteMany + create in a transaction to prevent data loss
+    const results = await db.$transaction(async (tx) => {
+      // Delete existing targets for all unique years at once
+      await tx.businessTarget.deleteMany({
+        where: { year: { in: uniqueYears } },
+      })
 
-    const results = []
+      const created: unknown[] = []
 
-    for (const target of targets) {
-      const { year, annualTarget, monthlyOverrides, serviceTargets } = target
+      for (const target of targets) {
+        const { year, annualTarget, monthlyOverrides, serviceTargets } = target
 
-      // Create annual target (no serviceId, no month)
-      if (annualTarget > 0) {
-        const annualRecord = await db.businessTarget.create({
-          data: {
-            year,
-            month: null,
-            amount: annualTarget,
-            serviceId: null,
-          },
-        })
-        results.push(annualRecord)
-      }
-
-      // Create monthly overrides (no serviceId, with month)
-      for (const mo of monthlyOverrides) {
-        if (mo.amount > 0) {
-          const monthlyRecord = await db.businessTarget.create({
-            data: {
-              year,
-              month: mo.month,
-              amount: mo.amount,
-              serviceId: null,
-            },
-          })
-          results.push(monthlyRecord)
-        }
-      }
-
-      // Create service-specific targets
-      for (const st of serviceTargets) {
-        // Service annual target (with serviceId, no month)
-        if (st.annualTarget > 0) {
-          const serviceAnnualRecord = await db.businessTarget.create({
+        // Create annual target (no serviceId, no month)
+        if (annualTarget > 0) {
+          const annualRecord = await tx.businessTarget.create({
             data: {
               year,
               month: null,
-              amount: st.annualTarget,
-              serviceId: st.serviceId,
+              amount: annualTarget,
+              serviceId: null,
             },
           })
-          results.push(serviceAnnualRecord)
+          created.push(annualRecord)
         }
 
-        // Service monthly overrides
-        for (const mo of st.monthlyOverrides) {
+        // Create monthly overrides (no serviceId, with month)
+        for (const mo of monthlyOverrides) {
           if (mo.amount > 0) {
-            const serviceMonthlyRecord = await db.businessTarget.create({
+            const monthlyRecord = await tx.businessTarget.create({
               data: {
                 year,
                 month: mo.month,
                 amount: mo.amount,
+                serviceId: null,
+              },
+            })
+            created.push(monthlyRecord)
+          }
+        }
+
+        // Create service-specific targets
+        for (const st of serviceTargets) {
+          // Service annual target (with serviceId, no month)
+          if (st.annualTarget > 0) {
+            const serviceAnnualRecord = await tx.businessTarget.create({
+              data: {
+                year,
+                month: null,
+                amount: st.annualTarget,
                 serviceId: st.serviceId,
               },
             })
-            results.push(serviceMonthlyRecord)
+            created.push(serviceAnnualRecord)
+          }
+
+          // Service monthly overrides
+          for (const mo of st.monthlyOverrides) {
+            if (mo.amount > 0) {
+              const serviceMonthlyRecord = await tx.businessTarget.create({
+                data: {
+                  year,
+                  month: mo.month,
+                  amount: mo.amount,
+                  serviceId: st.serviceId,
+                },
+              })
+              created.push(serviceMonthlyRecord)
+            }
           }
         }
       }
-    }
+
+      return created
+    })
 
     return NextResponse.json(results)
   } catch (error) {

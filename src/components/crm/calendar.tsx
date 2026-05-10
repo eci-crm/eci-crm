@@ -76,6 +76,7 @@ const STATUS_BADGE_STYLES: Record<string, string> = {
   'In Evaluation': 'bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100',
   Pending: 'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-100',
   Won: 'bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100',
+  Rejected: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100',
 }
 
 const TYPE_CONFIG = {

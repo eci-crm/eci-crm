@@ -41,6 +41,7 @@ import {
   SlidersHorizontal,
   Download,
   FileSpreadsheet,
+  RefreshCw,
 } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -499,7 +500,7 @@ export default function CRMReports() {
     }
   }, [])
 
-  const { data: clientsData, isLoading: clientsLoading } = useQuery<{ type: string; data: ClientReportItem[]; availableYears?: number[] }>({
+  const { data: clientsData, isLoading: clientsLoading, isError: clientsError, refetch: clientsRefetch } = useQuery<{ type: string; data: ClientReportItem[]; availableYears?: number[] }>({
     queryKey: ['report', 'clients', queryParams],
     queryFn: async () => {
       const r = await fetch(`/api/reports?type=clients&${queryParams}`)
@@ -510,7 +511,7 @@ export default function CRMReports() {
     enabled: activeTab === 'clients',
   })
 
-  const { data: proposalsData, isLoading: proposalsLoading } = useQuery<{
+  const { data: proposalsData, isLoading: proposalsLoading, isError: proposalsError, refetch: proposalsRefetch } = useQuery<{
     type: string
     data: ProposalReportItem[]
     summary: ProposalsSummary
@@ -526,7 +527,7 @@ export default function CRMReports() {
     enabled: activeTab === 'proposals',
   })
 
-  const { data: summaryData, isLoading: summaryLoading } = useQuery<{ type: string; data: SummaryData; availableYears?: number[] }>({
+  const { data: summaryData, isLoading: summaryLoading, isError: summaryError, refetch: summaryRefetch } = useQuery<{ type: string; data: SummaryData; availableYears?: number[] }>({
     queryKey: ['report', 'summary', queryParams],
     queryFn: async () => {
       const r = await fetch(`/api/reports?type=summary&${queryParams}`)
@@ -537,7 +538,7 @@ export default function CRMReports() {
     enabled: activeTab === 'summary',
   })
 
-  const { data: thematicData, isLoading: thematicLoading } = useQuery<{ type: string; data: ThematicReportItem[]; availableYears?: number[] }>({
+  const { data: thematicData, isLoading: thematicLoading, isError: thematicError, refetch: thematicRefetch } = useQuery<{ type: string; data: ThematicReportItem[]; availableYears?: number[] }>({
     queryKey: ['report', 'thematic', queryParams],
     queryFn: async () => {
       const r = await fetch(`/api/reports?type=thematic&${queryParams}`)
@@ -548,7 +549,7 @@ export default function CRMReports() {
     enabled: activeTab === 'thematic',
   })
 
-  const { data: serviceData, isLoading: serviceLoading } = useQuery<{
+  const { data: serviceData, isLoading: serviceLoading, isError: serviceError, refetch: serviceRefetch } = useQuery<{
     type: string
     data: ServiceReportItem[]
     summary: ServiceReportSummary
@@ -850,6 +851,18 @@ export default function CRMReports() {
     </div>
   )
 
+  const renderError = (message: string, onRetry: () => void) => (
+    <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+      <AlertTriangle className="h-12 w-12 mb-3 text-red-400" />
+      <p className="text-lg font-medium text-foreground">{message}</p>
+      <p className="text-sm mt-1">Please try again or adjust your filters.</p>
+      <Button onClick={onRetry} variant="outline" className="mt-4">
+        <RefreshCw className="h-4 w-4 mr-2" />
+        Retry
+      </Button>
+    </div>
+  )
+
   const renderEmpty = (message: string) => (
     <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
       <BarChart3 className="h-12 w-12 mb-3 opacity-30" />
@@ -862,6 +875,7 @@ export default function CRMReports() {
 
   const renderClientsTab = () => {
     if (clientsLoading) return renderLoading()
+    if (clientsError) return renderError('Failed to load client data', () => clientsRefetch())
     if (!clientsData?.data || clientsData.data.length === 0) return renderEmpty('No client data available')
 
     const page = getPage('clients')
@@ -1003,6 +1017,7 @@ export default function CRMReports() {
 
   const renderProposalsTab = () => {
     if (proposalsLoading) return renderLoading()
+    if (proposalsError) return renderError('Failed to load proposals data', () => proposalsRefetch())
     if (!proposalsData?.data || proposalsData.data.length === 0) return renderEmpty('No proposals data available')
 
     const summary = proposalsData.summary
@@ -1257,6 +1272,7 @@ export default function CRMReports() {
 
   const renderSummaryTab = () => {
     if (summaryLoading) return renderLoading()
+    if (summaryError) return renderError('Failed to load summary data', () => summaryRefetch())
     if (!summaryData?.data) return renderEmpty('No summary data available')
 
     const d = summaryData.data
@@ -1459,6 +1475,7 @@ export default function CRMReports() {
 
   const renderThematicTab = () => {
     if (thematicLoading) return renderLoading()
+    if (thematicError) return renderError('Failed to load thematic area data', () => thematicRefetch())
     if (!thematicData?.data || thematicData.data.length === 0) return renderEmpty('No thematic data available')
 
     const totalThematicValue = thematicData.data.reduce((sum, t) => sum + t.totalValue, 0)
@@ -1661,6 +1678,7 @@ export default function CRMReports() {
 
   const renderServiceTab = () => {
     if (serviceLoading) return renderLoading()
+    if (serviceError) return renderError('Failed to load service data', () => serviceRefetch())
     if (!serviceData?.data || serviceData.data.length === 0) return renderEmpty('No service data available')
 
     const serviceSummary = serviceData.summary

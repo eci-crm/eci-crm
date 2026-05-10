@@ -849,25 +849,32 @@ ${additionalContext}`
     // This works on both sandbox AND Vercel because config is passed directly,
     // not read from a file. The env vars can be set in Vercel dashboard.
     try {
-      const ZAI = (await import('z-ai-web-dev-sdk')).default
-      const zaiConfig = {
-        baseUrl: process.env.AI_API_BASE_URL || 'http://172.25.136.193:8080/v1',
-        apiKey: process.env.AI_API_KEY || 'Z.ai',
-        chatId: process.env.AI_CHAT_ID,
-        userId: process.env.AI_USER_ID,
-        token: process.env.AI_TOKEN,
-      }
-      // Constructor is typed as private in the SDK's .d.ts but accepts config at runtime
-      const zai = new (ZAI as any)(zaiConfig) as InstanceType<typeof ZAI>
+      const zaiBaseUrl = process.env.AI_API_BASE_URL
+      const zaiApiKey = process.env.AI_API_KEY
 
-      const sdkResponse = await withTimeout(
-        zai.chat.completions.create({ messages }),
-        LLM_TIMEOUT_MS
-      )
+      if (zaiBaseUrl && zaiApiKey) {
+        const ZAI = (await import('z-ai-web-dev-sdk')).default
+        const zaiConfig = {
+          baseUrl: zaiBaseUrl,
+          apiKey: zaiApiKey,
+          chatId: process.env.AI_CHAT_ID,
+          userId: process.env.AI_USER_ID,
+          token: process.env.AI_TOKEN,
+        }
+        // Constructor is typed as private in the SDK's .d.ts but accepts config at runtime
+        const zai = new (ZAI as any)(zaiConfig) as InstanceType<typeof ZAI>
 
-      if (sdkResponse?.choices?.[0]?.message?.content) {
-        assistantContent = sdkResponse.choices[0].message.content
-        console.log('LLM call succeeded via Priority 1: new ZAI(config) with env vars')
+        const sdkResponse = await withTimeout(
+          zai.chat.completions.create({ messages }),
+          LLM_TIMEOUT_MS
+        )
+
+        if (sdkResponse?.choices?.[0]?.message?.content) {
+          assistantContent = sdkResponse.choices[0].message.content
+          console.log('LLM call succeeded via Priority 1: new ZAI(config) with env vars')
+        }
+      } else {
+        console.log('Priority 1 skipped: AI_API_BASE_URL or AI_API_KEY env vars not set')
       }
     } catch (p1Error) {
       console.log('Priority 1 (new ZAI with env vars) failed:', p1Error instanceof Error ? p1Error.message : p1Error)
@@ -898,12 +905,12 @@ ${additionalContext}`
     // Last resort: make a raw HTTP request to the AI API endpoint
     if (!assistantContent) {
       const aiBaseUrl = process.env.AI_API_BASE_URL
-      const aiApiKey = process.env.AI_API_KEY || 'Z.ai'
+      const aiApiKey = process.env.AI_API_KEY
       const aiChatId = process.env.AI_CHAT_ID
       const aiUserId = process.env.AI_USER_ID
       const aiToken = process.env.AI_TOKEN
 
-      if (aiBaseUrl) {
+      if (aiBaseUrl && aiApiKey) {
         const url = `${aiBaseUrl}/chat/completions`
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
@@ -938,7 +945,7 @@ ${additionalContext}`
           console.error('Priority 3 (direct fetch) failed:', p3Error instanceof Error ? p3Error.message : p3Error)
         }
       } else {
-        console.log('No AI_API_BASE_URL env var set — Priority 3 (direct fetch) not available')
+        console.log('AI_API_BASE_URL or AI_API_KEY env vars not set — Priority 3 (direct fetch) not available')
       }
     }
 

@@ -15,6 +15,7 @@ import {
   LogOut,
   KeyRound,
   User,
+  BookOpen,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -40,6 +41,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useCRMStore } from '@/lib/store'
+import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { CRMNotifications } from '@/components/crm/notifications'
 import { CRMChatbot } from '@/components/crm/chatbot'
@@ -269,7 +271,9 @@ export function CRMLayout() {
               variant="ghost"
               size="sm"
               className={`mt-2 h-7 w-full text-xs ${helpBtnColor}`}
+              onClick={() => toast.info('Documentation will be available soon.')}
             >
+              <BookOpen className="h-3.5 w-3.5 mr-1.5" />
               View Documentation
             </Button>
           </div>
@@ -381,11 +385,11 @@ export function CRMLayout() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => toast.info('Profile settings coming soon')}>
                     <User className="mr-2 h-4 w-4" />
                     Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => toast.info('Change password coming soon')}>
                     <KeyRound className="mr-2 h-4 w-4" />
                     Change password
                   </DropdownMenuItem>

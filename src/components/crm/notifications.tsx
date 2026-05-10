@@ -16,6 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useCRMStore } from '@/lib/store'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -72,13 +73,14 @@ function NotificationItem({
   onMarkRead: (id: string) => void
 }) {
   const { icon: Icon, color, bg } = getNotificationIcon(notification.type)
+  const { setCurrentPage } = useCRMStore()
 
   const handleClick = () => {
     if (!notification.isRead) {
       onMarkRead(notification.id)
     }
     if (notification.link) {
-      // Navigate using the CRM store if needed, for now we just mark as read
+      setCurrentPage(notification.link)
     }
   }
 

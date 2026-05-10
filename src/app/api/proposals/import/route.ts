@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
 // Return CSV template
 export async function GET() {
   const csvContent = `name,rfpNumber,clientName,assignedMemberName,value,status,winningChances,focalPerson,followUpDate,remarks,deadline,submissionDate,thematicAreas,services
-Proposal Name,RFP-2025-001,Client Name,Team Member Name,1000000,In Process,Medium,Contact Person,2025-06-15,Remarks here,2025-07-01,2025-06-28,Information Technology;Cybersecurity,IT Consulting;System Integration`
+Proposal Name,RFP-2025-001,Client Name,Team Member Name,1000000,In Process,Medium,Contact Person,2025-06-15,Remarks here,2025-07-01,2025-06-28,Information Technology,Cybersecurity,IT Consulting,System Integration`
 
   return new Response(csvContent, {
     headers: {

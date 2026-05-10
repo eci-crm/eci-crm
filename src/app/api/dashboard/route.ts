@@ -336,7 +336,7 @@ export async function GET(request: NextRequest) {
     }
 
     const pipelineValue = proposalsInRange
-      .filter((p) => p.status !== 'Won')
+      .filter((p) => p.status !== 'Won' && p.status !== 'Rejected')
       .reduce((sum, p) => sum + p.value, 0)
 
     const pipelineStats = {

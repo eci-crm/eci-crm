@@ -76,7 +76,7 @@ interface TeamMember {
   name: string
   email: string
   role: string
-  isActive: boolean
+  active: boolean
 }
 
 interface ThematicArea {
@@ -697,7 +697,7 @@ export default function Proposals() {
                   <SelectContent>
                     <SelectItem value="all">All Members</SelectItem>
                     {teamMembers
-                      .filter((m) => m.isActive)
+                      .filter((m) => m.active)
                       .map((m) => (
                         <SelectItem key={m.id} value={m.id}>
                           {m.name}
@@ -1112,6 +1112,7 @@ export default function Proposals() {
                         <SelectValue placeholder="Select chances" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="">None</SelectItem>
                         {WINNING_CHANCES_OPTIONS.map((opt) => (
                           <SelectItem key={opt} value={opt}>
                             {opt}
@@ -1145,7 +1146,7 @@ export default function Proposals() {
                       <SelectContent>
                         <SelectItem value="none">Unassigned</SelectItem>
                         {teamMembers
-                          .filter((m) => m.isActive)
+                          .filter((m) => m.active)
                           .map((m) => (
                             <SelectItem key={m.id} value={m.id}>
                               {m.name}

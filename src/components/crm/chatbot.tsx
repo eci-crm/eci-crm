@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MessageCircle, X, Send, Bot, User, Sparkles, Trash2 } from 'lucide-react'
+import { MessageCircle, X, Send, Bot, User, Sparkles, Trash2, AlertTriangle, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -152,6 +152,8 @@ export function CRMChatbot() {
     enabled: isOpen,
   })
 
+  const [chatError, setChatError] = useState<string | null>(null)
+
   // Send message mutation
   const sendMessage = useMutation({
     mutationFn: async (message: string) => {
@@ -165,12 +167,14 @@ export function CRMChatbot() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages'] })
+      setChatError(null)
       // Update suggestions based on assistant response
       if (data?.content) {
         setSuggestions(getFollowUpSuggestions(data.content))
       }
     },
     onError: () => {
+      setChatError('Failed to send message. Please try again.')
       toast.error('Failed to send message. Please try again.')
     },
   })
@@ -412,6 +416,38 @@ export function CRMChatbot() {
                       </div>
                     </motion.div>
                   ))}
+
+                  {/* Error state */}
+                  {chatError && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                      className="flex gap-2"
+                    >
+                      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-950/40`}>
+                        <AlertTriangle className="h-3.5 w-3.5 text-red-500 dark:text-red-400" />
+                      </div>
+                      <div className="max-w-[75%] break-words rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-3.5 py-2.5">
+                        <p className="text-[13px] leading-relaxed text-red-700 dark:text-red-300">
+                          {chatError}
+                        </p>
+                        <button
+                          onClick={() => {
+                            setChatError(null)
+                            const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user')
+                            if (lastUserMsg) {
+                              sendMessage.mutate(lastUserMsg.content)
+                            }
+                          }}
+                          className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Try again
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
 
                   {/* Loading indicator */}
                   {sendMessage.isPending && (

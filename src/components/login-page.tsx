@@ -289,12 +289,6 @@ export function LoginPage() {
                   Remember me
                 </Label>
               </div>
-              <button
-                type="button"
-                className="text-sm text-emerald-400 transition-colors hover:text-emerald-300"
-              >
-                Forgot password?
-              </button>
             </motion.div>
 
             <motion.div

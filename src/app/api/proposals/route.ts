@@ -182,37 +182,40 @@ export async function PUT(request: NextRequest) {
     if (deadline !== undefined) data.deadline = deadline ? new Date(deadline) : null
     if (submissionDate !== undefined) data.submissionDate = submissionDate ? new Date(submissionDate) : null
 
-    // Only delete/recreate relations if explicitly provided in the request
-    if (thematicAreaIds !== undefined) {
-      await db.proposalThematicArea.deleteMany({ where: { proposalId: id } })
-      data.thematicAreas = {
-        create: thematicAreaIds.map((thematicAreaId: string) => ({ thematicAreaId })),
+    // Wrap deleteMany + update in a transaction to prevent race conditions
+    const proposal = await db.$transaction(async (tx) => {
+      // Only delete/recreate relations if explicitly provided in the request
+      if (thematicAreaIds !== undefined) {
+        await tx.proposalThematicArea.deleteMany({ where: { proposalId: id } })
+        data.thematicAreas = {
+          create: thematicAreaIds.map((thematicAreaId: string) => ({ thematicAreaId })),
+        }
       }
-    }
-    if (serviceIds !== undefined) {
-      await db.proposalService.deleteMany({ where: { proposalId: id } })
-      data.services = {
-        create: serviceIds.map((serviceId: string) => ({ serviceId })),
+      if (serviceIds !== undefined) {
+        await tx.proposalService.deleteMany({ where: { proposalId: id } })
+        data.services = {
+          create: serviceIds.map((serviceId: string) => ({ serviceId })),
+        }
       }
-    }
 
-    const proposal = await db.proposal.update({
-      where: { id },
-      data,
-      include: {
-        client: true,
-        assignedMember: true,
-        thematicAreas: {
-          include: {
-            thematicArea: true,
+      return tx.proposal.update({
+        where: { id },
+        data,
+        include: {
+          client: true,
+          assignedMember: true,
+          thematicAreas: {
+            include: {
+              thematicArea: true,
+            },
+          },
+          services: {
+            include: {
+              service: true,
+            },
           },
         },
-        services: {
-          include: {
-            service: true,
-          },
-        },
-      },
+      })
     })
 
     return NextResponse.json(proposal)
