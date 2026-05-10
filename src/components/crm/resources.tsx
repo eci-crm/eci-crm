@@ -586,7 +586,7 @@ export default function CRMResources() {
                             <span>{formatFileSize(file.fileSize)}</span>
                           </div>
                           <p className="text-[10px] text-muted-foreground">
-                            {format(new Date(file.createdAt), 'MMM dd, yyyy')}
+                            {file.createdAt ? format(new Date(file.createdAt), 'MMM dd, yyyy') : '—'}
                           </p>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button
