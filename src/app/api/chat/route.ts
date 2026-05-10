@@ -862,17 +862,20 @@ ${additionalContext}`
           token: process.env.AI_TOKEN,
         }
         // Constructor is typed as private in the SDK's .d.ts but accepts config at runtime
-        const ZaiClass = ZAI as any // eslint-disable-line @typescript-eslint/no-explicit-any
+        const ZaiClass = ZAI as any
         const zai = new ZaiClass(zaiConfig)
 
         const sdkResponse = await withTimeout(
           zai.chat.completions.create({ messages }),
           LLM_TIMEOUT_MS
-        )
+        ) as Record<string, unknown> | null
 
-        if (sdkResponse?.choices?.[0]?.message?.content) {
-          assistantContent = sdkResponse.choices[0].message.content
-          console.log('LLM call succeeded via Priority 1: new ZAI(config) with env vars')
+        if (sdkResponse && typeof sdkResponse === 'object' && 'choices' in sdkResponse) {
+          const choices = (sdkResponse as Record<string, unknown>).choices as Array<{ message?: { content?: string } }>
+          if (choices?.[0]?.message?.content) {
+            assistantContent = choices[0].message.content
+            console.log('LLM call succeeded via Priority 1: new ZAI(config) with env vars')
+          }
         }
       } else {
         console.log('Priority 1 skipped: AI_API_BASE_URL or AI_API_KEY env vars not set')
@@ -888,14 +891,17 @@ ${additionalContext}`
         const ZAI = (await import('z-ai-web-dev-sdk')).default
         const zai = await ZAI.create()
 
-        const sdkResponse = await withTimeout(
+        const sdkResponse2 = await withTimeout(
           zai.chat.completions.create({ messages }),
           LLM_TIMEOUT_MS
-        )
+        ) as Record<string, unknown> | null
 
-        if (sdkResponse?.choices?.[0]?.message?.content) {
-          assistantContent = sdkResponse.choices[0].message.content
-          console.log('LLM call succeeded via Priority 2: ZAI.create() auto-config')
+        if (sdkResponse2 && typeof sdkResponse2 === 'object' && 'choices' in sdkResponse2) {
+          const choices = (sdkResponse2 as Record<string, unknown>).choices as Array<{ message?: { content?: string } }>
+          if (choices?.[0]?.message?.content) {
+            assistantContent = choices[0].message.content
+            console.log('LLM call succeeded via Priority 2: ZAI.create() auto-config')
+          }
         }
       } catch (p2Error) {
         console.log('Priority 2 (ZAI.create auto-config) failed:', p2Error instanceof Error ? p2Error.message : p2Error)
