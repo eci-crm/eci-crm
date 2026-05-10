@@ -494,12 +494,68 @@ export default function CRMDashboard() {
     }
   }, [activePeriod])
 
-  // Current month for monthly progress card
+  // ─── Dynamic Progress Card: picks the right period's data ─────────────────
+  // Current month/quarter indices
   const currentMonthIndex = new Date().getMonth()
+  const currentQuarterIndex = Math.floor(currentMonthIndex / 3) // 0-3
+
+  // Current month data from monthlyProgress array
   const currentMonthData = dashboard?.monthlyProgress?.[currentMonthIndex]
-  // Use the first month in the filtered data if current month isn't in range
   const displayedMonthData = currentMonthData || (dashboard?.monthlyProgress?.length ? dashboard.monthlyProgress[dashboard.monthlyProgress.length - 1] : null)
   const currentMonthName = displayedMonthData?.month || format(new Date(), 'MMMM')
+
+  // Current quarter data from quarterlyProgress array
+  const currentQuarterData = dashboard?.quarterlyProgress?.[currentQuarterIndex]
+  const displayedQuarterData = currentQuarterData || (dashboard?.quarterlyProgress?.length ? dashboard.quarterlyProgress[dashboard.quarterlyProgress.length - 1] : null)
+  const currentQuarterName = displayedQuarterData?.quarter || `Q${currentQuarterIndex + 1}`
+
+  // Select the appropriate progress data based on active period
+  const progressCardData = useMemo(() => {
+    switch (activePeriod) {
+      case 'thisYear':
+        return {
+          title: 'Annual Progress',
+          actual: dashboard?.annualProgress?.actual ?? 0,
+          target: dashboard?.annualProgress?.target ?? 0,
+          periodLabel: `FY ${selectedYear}`,
+          pct: dashboard?.annualProgress?.target
+            ? Math.min(Math.round((dashboard.annualProgress.actual / dashboard.annualProgress.target) * 100), 100)
+            : 0,
+        }
+      case 'thisQuarter':
+        return {
+          title: 'Quarterly Progress',
+          actual: displayedQuarterData?.actual ?? 0,
+          target: displayedQuarterData?.target ?? 0,
+          periodLabel: currentQuarterName,
+          pct: displayedQuarterData && displayedQuarterData.target > 0
+            ? Math.min(Math.round((displayedQuarterData.actual / displayedQuarterData.target) * 100), 100)
+            : 0,
+        }
+      case 'thisMonth':
+        return {
+          title: 'Monthly Progress',
+          actual: displayedMonthData?.actual ?? 0,
+          target: displayedMonthData?.target ?? 0,
+          periodLabel: currentMonthName,
+          pct: displayedMonthData && displayedMonthData.target > 0
+            ? Math.min(Math.round((displayedMonthData.actual / displayedMonthData.target) * 100), 100)
+            : 0,
+        }
+      case 'thisWeek':
+      case 'custom':
+      default:
+        return {
+          title: 'Period Progress',
+          actual: dashboard?.targetVsActual?.actual ?? 0,
+          target: dashboard?.targetVsActual?.target ?? 0,
+          periodLabel: PERIOD_LABELS[activePeriod],
+          pct: dashboard?.targetVsActual?.target
+            ? Math.min(Math.round((dashboard.targetVsActual.actual / dashboard.targetVsActual.target) * 100), 100)
+            : 0,
+        }
+    }
+  }, [activePeriod, dashboard, displayedMonthData, displayedQuarterData, currentMonthName, currentQuarterName, selectedYear])
 
   // Period info from API
   const periodInfo = dashboard?.periodInfo
@@ -658,10 +714,8 @@ export default function CRMDashboard() {
 
   // ─── Render ────────────────────────────────────────────────────────────
 
-  const monthlyProgressPct =
-    displayedMonthData && displayedMonthData.target > 0
-      ? Math.min(Math.round((displayedMonthData.actual / displayedMonthData.target) * 100), 100)
-      : 0
+  // Use dynamic progress card data instead of monthly-only
+  const progressPct = progressCardData.pct
 
   return (
     <div className={`min-h-screen ${isECITheme ? 'bg-gradient-to-br from-blue-50/50 via-white to-red-50/30' : 'bg-gradient-to-br from-gray-50 via-white to-gray-100/80'}`}>
@@ -934,20 +988,20 @@ export default function CRMDashboard() {
             </CardContent>
           </Card>
 
-          {/* Monthly Progress */}
+          {/* Dynamic Progress Card — changes based on selected period */}
           <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden ring-1 ring-gray-900/[0.03]">
             <div className="h-1 w-full bg-gradient-to-r from-amber-400 to-amber-500" />
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
                 <div className="space-y-1.5">
                   <p className="text-sm font-medium text-muted-foreground">
-                    {isFullYear ? 'Monthly Progress' : `Progress${kpiPeriodSuffix}`}
+                    {progressCardData.title}
                   </p>
                   <p className="text-3xl font-bold text-gray-900 tracking-tight">
-                    {displayedMonthData ? formatCompactPKR(displayedMonthData.actual) : '₨ 0'}
+                    {formatCompactPKR(progressCardData.actual)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    of {displayedMonthData ? formatCompactPKR(displayedMonthData.target) : '₨ 0'} target
+                    of {formatCompactPKR(progressCardData.target)} target
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
@@ -956,10 +1010,10 @@ export default function CRMDashboard() {
               </div>
               <div className="mt-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-amber-700">{currentMonthName}</span>
-                  <span className="text-xs font-semibold text-gray-700">{monthlyProgressPct}% achieved</span>
+                  <span className="text-xs font-medium text-amber-700">{progressCardData.periodLabel}</span>
+                  <span className="text-xs font-semibold text-gray-700">{progressPct}% achieved</span>
                 </div>
-                <Progress value={monthlyProgressPct} className="h-2.5" />
+                <Progress value={progressPct} className="h-2.5" />
               </div>
             </CardContent>
           </Card>
