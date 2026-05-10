@@ -383,7 +383,7 @@ async function main() {
   // ── Settings ─────────────────────────────────────────────────────────
   console.log('⚙️  Seeding settings...')
   await db.setting.create({
-    data: { key: 'companyName', value: 'CRM Pro' },
+    data: { key: 'companyName', value: 'ECI CRM' },
   })
   console.log('✅ Settings seeded.')
 

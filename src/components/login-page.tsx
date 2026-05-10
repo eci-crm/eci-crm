@@ -30,14 +30,16 @@ export function LoginPage() {
       try {
         const res = await fetch('/api/settings')
         if (res.ok) {
-          const data = await res.json()
+          const data: Array<{ key: string; value: string }> = await res.json()
+          const nameSetting = data.find((s) => s.key === 'companyName')
+          const logoSetting = data.find((s) => s.key === 'companyLogo')
           setSettings({
-            companyName: data.companyName || 'CRM Pro',
-            companyLogo: data.companyLogo || '',
+            companyName: nameSetting?.value || 'ECI CRM',
+            companyLogo: logoSetting?.value || '',
           })
         }
       } catch {
-        setSettings({ companyName: 'CRM Pro' })
+        setSettings({ companyName: 'ECI CRM' })
       }
     }
     fetchSettings()
@@ -70,7 +72,7 @@ export function LoginPage() {
     }
   }
 
-  const companyName = settings.companyName || 'CRM Pro'
+  const companyName = settings.companyName || 'ECI CRM'
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950">

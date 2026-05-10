@@ -16,10 +16,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CRM Pro - Client Relationship Management",
+  title: "ECI CRM - Client Relationship Management",
   description: "Professional CRM platform for managing clients, proposals, and business relationships.",
   keywords: ["CRM", "Client Management", "Proposals", "Business", "Relationship Management"],
-  authors: [{ name: "CRM Pro" }],
+  authors: [{ name: "ECI CRM" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },

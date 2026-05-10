@@ -695,7 +695,7 @@ export async function POST(request: NextRequest) {
     const { additionalContext } = await detectAndFetchQueryContext(message)
 
     // Build comprehensive system prompt
-    const systemPrompt = `You are a CRM assistant for CRM Pro. You have access to the following REAL-TIME CRM data. When users ask about CRM data, provide EXACT numbers from this data. Be concise and helpful. Format currency as ₨ (Pakistani Rupee). If the data shows a specific number, use that exact number in your response. If you're unsure or the data isn't available, say so clearly.
+    const systemPrompt = `You are a CRM assistant for ECI CRM. You have access to the following REAL-TIME CRM data. When users ask about CRM data, provide EXACT numbers from this data. Be concise and helpful. Format currency as ₨ (Pakistani Rupee). If the data shows a specific number, use that exact number in your response. If you're unsure or the data isn't available, say so clearly.
 
 ${crmSummary}
 ${additionalContext}

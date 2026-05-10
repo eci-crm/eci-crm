@@ -292,6 +292,8 @@ function CompanyBrandingTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
+      // Dispatch a custom event so the layout updates the company name/logo
+      window.dispatchEvent(new CustomEvent('settings-updated'));
       toast.success("Company branding saved successfully");
     },
     onError: () => {

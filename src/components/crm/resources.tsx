@@ -209,7 +209,7 @@ export default function CRMResources() {
   const [uploadFiles, setUploadFiles] = React.useState<File[]>([])
 
   // Fetch resources
-  const { data, isLoading } = useQuery<ResourcesData>({
+  const { data, isLoading, error } = useQuery<ResourcesData>({
     queryKey: ['resources', currentFolderId],
     queryFn: async () => {
       const params = new URLSearchParams()
@@ -361,6 +361,19 @@ export default function CRMResources() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <FolderOpen className="h-16 w-16 mb-4 opacity-20" />
+        <p className="text-lg font-medium">Failed to load resources</p>
+        <p className="text-sm mt-1">{error.message || 'An unexpected error occurred'}</p>
+        <Button variant="outline" size="sm" className="mt-4" onClick={() => queryClient.invalidateQueries({ queryKey: ['resources'] })}>
+          Try Again
+        </Button>
       </div>
     )
   }
@@ -586,7 +599,7 @@ export default function CRMResources() {
                             <span>{formatFileSize(file.fileSize)}</span>
                           </div>
                           <p className="text-[10px] text-muted-foreground">
-                            {file.createdAt ? format(new Date(file.createdAt), 'MMM dd, yyyy') : '—'}
+                            {file.createdAt ? (() => { try { return format(new Date(file.createdAt), 'MMM dd, yyyy') } catch { return '—' } })() : '—'}
                           </p>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button

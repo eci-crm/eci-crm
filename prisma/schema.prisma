@@ -119,14 +119,15 @@ model ResourceFolder {
 }
 
 model Resource {
-  id       String         @id @default(cuid())
-  name     String
-  filePath String
-  fileType String
-  fileSize Int
-  fileData String
-  folderId String?
-  folder   ResourceFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  id        String         @id @default(cuid())
+  name      String
+  filePath  String
+  fileType  String
+  fileSize  Int
+  fileData  String
+  folderId  String?
+  createdAt DateTime       @default(now())
+  folder    ResourceFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 }
 
 model Setting {

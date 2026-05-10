@@ -67,21 +67,30 @@ export function CRMLayout() {
   const { user, currentPage, sidebarOpen, setCurrentPage, setSidebarOpen, logout } =
     useCRMStore()
   const isMobile = useIsMobile()
-  const [companyName, setCompanyName] = useState('CRM Pro')
+  const [companyName, setCompanyName] = useState('ECI CRM')
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadInitialData() {
       try {
         const settingsRes = await fetch('/api/settings')
         if (settingsRes.ok) {
-          const data = await settingsRes.json()
-          setCompanyName(data.companyName || 'CRM Pro')
+          const data: Array<{ key: string; value: string }> = await settingsRes.json()
+          const nameSetting = data.find((s) => s.key === 'companyName')
+          const logoSetting = data.find((s) => s.key === 'companyLogo')
+          if (nameSetting) setCompanyName(nameSetting.value)
+          if (logoSetting && logoSetting.value) setCompanyLogo(logoSetting.value)
         }
       } catch {
         // keep defaults
       }
     }
     loadInitialData()
+
+    // Listen for settings updates from the Settings page
+    const handleSettingsUpdate = () => loadInitialData()
+    window.addEventListener('settings-updated', handleSettingsUpdate)
+    return () => window.removeEventListener('settings-updated', handleSettingsUpdate)
   }, [])
 
   const currentNavItem = navItems.find((item) => item.id === currentPage)
@@ -107,21 +116,31 @@ export function CRMLayout() {
     <div className="flex h-full flex-col">
       {/* Logo area */}
       <div className="flex h-16 items-center gap-3 border-b border-white/10 px-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md shadow-emerald-500/20">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            className="h-5 w-5 text-white"
-            stroke="currentColor"
-            strokeWidth={2.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M13 10V3L4 14h7v7l9-11h-7z"
+        {companyLogo ? (
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white shadow-md overflow-hidden">
+            <img
+              src={companyLogo}
+              alt="Logo"
+              className="h-full w-full object-contain p-1"
             />
-          </svg>
-        </div>
+          </div>
+        ) : (
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md shadow-emerald-500/20">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              className="h-5 w-5 text-white"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+          </div>
+        )}
         {!collapsed && (
           <motion.div
             initial={{ opacity: 0 }}
