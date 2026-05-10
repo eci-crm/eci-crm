@@ -33,6 +33,13 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  Download,
+  HardDrive,
+  FileUp,
+  AlertTriangle,
+  CheckCircle2,
+  FileJson,
+  Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -1859,6 +1866,432 @@ function BusinessTargetsTab() {
 }
 
 // ──────────────────────────────────────────────
+// Backup & Restore Tab
+// ──────────────────────────────────────────────
+
+function BackupRestoreTab() {
+  const queryClient = useQueryClient();
+  const [isExporting, setIsExporting] = React.useState(false);
+  const [isImporting, setIsImporting] = React.useState(false);
+  const [restoreConfirm, setRestoreConfirm] = React.useState(false);
+  const [importFile, setImportFile] = React.useState<File | null>(null);
+  const [importPreview, setImportPreview] = React.useState<{
+    version: string;
+    app: string;
+    exportDate: string;
+    summary: Record<string, number>;
+  } | null>(null);
+  const [lastBackupDate, setLastBackupDate] = React.useState<string | null>(null);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const res = await fetch("/api/backup");
+      if (!res.ok) throw new Error("Failed to export backup");
+      const data = await res.json();
+
+      // Create downloadable JSON file
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const date = new Date().toISOString().split("T")[0];
+      a.download = `eci-crm-backup-${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setLastBackupDate(new Date().toLocaleString());
+      toast.success("Backup exported successfully! Save this file in a safe location.");
+    } catch {
+      toast.error("Failed to export backup. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith(".json")) {
+      toast.error("Please select a valid .json backup file");
+      return;
+    }
+
+    setImportFile(file);
+    setImportPreview(null);
+
+    // Preview the file contents
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        if (!data.data) {
+          toast.error("Invalid backup file: missing data section");
+          return;
+        }
+        setImportPreview({
+          version: data.version || "1.0",
+          app: data.app || "ECI CRM",
+          exportDate: data.exportDate
+            ? new Date(data.exportDate).toLocaleString()
+            : "Unknown",
+          summary: data.summary || {},
+        });
+      } catch {
+        toast.error("Invalid JSON file. Please select a valid backup file.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImport = async () => {
+    if (!importFile) return;
+
+    setIsImporting(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const backupData = JSON.parse(event.target?.result as string);
+
+          const res = await fetch("/api/backup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(backupData),
+          });
+
+          if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || "Failed to restore backup");
+          }
+
+          const result = await res.json();
+
+          // Invalidate all queries to refresh data
+          await queryClient.invalidateQueries();
+
+          toast.success(
+            `Backup restored successfully! ${result.counts?.clients || 0} clients, ${result.counts?.proposals || 0} proposals, ${result.counts?.services || 0} services restored.`
+          );
+
+          setRestoreConfirm(false);
+          setImportFile(null);
+          setImportPreview(null);
+
+          // Reset file input
+          const fileInput = document.getElementById(
+            "backupFileInput"
+          ) as HTMLInputElement;
+          if (fileInput) fileInput.value = "";
+        } catch (err) {
+          toast.error(
+            err instanceof Error ? err.message : "Failed to restore backup"
+          );
+        } finally {
+          setIsImporting(false);
+        }
+      };
+      reader.readAsText(importFile);
+    } catch {
+      toast.error("Failed to read backup file");
+      setIsImporting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Export Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+              <Download className="size-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <CardTitle>Export Backup</CardTitle>
+              <CardDescription>
+                Download a complete backup of all your CRM data as a JSON file.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg border border-border/50 bg-muted/30 p-4 space-y-2">
+            <p className="text-sm font-medium">This backup includes:</p>
+            <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
+                All Clients & their details
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
+                All Proposals (In Process, Won, Submitted, etc.)
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
+                Team Members, Services & Thematic Areas
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
+                Business Targets, Settings & Company Branding
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
+                Notifications, Activity Logs & Chat Messages
+              </li>
+            </ul>
+          </div>
+
+          {lastBackupDate && (
+            <p className="text-xs text-muted-foreground">
+              Last backup downloaded: {lastBackupDate}
+            </p>
+          )}
+
+          <Button
+            onClick={handleExport}
+            disabled={isExporting}
+            className="gap-2 min-w-[160px]"
+          >
+            {isExporting ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              <>
+                <Download className="size-4" />
+                Download Backup
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Import Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
+              <FileUp className="size-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <CardTitle>Import / Restore Backup</CardTitle>
+              <CardDescription>
+                Restore your CRM data from a previously exported backup file.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Warning */}
+          <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+            <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                Warning: This will replace ALL current data
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                Importing a backup will completely replace your existing clients,
+                proposals, settings, and all other data. This action cannot be
+                undone. Make sure to export a backup first if you want to keep
+                your current data.
+              </p>
+            </div>
+          </div>
+
+          {/* File Selection */}
+          <div className="space-y-3">
+            <Label htmlFor="backupFileInput">Select Backup File</Label>
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  document.getElementById("backupFileInput")?.click()
+                }
+                className="gap-2"
+              >
+                <FileJson className="size-4" />
+                Choose File
+              </Button>
+              <input
+                id="backupFileInput"
+                type="file"
+                accept=".json"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              {importFile && (
+                <span className="text-sm text-muted-foreground">
+                  {importFile.name} ({(importFile.size / 1024).toFixed(1)} KB)
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Import Preview */}
+          {importPreview && (
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Shield className="size-4 text-emerald-500" />
+                <p className="text-sm font-medium">Backup Preview</p>
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div className="text-muted-foreground">App:</div>
+                <div className="font-medium">{importPreview.app}</div>
+                <div className="text-muted-foreground">Version:</div>
+                <div className="font-medium">v{importPreview.version}</div>
+                <div className="text-muted-foreground">Exported on:</div>
+                <div className="font-medium">{importPreview.exportDate}</div>
+              </div>
+              {Object.keys(importPreview.summary).length > 0 && (
+                <>
+                  <Separator />
+                  <div className="text-sm font-medium mb-2">Data Summary</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {Object.entries(importPreview.summary).map(
+                      ([key, count]) =>
+                        count > 0 && (
+                          <div
+                            key={key}
+                            className="rounded-md border bg-background px-3 py-2 text-center"
+                          >
+                            <div className="text-lg font-bold">{count}</div>
+                            <div className="text-xs text-muted-foreground capitalize">
+                              {key.replace(/([A-Z])/g, " $1").trim()}
+                            </div>
+                          </div>
+                        )
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Import Button */}
+          <Button
+            onClick={() => setRestoreConfirm(true)}
+            disabled={!importFile || !importPreview || isImporting}
+            variant="destructive"
+            className="gap-2 min-w-[160px]"
+          >
+            {isImporting ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Restoring...
+              </>
+            ) : (
+              <>
+                <FileUp className="size-4" />
+                Restore Backup
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Best Practices */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Backup Best Practices</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2 text-sm text-muted-foreground">
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-500 mt-0.5">&#10003;</span>
+              Export a backup before making major changes to your CRM data
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-500 mt-0.5">&#10003;</span>
+              Store backup files in a secure location (Google Drive, Dropbox,
+              etc.)
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-500 mt-0.5">&#10003;</span>
+              Create regular backups — at least once a week
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-500 mt-0.5">&#10003;</span>
+              Always export a fresh backup before importing an older one
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-amber-500 mt-0.5">!</span>
+              Your data is stored in Neon PostgreSQL cloud database and persists
+              across deployments
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      {/* Restore Confirmation Dialog */}
+      <AlertDialog
+        open={restoreConfirm}
+        onOpenChange={(open) => {
+          if (!open) setRestoreConfirm(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-destructive" />
+              Confirm Data Restore
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                This will <strong>permanently replace</strong> all your current
+                CRM data with the data from the backup file.
+              </p>
+              <p>
+                Current data will be <strong>completely deleted</strong> and
+                replaced with the backup data. This action cannot be undone.
+              </p>
+              {importPreview && (
+                <div className="mt-3 rounded-md bg-muted p-3 text-sm">
+                  <p className="font-medium">
+                    Restoring from: {importPreview.exportDate}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {importPreview.summary.clients || 0} clients,{" "}
+                    {importPreview.summary.proposals || 0} proposals,{" "}
+                    {importPreview.summary.services || 0} services
+                  </p>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isImporting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleImport}
+              disabled={isImporting}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {isImporting ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Restoring...
+                </>
+              ) : (
+                "Yes, Replace All Data"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
 // Main Settings Component
 // ──────────────────────────────────────────────
 
@@ -1898,6 +2331,11 @@ export function CRMSettings() {
             <span className="hidden sm:inline">Business Targets</span>
             <span className="sm:hidden">Targets</span>
           </TabsTrigger>
+          <TabsTrigger value="backup" className="gap-1.5 text-xs sm:text-sm">
+            <HardDrive className="size-4" />
+            <span className="hidden sm:inline">Backup & Restore</span>
+            <span className="sm:hidden">Backup</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="branding">
@@ -1918,6 +2356,10 @@ export function CRMSettings() {
 
         <TabsContent value="targets">
           <BusinessTargetsTab />
+        </TabsContent>
+
+        <TabsContent value="backup">
+          <BackupRestoreTab />
         </TabsContent>
       </Tabs>
     </div>

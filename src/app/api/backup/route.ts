@@ -35,10 +35,41 @@ export async function GET() {
       db.chatMessage.findMany(),
     ])
 
+    // Helper to serialize Date objects for JSON
+    function serializeDates(obj: unknown): unknown {
+      if (obj instanceof Date) {
+        return obj.toISOString()
+      }
+      if (Array.isArray(obj)) {
+        return obj.map(serializeDates)
+      }
+      if (obj !== null && typeof obj === 'object') {
+        const result: Record<string, unknown> = {}
+        for (const [key, value] of Object.entries(obj)) {
+          result[key] = serializeDates(value)
+        }
+        return result
+      }
+      return obj
+    }
+
     const backup = {
       exportDate: new Date().toISOString(),
-      version: '1.0',
-      data: {
+      version: '2.0',
+      app: 'ECI CRM',
+      summary: {
+        clients: clients.length,
+        teamMembers: teamMembers.length,
+        thematicAreas: thematicAreas.length,
+        services: services.length,
+        proposals: proposals.length,
+        businessTargets: businessTargets.length,
+        settings: settings.length,
+        notifications: notifications.length,
+        resources: resources.length,
+        resourceFolders: resourceFolders.length,
+      },
+      data: serializeDates({
         clients,
         teamMembers,
         thematicAreas,
@@ -53,7 +84,7 @@ export async function GET() {
         notifications,
         activityLogs,
         chatMessages,
-      },
+      }),
     }
 
     return NextResponse.json(backup)
@@ -66,10 +97,31 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { data } = body
+    const { data, version } = body
 
     if (!data) {
       return NextResponse.json({ error: 'Backup data is required' }, { status: 400 })
+    }
+
+    // Validate backup version compatibility
+    if (version && !version.startsWith('1.') && !version.startsWith('2.')) {
+      return NextResponse.json(
+        { error: `Unsupported backup version: ${version}. This system supports v1.x and v2.x backups.` },
+        { status: 400 }
+      )
+    }
+
+    // Count records for reporting
+    const counts = {
+      clients: data.clients?.length || 0,
+      teamMembers: data.teamMembers?.length || 0,
+      thematicAreas: data.thematicAreas?.length || 0,
+      services: data.services?.length || 0,
+      proposals: data.proposals?.length || 0,
+      businessTargets: data.businessTargets?.length || 0,
+      settings: data.settings?.length || 0,
+      notifications: data.notifications?.length || 0,
+      resources: data.resources?.length || 0,
     }
 
     // Wrap restore in a transaction so if any createMany fails, original data isn't lost
@@ -135,7 +187,11 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ success: true, message: 'Backup restored successfully' })
+    return NextResponse.json({
+      success: true,
+      message: 'Backup restored successfully',
+      counts,
+    })
   } catch (error) {
     console.error('Error restoring backup:', error)
     return NextResponse.json({ error: 'Failed to restore backup' }, { status: 500 })
