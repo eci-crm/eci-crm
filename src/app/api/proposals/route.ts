@@ -89,12 +89,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name and clientId are required' }, { status: 400 })
     }
 
+    // Normalize assignedMemberId: "none" or empty string means null
+    const normalizedMemberId = (!assignedMemberId || assignedMemberId === 'none') ? null : assignedMemberId
+
     const proposal = await db.proposal.create({
       data: {
         name,
         rfpNumber: rfpNumber || '',
         clientId,
-        assignedMemberId: assignedMemberId || null,
+        assignedMemberId: normalizedMemberId,
         value: value ?? 0,
         status: status || 'In Process',
         winningChances: winningChances || '',
@@ -169,7 +172,7 @@ export async function PUT(request: NextRequest) {
     if (name !== undefined) data.name = name
     if (rfpNumber !== undefined) data.rfpNumber = rfpNumber
     if (clientId !== undefined) data.clientId = clientId
-    if (assignedMemberId !== undefined) data.assignedMemberId = assignedMemberId || null
+    if (assignedMemberId !== undefined) data.assignedMemberId = (!assignedMemberId || assignedMemberId === 'none') ? null : assignedMemberId
     if (value !== undefined) data.value = value
     if (status !== undefined) data.status = status
     if (winningChances !== undefined) data.winningChances = winningChances

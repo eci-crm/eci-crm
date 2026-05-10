@@ -60,6 +60,7 @@ import {
 } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
+import { toast } from 'sonner'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -302,12 +303,20 @@ export default function Proposals() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
-      if (!res.ok) throw new Error('Failed to create proposal')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to create proposal')
+      }
       return res.json()
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       closeDialog()
+      toast.success('Proposal created successfully')
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to create proposal')
     },
   })
 
@@ -318,12 +327,20 @@ export default function Proposals() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
-      if (!res.ok) throw new Error('Failed to update proposal')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to update proposal')
+      }
       return res.json()
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       closeDialog()
+      toast.success('Proposal updated successfully')
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update proposal')
     },
   })
 
@@ -335,8 +352,13 @@ export default function Proposals() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       setDeleteDialogOpen(false)
       setProposalToDelete(null)
+      toast.success('Proposal deleted successfully')
+    },
+    onError: () => {
+      toast.error('Failed to delete proposal')
     },
   })
 
@@ -462,10 +484,17 @@ export default function Proposals() {
   const handleSubmit = () => {
     if (!formData.name.trim() || !formData.clientId) return
 
+    // Clean form data before sending — convert placeholder values to null/empty
+    const cleanedData: ProposalFormData = {
+      ...formData,
+      assignedMemberId: formData.assignedMemberId === 'none' ? '' : formData.assignedMemberId,
+      winningChances: formData.winningChances === 'none' ? '' : formData.winningChances,
+    }
+
     if (editingProposal) {
-      updateMutation.mutate({ id: editingProposal.id, data: formData })
+      updateMutation.mutate({ id: editingProposal.id, data: cleanedData })
     } else {
-      createMutation.mutate(formData)
+      createMutation.mutate(cleanedData)
     }
   }
 
