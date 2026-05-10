@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useCRMStore } from '@/lib/store'
 import { Badge } from '@/components/ui/badge'
 import {
   Select,
@@ -418,6 +419,10 @@ export default function CRMDashboard() {
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
 
+  // Theme awareness
+  const { theme } = useCRMStore()
+  const isECITheme = theme === 'eci'
+
   // Compute date range based on active period
   const computedDateRange = useMemo(() => {
     if (activePeriod === 'custom' && customStartDate && customEndDate) {
@@ -609,7 +614,7 @@ export default function CRMDashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/80 p-4 md:p-6 lg:p-8 space-y-6">
+      <div className={`min-h-screen p-4 md:p-6 lg:p-8 space-y-6 ${isECITheme ? 'bg-gradient-to-br from-blue-50/50 via-white to-red-50/30' : 'bg-gradient-to-br from-gray-50 via-white to-gray-100/80'}`}>
         <Skeleton className="h-36 rounded-2xl" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
@@ -631,7 +636,7 @@ export default function CRMDashboard() {
 
   if (isError || !dashboard) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/80 flex items-center justify-center p-4">
+      <div className={`min-h-screen flex items-center justify-center p-4 ${isECITheme ? 'bg-gradient-to-br from-blue-50/50 via-white to-red-50/30' : 'bg-gradient-to-br from-gray-50 via-white to-gray-100/80'}`}>
         <Card className="max-w-md w-full rounded-2xl shadow-xl border-0 bg-white/90 backdrop-blur-sm ring-1 ring-gray-900/[0.03]">
           <CardContent className="p-8 text-center">
             <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
@@ -659,11 +664,11 @@ export default function CRMDashboard() {
       : 0
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/80">
+    <div className={`min-h-screen ${isECITheme ? 'bg-gradient-to-br from-blue-50/50 via-white to-red-50/30' : 'bg-gradient-to-br from-gray-50 via-white to-gray-100/80'}`}>
       <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto">
 
         {/* ═══════════════ HERO HEADER ═══════════════ */}
-        <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 shadow-lg transition-all duration-500 ${isFilteredPeriod ? 'ring-2 ring-amber-300/50 shadow-amber-200/30' : ''}`}>
+        <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${isECITheme ? 'from-blue-800 via-blue-700 to-red-700' : 'from-emerald-600 via-teal-600 to-emerald-700'} shadow-lg transition-all duration-500 ${isFilteredPeriod ? 'ring-2 ring-amber-300/50 shadow-amber-200/30' : ''}`}>
           {/* Decorative shapes */}
           <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
           <div className="absolute bottom-0 left-1/3 w-56 h-56 bg-white/5 rounded-full translate-y-1/2" />
@@ -687,11 +692,11 @@ export default function CRMDashboard() {
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-1.5">
-                  <span className="text-emerald-100 text-sm md:text-base font-medium">
+                  <span className={`${isECITheme ? 'text-blue-100' : 'text-emerald-100'} text-sm md:text-base font-medium`}>
                     FY {selectedYear}
                   </span>
-                  <span className="text-emerald-200/60">•</span>
-                  <span className={`text-sm md:text-base font-semibold ${isFilteredPeriod ? 'text-amber-200' : 'text-emerald-100'}`}>
+                  <span className={`${isECITheme ? 'text-blue-200/60' : 'text-emerald-200/60'}`}>•</span>
+                  <span className={`text-sm md:text-base font-semibold ${isFilteredPeriod ? 'text-amber-200' : isECITheme ? 'text-blue-100' : 'text-emerald-100'}`}>
                     {periodSubtitle}
                   </span>
                 </div>
@@ -699,7 +704,7 @@ export default function CRMDashboard() {
               <div className="flex items-center gap-3">
                 {/* Year selector */}
                 <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/20">
-                  <Calendar className="h-4 w-4 text-emerald-100" />
+                  <Calendar className={`h-4 w-4 ${isECITheme ? 'text-blue-100' : 'text-emerald-100'}`} />
                   <Select
                     value={selectedYear}
                     onValueChange={handleYearChange}
@@ -748,7 +753,7 @@ export default function CRMDashboard() {
                         }
                       }}
                       placeholder="Year"
-                      className="h-7 w-20 bg-white/15 border-white/25 text-white text-xs rounded-lg backdrop-blur-sm placeholder:text-emerald-200/60 focus:ring-1 focus:ring-white/30 [color-scheme:dark]"
+                      className={`h-7 w-20 bg-white/15 border-white/25 text-white text-xs rounded-lg backdrop-blur-sm ${isECITheme ? 'placeholder:text-blue-200/60' : 'placeholder:text-emerald-200/60'} focus:ring-1 focus:ring-white/30 [color-scheme:dark]`}
                       autoFocus
                     />
                     <Button
@@ -769,7 +774,7 @@ export default function CRMDashboard() {
                   </div>
                 )}
                 {/* Last updated pill */}
-                <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-emerald-100 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/15" suppressHydrationWarning>
+                <div className={`hidden sm:flex items-center gap-1.5 text-[11px] ${isECITheme ? 'text-blue-100' : 'text-emerald-100'} bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/15`} suppressHydrationWarning>
                   <Clock className="h-3 w-3" />
                   {format(new Date(), 'MMM dd, HH:mm')}
                 </div>
@@ -789,7 +794,7 @@ export default function CRMDashboard() {
                       h-8 px-3.5 rounded-lg text-xs font-medium transition-all duration-300
                       ${activePeriod === period
                         ? 'bg-white/30 text-white border border-white/40 shadow-md backdrop-blur-sm scale-105'
-                        : 'bg-white/8 text-emerald-100 border border-transparent hover:bg-white/15 hover:text-white hover:scale-105'
+                        : `bg-white/8 ${isECITheme ? 'text-blue-100' : 'text-emerald-100'} border border-transparent hover:bg-white/15 hover:text-white hover:scale-105`
                       }
                     `}
                   >
@@ -802,25 +807,25 @@ export default function CRMDashboard() {
               {activePeriod === 'custom' && (
                 <div className="flex flex-wrap items-end gap-3 animate-in fade-in slide-in-from-top-2 duration-300 bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold text-emerald-200 uppercase tracking-wider">Start Date</label>
+                    <label className={`text-[10px] font-semibold ${isECITheme ? 'text-blue-200' : 'text-emerald-200'} uppercase tracking-wider`}>Start Date</label>
                     <Input
                       type="date"
                       value={customStartDate}
                       onChange={(e) => setCustomStartDate(e.target.value)}
-                      className="h-9 w-40 bg-white/20 border-white/30 text-white text-sm rounded-lg backdrop-blur-sm placeholder:text-emerald-200/60 focus:ring-2 focus:ring-amber-300/50 focus:border-amber-300/50 [color-scheme:dark] transition-all duration-200"
+                      className={`h-9 w-40 bg-white/20 border-white/30 text-white text-sm rounded-lg backdrop-blur-sm ${isECITheme ? 'placeholder:text-blue-200/60' : 'placeholder:text-emerald-200/60'} focus:ring-2 focus:ring-amber-300/50 focus:border-amber-300/50 [color-scheme:dark] transition-all duration-200`}
                       placeholder="Start"
                     />
                   </div>
                   <div className="flex items-center pb-2">
-                    <span className="text-emerald-200 text-lg font-light">→</span>
+                    <span className={`${isECITheme ? 'text-blue-200' : 'text-emerald-200'} text-lg font-light`}>→</span>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold text-emerald-200 uppercase tracking-wider">End Date</label>
+                    <label className={`text-[10px] font-semibold ${isECITheme ? 'text-blue-200' : 'text-emerald-200'} uppercase tracking-wider`}>End Date</label>
                     <Input
                       type="date"
                       value={customEndDate}
                       onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="h-9 w-40 bg-white/20 border-white/30 text-white text-sm rounded-lg backdrop-blur-sm placeholder:text-emerald-200/60 focus:ring-2 focus:ring-amber-300/50 focus:border-amber-300/50 [color-scheme:dark] transition-all duration-200"
+                      className={`h-9 w-40 bg-white/20 border-white/30 text-white text-sm rounded-lg backdrop-blur-sm ${isECITheme ? 'placeholder:text-blue-200/60' : 'placeholder:text-emerald-200/60'} focus:ring-2 focus:ring-amber-300/50 focus:border-amber-300/50 [color-scheme:dark] transition-all duration-200`}
                       placeholder="End"
                     />
                   </div>
@@ -862,7 +867,7 @@ export default function CRMDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Total Business */}
           <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden ring-1 ring-gray-900/[0.03]">
-            <div className="h-1 w-full bg-gradient-to-r from-emerald-400 to-emerald-600" />
+            <div className={`h-1 w-full bg-gradient-to-r ${isECITheme ? 'from-blue-400 to-blue-600' : 'from-emerald-400 to-emerald-600'}`} />
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
                 <div className="space-y-1.5">
@@ -874,13 +879,13 @@ export default function CRMDashboard() {
                     From {wonCount} won proposal{wonCount !== 1 ? 's' : ''} {!isFullYear && <span className="text-amber-600">({periodSubtitle})</span>}
                   </p>
                 </div>
-                <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                  <TrendingUp className="h-6 w-6 text-emerald-600" />
+                <div className={`h-12 w-12 rounded-xl ${isECITheme ? 'bg-blue-50' : 'bg-emerald-50'} flex items-center justify-center shrink-0`}>
+                  <TrendingUp className={`h-6 w-6 ${isECITheme ? 'text-blue-600' : 'text-emerald-600'}`} />
                 </div>
               </div>
               <div className="mt-4 flex items-center gap-1.5">
-                <ArrowUpRight className="h-3.5 w-3.5 text-emerald-500" />
-                <span className="text-xs font-semibold text-emerald-600">
+                <ArrowUpRight className={`h-3.5 w-3.5 ${isECITheme ? 'text-blue-500' : 'text-emerald-500'}`} />
+                <span className={`text-xs font-semibold ${isECITheme ? 'text-blue-600' : 'text-emerald-600'}`}>
                   {dashboard.targetVsActual.percentageAchieved}% of target
                 </span>
               </div>
@@ -889,7 +894,7 @@ export default function CRMDashboard() {
 
           {/* Target Achievement */}
           <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden ring-1 ring-gray-900/[0.03]">
-            <div className="h-1 w-full bg-gradient-to-r from-teal-400 to-teal-600" />
+            <div className={`h-1 w-full bg-gradient-to-r ${isECITheme ? 'from-red-400 to-red-600' : 'from-teal-400 to-teal-600'}`} />
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
                 <div className="space-y-1.5">
@@ -911,9 +916,9 @@ export default function CRMDashboard() {
                     percentage={dashboard.targetVsActual.percentageAchieved}
                     size={60}
                     strokeWidth={6}
-                    accentColor="#14b8a6"
+                    accentColor={isECITheme ? '#2563eb' : '#14b8a6'}
                   />
-                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-teal-700">
+                  <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-bold ${isECITheme ? 'text-blue-700' : 'text-teal-700'}`}>
                     {dashboard.targetVsActual.percentageAchieved}%
                   </span>
                 </div>
@@ -923,7 +928,7 @@ export default function CRMDashboard() {
                   Target: <span className="font-medium text-gray-700">{formatCompactPKR(dashboard.targetVsActual.target)}</span>
                 </span>
                 <span>
-                  Actual: <span className="font-medium text-teal-600">{formatCompactPKR(dashboard.targetVsActual.actual)}</span>
+                  Actual: <span className={`font-medium ${isECITheme ? 'text-blue-600' : 'text-teal-600'}`}>{formatCompactPKR(dashboard.targetVsActual.actual)}</span>
                 </span>
               </div>
             </CardContent>
@@ -1005,8 +1010,8 @@ export default function CRMDashboard() {
           <Card className="rounded-xl border-0 shadow-sm bg-white/80 backdrop-blur-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ring-1 ring-gray-900/[0.03]">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-                  <DollarSign className="h-4 w-4 text-emerald-600" />
+                <div className={`h-9 w-9 rounded-lg ${isECITheme ? 'bg-blue-50' : 'bg-emerald-50'} flex items-center justify-center shrink-0`}>
+                  <DollarSign className={`h-4 w-4 ${isECITheme ? 'text-blue-600' : 'text-emerald-600'}`} />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-muted-foreground">Avg Proposal Value</p>
@@ -1022,8 +1027,8 @@ export default function CRMDashboard() {
           <Card className="rounded-xl border-0 shadow-sm bg-white/80 backdrop-blur-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ring-1 ring-gray-900/[0.03]">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-teal-50 flex items-center justify-center shrink-0">
-                  <Percent className="h-4 w-4 text-teal-600" />
+                <div className={`h-9 w-9 rounded-lg ${isECITheme ? 'bg-red-50' : 'bg-teal-50'} flex items-center justify-center shrink-0`}>
+                  <Percent className={`h-4 w-4 ${isECITheme ? 'text-red-600' : 'text-teal-600'}`} />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-muted-foreground">Conversion Rate</p>
@@ -1119,8 +1124,8 @@ export default function CRMDashboard() {
                       wrapperStyle={{ fontSize: '12px' }}
                       iconType="rounded"
                     />
-                    <Bar dataKey="Target" fill="#0d9488" radius={[6, 6, 0, 0]} maxBarSize={36} />
-                    <Bar dataKey="Actual" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                    <Bar dataKey="Target" fill={isECITheme ? '#1d4ed8' : '#0d9488'} radius={[6, 6, 0, 0]} maxBarSize={36} />
+                    <Bar dataKey="Actual" fill={isECITheme ? '#2563eb' : '#10b981'} radius={[6, 6, 0, 0]} maxBarSize={36} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -1162,7 +1167,7 @@ export default function CRMDashboard() {
                               -{stage.dropOff}%
                             </span>
                           )}
-                          <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                          <span className={`text-[10px] font-medium ${isECITheme ? 'text-blue-600 bg-blue-50' : 'text-emerald-600 bg-emerald-50'} px-1.5 py-0.5 rounded-md`}>
                             {stage.conversion}%
                           </span>
                         </div>
@@ -1197,7 +1202,7 @@ export default function CRMDashboard() {
                   <div className="mt-4 pt-3 border-t border-gray-100">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-muted-foreground">Overall Win Rate</span>
-                      <span className="text-sm font-bold text-emerald-600">
+                      <span className={`text-sm font-bold ${isECITheme ? 'text-blue-600' : 'text-emerald-600'}`}>
                         {funnelData[0].count > 0
                           ? Math.round((funnelData[funnelData.length - 1].count / funnelData[0].count) * 100)
                           : 0}
@@ -1217,7 +1222,7 @@ export default function CRMDashboard() {
                 <CardTitle className="text-base font-semibold text-gray-900">
                   Revenue Trend
                 </CardTitle>
-                <Badge variant="outline" className="text-[10px] h-5 bg-emerald-50 text-emerald-700 border-emerald-200 rounded-lg">
+                <Badge variant="outline" className={`text-[10px] h-5 ${isECITheme ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'} rounded-lg`}>
                   {isFullYear ? '12 Month' : periodSubtitle}
                 </Badge>
               </div>
@@ -1232,8 +1237,8 @@ export default function CRMDashboard() {
                     >
                       <defs>
                         <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                          <stop offset="5%" stopColor={isECITheme ? '#2563eb' : '#10b981'} stopOpacity={0.25} />
+                          <stop offset="95%" stopColor={isECITheme ? '#2563eb' : '#10b981'} stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -1261,11 +1266,11 @@ export default function CRMDashboard() {
                       <Area
                         type="monotone"
                         dataKey="revenue"
-                        stroke="#10b981"
+                        stroke={isECITheme ? '#2563eb' : '#10b981'}
                         strokeWidth={2.5}
                         fill="url(#revenueGradient)"
-                        dot={{ r: 3, fill: '#10b981', strokeWidth: 0 }}
-                        activeDot={{ r: 5, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }}
+                        dot={{ r: 3, fill: isECITheme ? '#2563eb' : '#10b981', strokeWidth: 0 }}
+                        activeDot={{ r: 5, fill: isECITheme ? '#2563eb' : '#10b981', strokeWidth: 2, stroke: '#fff' }}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -1348,8 +1353,8 @@ export default function CRMDashboard() {
           <CardHeader className="pb-2 pt-5 px-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-teal-100 flex items-center justify-center">
-                  <FileText className="h-4 w-4 text-teal-600" />
+                <div className={`h-7 w-7 rounded-lg ${isECITheme ? 'bg-red-100' : 'bg-teal-100'} flex items-center justify-center`}>
+                  <FileText className={`h-4 w-4 ${isECITheme ? 'text-red-600' : 'text-teal-600'}`} />
                 </div>
                 <CardTitle className="text-base font-semibold text-gray-900">
                   Recent Activity — {isFullYear ? selectedYear : periodSubtitle}
@@ -1395,8 +1400,8 @@ export default function CRMDashboard() {
           <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm ring-1 ring-gray-900/[0.03] hover:shadow-lg transition-all duration-300">
             <CardHeader className="pb-2 pt-5 px-5">
               <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <Users className="h-4 w-4 text-emerald-600" />
+                <div className={`h-7 w-7 rounded-lg ${isECITheme ? 'bg-blue-100' : 'bg-emerald-100'} flex items-center justify-center`}>
+                  <Users className={`h-4 w-4 ${isECITheme ? 'text-blue-600' : 'text-emerald-600'}`} />
                 </div>
                 <CardTitle className="text-base font-semibold text-gray-900">Top Clients</CardTitle>
               </div>
@@ -1421,7 +1426,7 @@ export default function CRMDashboard() {
                       </div>
                       <div className="ml-6 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-emerald-400 transition-all duration-700 ease-out"
+                          className={`h-full rounded-full ${isECITheme ? 'bg-blue-400' : 'bg-emerald-400'} transition-all duration-700 ease-out`}
                           style={{
                             width: `${maxClientValue > 0 ? (client.wonValue / maxClientValue) * 100 : 0}%`,
                           }}
@@ -1488,6 +1493,7 @@ export default function CRMDashboard() {
                                   ? 'bg-gray-400'
                                   : idx === 2
                                     ? 'bg-orange-400'
+                                    : isECITheme ? 'bg-blue-400'
                                     : 'bg-emerald-400'
                             }`}
                             style={{ width: `${barPct}%` }}
@@ -1583,8 +1589,8 @@ export default function CRMDashboard() {
           <CardHeader className="pb-2 pt-5 px-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-teal-100 flex items-center justify-center">
-                  <Target className="h-4 w-4 text-teal-600" />
+                <div className={`h-7 w-7 rounded-lg ${isECITheme ? 'bg-blue-100' : 'bg-teal-100'} flex items-center justify-center`}>
+                  <Target className={`h-4 w-4 ${isECITheme ? 'text-blue-600' : 'text-teal-600'}`} />
                 </div>
                 <CardTitle className="text-base font-semibold text-gray-900">
                   Quarterly Progress — {isFullYear ? selectedYear : periodSubtitle}
@@ -1606,7 +1612,8 @@ export default function CRMDashboard() {
                         variant="outline"
                         className={`text-[10px] h-5 rounded-lg ${
                           isOverAchieved
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            ? isECITheme ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             : 'bg-gray-100 text-gray-600 border-gray-200'
                         }`}
                       >
@@ -1616,7 +1623,7 @@ export default function CRMDashboard() {
                     <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
                       <div
                         className={`absolute left-0 top-0 h-full rounded-full transition-all duration-700 ease-out ${
-                          isOverAchieved ? 'bg-emerald-500' : 'bg-teal-500'
+                          isOverAchieved ? (isECITheme ? 'bg-blue-500' : 'bg-emerald-500') : (isECITheme ? 'bg-blue-500' : 'bg-teal-500')
                         }`}
                         style={{ width: `${Math.min(pct, 100)}%` }}
                       />
@@ -1633,13 +1640,15 @@ export default function CRMDashboard() {
             <div className="mt-4 pt-4 border-t border-gray-100">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-teal-500" />
+                  <Target className={`h-4 w-4 ${isECITheme ? 'text-blue-500' : 'text-teal-500'}`} />
                   <span className="text-sm font-semibold text-gray-800">Annual Total</span>
                   <Badge
                     variant="outline"
                     className={`text-[10px] h-5 rounded-lg ${
                       dashboard.targetVsActual.percentageAchieved >= 100
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        ? isECITheme ? 'bg-blue-50 text-blue-700 border-blue-200'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : isECITheme ? 'bg-red-50 text-red-700 border-red-200'
                         : 'bg-teal-50 text-teal-700 border-teal-200'
                     }`}
                   >
@@ -1658,7 +1667,7 @@ export default function CRMDashboard() {
               <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className={`absolute left-0 top-0 h-full rounded-full transition-all duration-700 ease-out ${
-                    dashboard.targetVsActual.percentageAchieved >= 100 ? 'bg-emerald-500' : 'bg-teal-500'
+                    dashboard.targetVsActual.percentageAchieved >= 100 ? (isECITheme ? 'bg-blue-500' : 'bg-emerald-500') : (isECITheme ? 'bg-blue-500' : 'bg-teal-500')
                   }`}
                   style={{ width: `${Math.min(dashboard.targetVsActual.percentageAchieved, 100)}%` }}
                 />

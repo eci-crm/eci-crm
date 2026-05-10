@@ -2320,12 +2320,12 @@ const THEME_OPTIONS = [
   {
     id: 'eci' as const,
     name: 'ECI Brand',
-    description: 'Dark navy & red — ECI organizational identity',
+    description: 'Vibrant blue & red — ECI organizational identity',
     preview: {
-      sidebar: 'bg-[#1A365D]',
-      accent: 'bg-[#C62828]',
-      accentLight: 'bg-red-100',
-      bg: 'bg-[#F5F5F5]',
+      sidebar: 'bg-blue-900',
+      accent: 'bg-red-600',
+      accentLight: 'bg-blue-100',
+      bg: 'bg-slate-50',
       header: 'bg-white',
     },
   },
@@ -2433,7 +2433,7 @@ function ThemeSwitcherTab() {
             </div>
             <div className="flex items-start gap-2">
               <span className="text-brand mt-0.5">&#10003;</span>
-              <span><strong className="text-foreground">ECI Brand Theme</strong> — Features the official ECI identity colors: deep navy blue sidebar and bold red accents, matching the ECI Organizational Profile branding.</span>
+              <span><strong className="text-foreground">ECI Brand Theme</strong> — Features vibrant blue and bold red combinations inspired by ECI organizational identity. The dashboard showcases a striking blue-to-red gradient with coordinated accents throughout.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-brand mt-0.5">&#10003;</span>
