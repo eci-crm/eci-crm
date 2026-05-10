@@ -15,6 +15,8 @@ import {
   FileText,
   Loader2,
   X,
+  Upload,
+  Download,
 } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -225,6 +227,9 @@ export default function Proposals() {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [proposalToDelete, setProposalToDelete] = React.useState<Proposal | null>(null)
 
+  const [importDialogOpen, setImportDialogOpen] = React.useState(false)
+  const [importResult, setImportResult] = React.useState<{ message: string; created: number; skipped: number; errors?: string[] } | null>(null)
+
   // ── Queries ──────────────────────────────────────────────────────────────
 
   const { data: proposals = [], isLoading: proposalsLoading } = useQuery<Proposal[]>({
@@ -333,6 +338,29 @@ export default function Proposals() {
       queryClient.invalidateQueries({ queryKey: ['proposals'] })
       setDeleteDialogOpen(false)
       setProposalToDelete(null)
+    },
+  })
+
+  const importMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/proposals/import', {
+        method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to import proposals')
+      }
+      return res.json()
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['proposals'] })
+      setImportResult(data)
+    },
+    onError: (error: Error) => {
+      setImportResult({ message: error.message, created: 0, skipped: 0 })
     },
   })
 
@@ -453,6 +481,17 @@ export default function Proposals() {
     }
   }
 
+  const downloadTemplate = async () => {
+    const res = await fetch('/api/proposals/import')
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'proposals_template.csv'
+    a.click()
+    window.URL.revokeObjectURL(url)
+  }
+
   // ── Form Helpers ─────────────────────────────────────────────────────────
 
   const toggleThematicArea = (areaId: string) => {
@@ -509,10 +548,16 @@ export default function Proposals() {
             Manage and track your business proposals
           </p>
         </div>
-        <Button onClick={openAddDialog} className="shrink-0">
-          <Plus className="size-4 mr-1.5" />
-          Add Proposal
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" onClick={() => { setImportDialogOpen(true); setImportResult(null) }}>
+            <Upload className="size-4 mr-1.5" />
+            Import
+          </Button>
+          <Button onClick={openAddDialog}>
+            <Plus className="size-4 mr-1.5" />
+            Add Proposal
+          </Button>
+        </div>
       </div>
 
       {/* Search & Filters */}
@@ -1270,6 +1315,81 @@ export default function Proposals() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Import Dialog ──────────────────────────────────────────────────── */}
+      <Dialog open={importDialogOpen} onOpenChange={(open) => { setImportDialogOpen(open); if (!open) setImportResult(null) }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import Proposals from CSV</DialogTitle>
+            <DialogDescription>
+              Upload a CSV file to bulk import proposals. Client names must match existing clients in the system.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!importResult ? (
+            <div className="space-y-4 py-2">
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                  <Download className="size-4 mr-1.5" />
+                  Download Template
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Get the CSV template with required columns
+                </span>
+              </div>
+
+              <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                <Input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      importMutation.mutate(file)
+                    }
+                  }}
+                  disabled={importMutation.isPending}
+                  className="max-w-sm mx-auto"
+                />
+                {importMutation.isPending && (
+                  <div className="mt-3 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    Importing...
+                  </div>
+                )}
+              </div>
+
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p className="font-medium">CSV Columns:</p>
+                <p>name*, rfpNumber, clientName*, assignedMemberName, value, status, winningChances, focalPerson, followUpDate, remarks, deadline, submissionDate, thematicAreas, services</p>
+                <p className="mt-1">* Required fields. Status: Submitted, In Process, In Evaluation, Pending, Won, Rejected</p>
+                <p>thematicAreas &amp; services: use semicolons (;) to separate multiple values</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              <div className={`rounded-lg p-4 ${importResult.created > 0 ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+                <p className="font-semibold text-sm">{importResult.message}</p>
+                <div className="mt-2 flex gap-4 text-sm">
+                  <span className="text-green-700">Created: {importResult.created}</span>
+                  <span className="text-amber-700">Skipped: {importResult.skipped}</span>
+                </div>
+              </div>
+              {importResult.errors && importResult.errors.length > 0 && (
+                <div className="max-h-40 overflow-y-auto rounded-lg border bg-red-50 p-3">
+                  <p className="text-xs font-semibold text-red-700 mb-1">Errors:</p>
+                  {importResult.errors.map((err, i) => (
+                    <p key={i} className="text-xs text-red-600">{err}</p>
+                  ))}
+                </div>
+              )}
+              <DialogFooter>
+                <Button onClick={() => setImportDialogOpen(false)}>Close</Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

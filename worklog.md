@@ -75,3 +75,27 @@ Stage Summary:
 - Vercel Alias: https://my-project-sigma-ruby-33.vercel.app
 - All API routes and pages built and deployed successfully
 - All existing features intact: Dashboard, Proposals, Clients, Services, Resources, Reports, Chatbot, Notifications, Settings
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Remove seed dummy data protection and restore CSV import feature for proposals & clients
+
+Work Log:
+- Disabled seed API route (/api/seed) to return 403 - prevents accidental data overwrite
+- Installed papaparse library for CSV parsing on backend
+- Created /api/clients/import route with GET (template download) and POST (bulk import) endpoints
+- Created /api/proposals/import route with GET (template download) and POST (bulk import) endpoints
+- Fixed SQLite compatibility issue: removed mode: 'insensitive' from Prisma query (not supported by SQLite)
+- Added CSV import UI to Proposals component: Import button, dialog with template download + file upload, result display
+- Added CSV import UI to Clients component: Import button, dialog with template download + file upload, result display
+- Tested all endpoints: seed disabled (403), clients template download (200), proposals template download (200)
+- Tested actual CSV import: clients imported successfully (2 test), proposals imported successfully (1 test)
+- Cleaned up test data - verified final counts: 20 proposals, 10 clients (all original data preserved)
+
+Stage Summary:
+- Seed API disabled to protect user data from accidental re-seeding
+- CSV Import with template download restored for both Proposals and Clients sections
+- Proposals import supports: name, rfpNumber, clientName, assignedMemberName, value, status, winningChances, focalPerson, followUpDate, remarks, deadline, submissionDate, thematicAreas, services
+- Clients import supports: name, address, status
+- All original data (20 proposals, 10 clients) preserved intact

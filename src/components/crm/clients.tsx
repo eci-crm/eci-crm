@@ -15,6 +15,8 @@ import {
   ChevronUp,
   ChevronDown,
   Building2,
+  Upload,
+  Download,
 } from 'lucide-react'
 
 import { Card, CardContent } from '@/components/ui/card'
@@ -122,6 +124,9 @@ export default function CRMClients() {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [clientToDelete, setClientToDelete] = React.useState<Client | null>(null)
 
+  const [importDialogOpen, setImportDialogOpen] = React.useState(false)
+  const [importResult, setImportResult] = React.useState<{ message: string; created: number; skipped: number; errors?: string[] } | null>(null)
+
   // ── Queries ──────────────────────────────────────────────────────────────
 
   const { data: clients = [], isLoading } = useQuery<Client[]>({
@@ -177,6 +182,29 @@ export default function CRMClients() {
       queryClient.invalidateQueries({ queryKey: ['clients'] })
       setDeleteDialogOpen(false)
       setClientToDelete(null)
+    },
+  })
+
+  const importMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/clients/import', {
+        method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to import clients')
+      }
+      return res.json()
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      setImportResult(data)
+    },
+    onError: (error: Error) => {
+      setImportResult({ message: error.message, created: 0, skipped: 0 })
     },
   })
 
@@ -278,6 +306,17 @@ export default function CRMClients() {
     setFilterStatus('all')
   }
 
+  const downloadTemplate = async () => {
+    const res = await fetch('/api/clients/import')
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'clients_template.csv'
+    a.click()
+    window.URL.revokeObjectURL(url)
+  }
+
   const hasActiveFilters = search || filterStatus !== 'all'
   const isSaving = createMutation.isPending || updateMutation.isPending
 
@@ -299,10 +338,16 @@ export default function CRMClients() {
             Manage your client relationships
           </p>
         </div>
-        <Button onClick={openAddDialog} className="shrink-0">
-          <Plus className="size-4 mr-1.5" />
-          Add Client
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" onClick={() => { setImportDialogOpen(true); setImportResult(null) }}>
+            <Upload className="size-4 mr-1.5" />
+            Import
+          </Button>
+          <Button onClick={openAddDialog}>
+            <Plus className="size-4 mr-1.5" />
+            Add Client
+          </Button>
+        </div>
       </div>
 
       {/* Stats row */}
@@ -614,6 +659,80 @@ export default function CRMClients() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Import Dialog ──────────────────────────────────────────────────── */}
+      <Dialog open={importDialogOpen} onOpenChange={(open) => { setImportDialogOpen(open); if (!open) setImportResult(null) }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import Clients from CSV</DialogTitle>
+            <DialogDescription>
+              Upload a CSV file to bulk import clients.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!importResult ? (
+            <div className="space-y-4 py-2">
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                  <Download className="size-4 mr-1.5" />
+                  Download Template
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Get the CSV template with required columns
+                </span>
+              </div>
+
+              <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                <Input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      importMutation.mutate(file)
+                    }
+                  }}
+                  disabled={importMutation.isPending}
+                  className="max-w-sm mx-auto"
+                />
+                {importMutation.isPending && (
+                  <div className="mt-3 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    Importing...
+                  </div>
+                )}
+              </div>
+
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p className="font-medium">CSV Columns:</p>
+                <p>name*, address, status</p>
+                <p className="mt-1">* Required. Status: Active or Inactive (defaults to Active)</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              <div className={`rounded-lg p-4 ${importResult.created > 0 ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+                <p className="font-semibold text-sm">{importResult.message}</p>
+                <div className="mt-2 flex gap-4 text-sm">
+                  <span className="text-green-700">Created: {importResult.created}</span>
+                  <span className="text-amber-700">Skipped: {importResult.skipped}</span>
+                </div>
+              </div>
+              {importResult.errors && importResult.errors.length > 0 && (
+                <div className="max-h-40 overflow-y-auto rounded-lg border bg-red-50 p-3">
+                  <p className="text-xs font-semibold text-red-700 mb-1">Errors:</p>
+                  {importResult.errors.map((err, i) => (
+                    <p key={i} className="text-xs text-red-600">{err}</p>
+                  ))}
+                </div>
+              )}
+              <DialogFooter>
+                <Button onClick={() => setImportDialogOpen(false)}>Close</Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
