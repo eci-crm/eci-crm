@@ -858,6 +858,9 @@ ${additionalContext}`
 
     // Approach 2: Direct fetch using environment variables (for Vercel/production)
     if (!assistantContent) {
+      // AI_API_BASE_URL can point to:
+      // 1. A public AI API (e.g., OpenAI-compatible endpoint)
+      // 2. The sandbox's /api/ai-proxy endpoint (e.g., https://your-app.vercel.app/api/ai-proxy?XTransformPort=3000)
       const aiBaseUrl = process.env.AI_API_BASE_URL
       const aiApiKey = process.env.AI_API_KEY || 'Z.ai'
       const aiChatId = process.env.AI_CHAT_ID
