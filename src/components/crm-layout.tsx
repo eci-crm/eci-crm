@@ -64,11 +64,47 @@ const navItems = [
 
 
 export function CRMLayout() {
-  const { user, currentPage, sidebarOpen, setCurrentPage, setSidebarOpen, logout } =
+  const { user, currentPage, sidebarOpen, theme, setCurrentPage, setSidebarOpen, logout } =
     useCRMStore()
   const isMobile = useIsMobile()
   const [companyName, setCompanyName] = useState('ECI CRM')
   const [companyLogo, setCompanyLogo] = useState<string | null>(null)
+
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [theme])
+
+  // Theme-dependent classes
+  const isECITheme = theme === 'eci'
+  const sidebarBg = isECITheme ? 'bg-navy' : 'bg-slate-900'
+  const sidebarBorder = 'border-white/10'
+  const brandColor = isECITheme ? 'brand' : 'emerald'
+  const activeBg = isECITheme
+    ? 'bg-brand/15 text-brand'
+    : 'bg-emerald-500/15 text-emerald-400'
+  const activeIcon = isECITheme
+    ? 'text-brand'
+    : 'text-emerald-400'
+  const activeDot = isECITheme
+    ? 'bg-brand'
+    : 'bg-emerald-400'
+  const inactiveText = 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+  const inactiveIcon = 'text-slate-500 group-hover:text-slate-300'
+  const logoGradient = isECITheme
+    ? 'from-brand to-brand-dark'
+    : 'from-emerald-500 to-teal-600'
+  const logoShadow = isECITheme
+    ? 'shadow-brand/20'
+    : 'shadow-emerald-500/20'
+  const helpBtnColor = isECITheme
+    ? 'text-brand hover:text-brand/80 hover:bg-white/5'
+    : 'text-emerald-400 hover:text-emerald-300 hover:bg-white/5'
+  const mainBg = isECITheme ? 'bg-[#F5F5F5]' : 'bg-slate-50'
+  const headerBg = 'bg-white'
+  const avatarBg = isECITheme
+    ? 'bg-brand-light text-brand-dark'
+    : 'bg-emerald-100 text-emerald-700'
 
   useEffect(() => {
     async function loadInitialData() {
@@ -125,7 +161,7 @@ export function CRMLayout() {
   const renderSidebarContent = (collapsed: boolean) => (
     <div className="flex h-full flex-col">
       {/* Logo area */}
-      <div className="flex h-16 items-center gap-3 border-b border-white/10 px-4">
+      <div className={`flex h-16 items-center gap-3 border-b ${sidebarBorder} px-4`}>
         {companyLogo ? (
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white shadow-md overflow-hidden">
             <img
@@ -135,7 +171,7 @@ export function CRMLayout() {
             />
           </div>
         ) : (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md shadow-emerald-500/20">
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${logoGradient} shadow-md ${logoShadow}`}>
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -158,7 +194,7 @@ export function CRMLayout() {
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <h1 className="truncate text-base font-bold text-white">
+            <h1 className="truncate text-base font-bold text-white" style={{ fontFamily: 'Poppins, Inter, sans-serif' }}>
               {companyName}
             </h1>
           </motion.div>
@@ -177,13 +213,13 @@ export function CRMLayout() {
               onClick={() => handleNavClick(item.id)}
               className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
                 isActive
-                  ? 'bg-emerald-500/15 text-emerald-400 shadow-sm'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                  ? activeBg + ' shadow-sm'
+                  : inactiveText
               } ${collapsed ? 'justify-center' : ''}`}
             >
               <Icon
                 className={`h-5 w-5 shrink-0 transition-colors ${
-                  isActive ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300'
+                  isActive ? activeIcon : inactiveIcon
                 }`}
               />
               {!collapsed && (
@@ -199,7 +235,7 @@ export function CRMLayout() {
               {isActive && !collapsed && (
                 <motion.div
                   layoutId="activeIndicator"
-                  className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400"
+                  className={`ml-auto h-1.5 w-1.5 rounded-full ${activeDot}`}
                   transition={{ type: 'spring', stiffness: 350, damping: 30 }}
                 />
               )}
@@ -223,7 +259,7 @@ export function CRMLayout() {
 
       {/* Sidebar footer */}
       {!collapsed && (
-        <div className="border-t border-white/10 p-4">
+        <div className={`border-t ${sidebarBorder} p-4`}>
           <div className="rounded-lg bg-white/5 p-3">
             <p className="text-xs font-medium text-slate-300">Need help?</p>
             <p className="mt-1 text-xs text-slate-500">
@@ -232,7 +268,7 @@ export function CRMLayout() {
             <Button
               variant="ghost"
               size="sm"
-              className="mt-2 h-7 w-full text-xs text-emerald-400 hover:text-emerald-300 hover:bg-white/5"
+              className={`mt-2 h-7 w-full text-xs ${helpBtnColor}`}
             >
               View Documentation
             </Button>
@@ -243,14 +279,14 @@ export function CRMLayout() {
   )
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
+    <div className={`flex h-screen overflow-hidden ${mainBg}`}>
       {/* Desktop Sidebar */}
       {!isMobile && (
         <motion.aside
           initial={false}
           animate={{ width: sidebarOpen ? 280 : 72 }}
           transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-          className="relative z-30 flex shrink-0 flex-col border-r border-white/10 bg-slate-900"
+          className={`relative z-30 flex shrink-0 flex-col border-r ${sidebarBorder} ${sidebarBg}`}
         >
           {renderSidebarContent(!sidebarOpen)}
 
@@ -272,7 +308,7 @@ export function CRMLayout() {
       {/* Mobile Sidebar (Sheet) */}
       {isMobile && (
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetContent side="left" className="w-[280px] bg-slate-900 p-0 border-white/10">
+          <SheetContent side="left" className={`w-[280px] ${sidebarBg} p-0 ${sidebarBorder}`}>
             <SheetHeader className="sr-only">
               <SheetTitle>Navigation</SheetTitle>
             </SheetHeader>
@@ -284,7 +320,7 @@ export function CRMLayout() {
       {/* Main area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="flex h-16 shrink-0 items-center justify-between border-b bg-white px-4 sm:px-6">
+        <header className={`flex h-16 shrink-0 items-center justify-between border-b ${headerBg} px-4 sm:px-6`}>
           <div className="flex items-center gap-3">
             {isMobile && (
               <Button
@@ -298,7 +334,7 @@ export function CRMLayout() {
               </Button>
             )}
             <div>
-              <h2 className="text-lg font-semibold tracking-tight">
+              <h2 className="text-lg font-semibold tracking-tight" style={{ fontFamily: 'Poppins, Inter, sans-serif' }}>
                 {pageTitle}
               </h2>
             </div>
@@ -318,7 +354,7 @@ export function CRMLayout() {
                   className="flex items-center gap-2 px-2"
                 >
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-emerald-100 text-sm font-semibold text-emerald-700">
+                    <AvatarFallback className={`text-sm font-semibold ${avatarBg}`}>
                       {userInitials}
                     </AvatarFallback>
                   </Avatar>

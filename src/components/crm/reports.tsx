@@ -28,6 +28,7 @@ import {
   Wrench,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   AlertTriangle,
   Loader2,
   Calendar,
@@ -38,6 +39,8 @@ import {
   LayoutGrid,
   Sparkles,
   SlidersHorizontal,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -255,6 +258,143 @@ const CHART_TOOLTIP_STYLE = {
   fontSize: '12px',
 }
 
+// ─── CSV Export Utilities ────────────────────────────────────────────────────
+
+function escapeCSV(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`
+  }
+  return value
+}
+
+function downloadCSV(filename: string, headers: string[], rows: string[][]) {
+  const csvContent = [
+    headers.map(escapeCSV).join(','),
+    ...rows.map((row) => row.map(escapeCSV).join(',')),
+  ].join('\n')
+
+  const BOM = '\uFEFF'
+  const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(link.href)
+}
+
+// ─── ReportPagination Component ─────────────────────────────────────────────
+
+function ReportPagination({
+  totalItems,
+  currentPage,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  totalItems: number
+  currentPage: number
+  pageSize: number
+  onPageChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
+}) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
+  const safePage = Math.min(currentPage, totalPages)
+  const startItem = totalItems === 0 ? 0 : (safePage - 1) * pageSize + 1
+  const endItem = Math.min(safePage * pageSize, totalItems)
+
+  const getPageNumbers = (): (number | '...')[] => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1)
+    const pages: (number | '...')[] = [1]
+    if (safePage > 3) pages.push('...')
+    for (let i = Math.max(2, safePage - 1); i <= Math.min(totalPages - 1, safePage + 1); i++) {
+      pages.push(i)
+    }
+    if (safePage < totalPages - 2) pages.push('...')
+    if (totalPages > 1) pages.push(totalPages)
+    return pages
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t bg-muted/20">
+      <div className="text-xs text-muted-foreground whitespace-nowrap">
+        Showing <span className="font-medium">{startItem}</span>-<span className="font-medium">{endItem}</span> of <span className="font-medium">{totalItems}</span> results
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs gap-1 px-2"
+          disabled={safePage <= 1}
+          onClick={() => onPageChange(safePage - 1)}
+        >
+          <ChevronLeft className="h-3 w-3" />
+          Previous
+        </Button>
+        <div className="flex items-center gap-0.5">
+          {getPageNumbers().map((p, i) =>
+            p === '...' ? (
+              <span key={`ellipsis-${i}`} className="px-1 text-xs text-muted-foreground select-none">
+                …
+              </span>
+            ) : (
+              <Button
+                key={p}
+                variant={p === safePage ? 'default' : 'outline'}
+                size="sm"
+                className={`h-7 w-7 text-xs p-0 ${p === safePage ? 'bg-gray-800 hover:bg-gray-700 text-white' : ''}`}
+                onClick={() => onPageChange(p as number)}
+              >
+                {p}
+              </Button>
+            ),
+          )}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs gap-1 px-2"
+          disabled={safePage >= totalPages}
+          onClick={() => onPageChange(safePage + 1)}
+        >
+          Next
+          <ChevronRight className="h-3 w-3" />
+        </Button>
+        <div className="flex items-center gap-1.5 ml-2 border-l pl-3">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">Rows:</span>
+          <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
+            <SelectTrigger className="h-7 w-[70px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[10, 25, 50, 100].map((s) => (
+                <SelectItem key={s} value={String(s)}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Export Button Helper ────────────────────────────────────────────────────
+
+function ExportCSVButton({ onClick, label = 'Export CSV' }: { onClick: () => void; label?: string }) {
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="h-8 text-xs gap-1.5 font-medium hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 transition-colors"
+      onClick={onClick}
+    >
+      <Download className="h-3.5 w-3.5" />
+      {label}
+    </Button>
+  )
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function CRMReports() {
@@ -287,6 +427,19 @@ export default function CRMReports() {
   const [availableYears, setAvailableYears] = useState<number[]>([])
   const [expandedThematic, setExpandedThematic] = useState<Record<string, boolean>>({})
   const [expandedService, setExpandedService] = useState<Record<string, boolean>>({})
+
+  // Pagination state - each key represents a table, value is { page, pageSize }
+  const [pagination, setPagination] = useState<Record<string, { page: number; pageSize: number }>>({})
+
+  const getPage = (key: string) => pagination[key]?.page ?? 1
+  const getPageSize = (key: string) => pagination[key]?.pageSize ?? 10
+  const setPage = (key: string, page: number) =>
+    setPagination((prev) => ({ ...prev, [key]: { ...prev[key], page, pageSize: prev[key]?.pageSize ?? 10 } }))
+  const setPageSize = (key: string, pageSize: number) =>
+    setPagination((prev) => ({ ...prev, [key]: { page: 1, pageSize } }))
+
+  // Helper to get today's date string for filenames
+  const todayStr = format(new Date(), 'yyyy-MM-dd')
 
   // Fetch services for filter dropdown
   const { data: services = [] } = useQuery<Service[]>({
@@ -711,8 +864,31 @@ export default function CRMReports() {
     if (clientsLoading) return renderLoading()
     if (!clientsData?.data || clientsData.data.length === 0) return renderEmpty('No client data available')
 
+    const page = getPage('clients')
+    const pageSize = getPageSize('clients')
+    const totalItems = clientsData.data.length
+    const paginatedData = clientsData.data.slice((page - 1) * pageSize, page * pageSize)
+    const startIndex = (page - 1) * pageSize
+
+    const handleExportClients = () => {
+      const headers = ['#', 'Client Name', 'Status', 'Proposal Count', 'Total Value', 'Won Value']
+      const rows = clientsData.data.map((client, idx) => [
+        String(idx + 1),
+        client.name,
+        client.status,
+        String(client.totalProposals),
+        String(client.totalValue),
+        String(client.wonValue),
+      ])
+      downloadCSV(`eci-crm-clients-report-${todayStr}.csv`, headers, rows)
+    }
+
     return (
       <div className="space-y-6">
+        {/* Export Button */}
+        <div className="flex justify-end">
+          <ExportCSVButton onClick={handleExportClients} />
+        </div>
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
@@ -786,32 +962,37 @@ export default function CRMReports() {
             <CardTitle className="text-base font-semibold text-gray-900">Client Details</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="max-h-[480px]">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="w-[50px]">#</TableHead>
-                    <TableHead>Client Name</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-center">Proposal Count</TableHead>
-                    <TableHead className="text-right">Total Value</TableHead>
-                    <TableHead className="text-right">Won Value</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="w-[50px]">#</TableHead>
+                  <TableHead>Client Name</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-center">Proposal Count</TableHead>
+                  <TableHead className="text-right">Total Value</TableHead>
+                  <TableHead className="text-right">Won Value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedData.map((client, idx) => (
+                  <TableRow key={client.id} className="hover:bg-muted/30 transition-colors">
+                    <TableCell className="text-muted-foreground text-xs">{startIndex + idx + 1}</TableCell>
+                    <TableCell className="font-medium">{client.name}</TableCell>
+                    <TableCell>{renderStatusBadge(client.status)}</TableCell>
+                    <TableCell className="text-center">{client.totalProposals}</TableCell>
+                    <TableCell className="text-right font-mono text-sm">{formatPKR(client.totalValue)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm text-emerald-600">{formatPKR(client.wonValue)}</TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {clientsData.data.map((client, idx) => (
-                    <TableRow key={client.id} className="hover:bg-muted/30 transition-colors">
-                      <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
-                      <TableCell className="font-medium">{client.name}</TableCell>
-                      <TableCell>{renderStatusBadge(client.status)}</TableCell>
-                      <TableCell className="text-center">{client.totalProposals}</TableCell>
-                      <TableCell className="text-right font-mono text-sm">{formatPKR(client.totalValue)}</TableCell>
-                      <TableCell className="text-right font-mono text-sm text-emerald-600">{formatPKR(client.wonValue)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+                ))}
+              </TableBody>
+            </Table>
+            <ReportPagination
+              totalItems={totalItems}
+              currentPage={page}
+              pageSize={pageSize}
+              onPageChange={(p) => setPage('clients', p)}
+              onPageSizeChange={(s) => setPageSize('clients', s)}
+            />
           </CardContent>
         </Card>
       </div>
@@ -829,8 +1010,32 @@ export default function CRMReports() {
       ? Math.round(((summary.statusBreakdown?.['Won']?.count || 0) / summary.totalProposals) * 100)
       : 0
 
+    const page = getPage('proposals')
+    const pageSize = getPageSize('proposals')
+    const totalItems = proposalsData.data.length
+    const paginatedData = proposalsData.data.slice((page - 1) * pageSize, page * pageSize)
+    const startIndex = (page - 1) * pageSize
+
+    const handleExportProposals = () => {
+      const headers = ['#', 'Name', 'Client', 'Value', 'Status', 'Service(s)', 'Date']
+      const rows = proposalsData.data.map((proposal, idx) => [
+        String(idx + 1),
+        proposal.name,
+        proposal.client.name,
+        String(proposal.value),
+        proposal.status,
+        proposal.services.map((ps) => ps.service.name).join('; '),
+        proposal.createdAt ? (() => { try { return format(new Date(proposal.createdAt), 'yyyy-MM-dd') } catch { return '' } })() : '',
+      ])
+      downloadCSV(`eci-crm-proposals-report-${todayStr}.csv`, headers, rows)
+    }
+
     return (
       <div className="space-y-6">
+        {/* Export Button */}
+        <div className="flex justify-end">
+          <ExportCSVButton onClick={handleExportProposals} />
+        </div>
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
@@ -986,57 +1191,62 @@ export default function CRMReports() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="max-h-[480px]">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="w-[50px]">#</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead className="text-right">Value</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Service(s)</TableHead>
-                    <TableHead>Date</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="w-[50px]">#</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead className="text-right">Value</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Service(s)</TableHead>
+                  <TableHead>Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedData.map((proposal, idx) => (
+                  <TableRow key={proposal.id} className="hover:bg-muted/30 transition-colors">
+                    <TableCell className="text-muted-foreground text-xs">{startIndex + idx + 1}</TableCell>
+                    <TableCell className="font-medium max-w-[200px] truncate">{proposal.name}</TableCell>
+                    <TableCell>{proposal.client.name}</TableCell>
+                    <TableCell className="text-right font-mono text-sm">{formatPKR(proposal.value)}</TableCell>
+                    <TableCell>{renderStatusBadge(proposal.status)}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {proposal.services.length === 0 ? (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        ) : (
+                          proposal.services.map((ps) => (
+                            <Badge
+                              key={ps.service.id}
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 h-5"
+                              style={{
+                                borderColor: ps.service.color,
+                                color: ps.service.color,
+                                backgroundColor: `${ps.service.color}10`,
+                              }}
+                            >
+                              {ps.service.name}
+                            </Badge>
+                          ))
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {(() => { try { return proposal.createdAt ? format(new Date(proposal.createdAt), 'MMM dd, yyyy') : '—' } catch { return '—' } })()}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {proposalsData.data.map((proposal, idx) => (
-                    <TableRow key={proposal.id} className="hover:bg-muted/30 transition-colors">
-                      <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
-                      <TableCell className="font-medium max-w-[200px] truncate">{proposal.name}</TableCell>
-                      <TableCell>{proposal.client.name}</TableCell>
-                      <TableCell className="text-right font-mono text-sm">{formatPKR(proposal.value)}</TableCell>
-                      <TableCell>{renderStatusBadge(proposal.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {proposal.services.length === 0 ? (
-                            <span className="text-muted-foreground text-xs">—</span>
-                          ) : (
-                            proposal.services.map((ps) => (
-                              <Badge
-                                key={ps.service.id}
-                                variant="outline"
-                                className="text-[10px] px-1.5 py-0 h-5"
-                                style={{
-                                  borderColor: ps.service.color,
-                                  color: ps.service.color,
-                                  backgroundColor: `${ps.service.color}10`,
-                                }}
-                              >
-                                {ps.service.name}
-                              </Badge>
-                            ))
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {(() => { try { return proposal.createdAt ? format(new Date(proposal.createdAt), 'MMM dd, yyyy') : '—' } catch { return '—' } })()}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+                ))}
+              </TableBody>
+            </Table>
+            <ReportPagination
+              totalItems={totalItems}
+              currentPage={page}
+              pageSize={pageSize}
+              onPageChange={(p) => setPage('proposals', p)}
+              onPageSizeChange={(s) => setPageSize('proposals', s)}
+            />
           </CardContent>
         </Card>
       </div>
@@ -1053,8 +1263,28 @@ export default function CRMReports() {
     const avgProposalValue = d.totalProposals > 0 ? Math.round(d.totalWonValue / d.totalProposals) : 0
     const wonCount = d.monthlyBreakdown.reduce((sum, m) => sum + (m.actual > 0 ? 1 : 0), 0)
 
+    const monthlyPage = getPage('summary-monthly')
+    const monthlyPageSize = getPageSize('summary-monthly')
+    const monthlyTotalItems = d.monthlyBreakdown.length
+    const paginatedMonthly = d.monthlyBreakdown.slice((monthlyPage - 1) * monthlyPageSize, monthlyPage * monthlyPageSize)
+
+    const handleExportSummary = () => {
+      const headers = ['Month', 'Target', 'Actual', 'Achievement %']
+      const rows = d.monthlyBreakdown.map((m) => [
+        m.month,
+        String(m.target),
+        String(m.actual),
+        m.target > 0 ? String(Math.round((m.actual / m.target) * 100)) : '0',
+      ])
+      downloadCSV(`eci-crm-summary-report-${todayStr}.csv`, headers, rows)
+    }
+
     return (
       <div className="space-y-6">
+        {/* Export Button */}
+        <div className="flex justify-end">
+          <ExportCSVButton onClick={handleExportSummary} />
+        </div>
         {/* Overall Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
@@ -1189,30 +1419,35 @@ export default function CRMReports() {
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold text-gray-900">Monthly Breakdown</CardTitle>
             </CardHeader>
-            <CardContent>
-              <ScrollArea className="max-h-72">
-                <div className="space-y-2">
-                  {d.monthlyBreakdown.map((m) => (
-                    <div key={m.month} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0">
-                      <span className="text-sm text-gray-700 w-12">{m.month}</span>
-                      <div className="flex-1 mx-3">
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                            style={{
-                              width: `${m.target > 0 ? Math.min((m.actual / m.target) * 100, 100) : 0}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="text-right min-w-[80px]">
-                        <span className="text-xs font-medium text-emerald-600">{formatCompactPKR(m.actual)}</span>
-                        <span className="text-xs text-muted-foreground"> / {formatCompactPKR(m.target)}</span>
+            <CardContent className="p-0">
+              <div className="divide-y divide-gray-100">
+                {paginatedMonthly.map((m) => (
+                  <div key={m.month} className="flex items-center justify-between py-2.5 px-4 hover:bg-muted/20 transition-colors">
+                    <span className="text-sm text-gray-700 w-12">{m.month}</span>
+                    <div className="flex-1 mx-3">
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                          style={{
+                            width: `${m.target > 0 ? Math.min((m.actual / m.target) * 100, 100) : 0}%`,
+                          }}
+                        />
                       </div>
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
+                    <div className="text-right min-w-[80px]">
+                      <span className="text-xs font-medium text-emerald-600">{formatCompactPKR(m.actual)}</span>
+                      <span className="text-xs text-muted-foreground"> / {formatCompactPKR(m.target)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <ReportPagination
+                totalItems={monthlyTotalItems}
+                currentPage={monthlyPage}
+                pageSize={monthlyPageSize}
+                onPageChange={(p) => setPage('summary-monthly', p)}
+                onPageSizeChange={(s) => setPageSize('summary-monthly', s)}
+              />
             </CardContent>
           </Card>
         </div>
@@ -1228,8 +1463,34 @@ export default function CRMReports() {
 
     const totalThematicValue = thematicData.data.reduce((sum, t) => sum + t.totalValue, 0)
 
+    const thematicPage = getPage('thematic-summary')
+    const thematicPageSize = getPageSize('thematic-summary')
+    const thematicTotalItems = thematicData.data.length
+    const paginatedThematic = thematicData.data.slice((thematicPage - 1) * thematicPageSize, thematicPage * thematicPageSize)
+    const thematicStartIndex = (thematicPage - 1) * thematicPageSize
+
+    const handleExportThematic = () => {
+      const headers = ['Thematic Area', 'Proposals', 'Total Value', 'Won Value', 'Win Rate']
+      const rows = thematicData.data.map((area) => {
+        const wonCount = area.proposals.filter((p) => p.status === 'Won').length
+        const winRate = area.proposalCount > 0 ? Math.round((wonCount / area.proposalCount) * 100) : 0
+        return [
+          area.name,
+          String(area.proposalCount),
+          String(area.totalValue),
+          String(area.wonValue),
+          `${winRate}%`,
+        ]
+      })
+      downloadCSV(`eci-crm-thematic-report-${todayStr}.csv`, headers, rows)
+    }
+
     return (
       <div className="space-y-6">
+        {/* Export Button */}
+        <div className="flex justify-end">
+          <ExportCSVButton onClick={handleExportThematic} />
+        </div>
         {/* Bar Chart: Value by Thematic Area */}
         <Card className="rounded-xl shadow-sm border bg-white">
           <CardHeader className="pb-2">
@@ -1279,7 +1540,7 @@ export default function CRMReports() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {thematicData.data.map((area) => {
+                {paginatedThematic.map((area) => {
                   const wonCount = area.proposals.filter((p) => p.status === 'Won').length
                   const winRate = area.proposalCount > 0 ? Math.round((wonCount / area.proposalCount) * 100) : 0
                   return (
@@ -1306,6 +1567,13 @@ export default function CRMReports() {
                 })}
               </TableBody>
             </Table>
+            <ReportPagination
+              totalItems={thematicTotalItems}
+              currentPage={thematicPage}
+              pageSize={thematicPageSize}
+              onPageChange={(p) => setPage('thematic-summary', p)}
+              onPageSizeChange={(s) => setPageSize('thematic-summary', s)}
+            />
           </CardContent>
         </Card>
 
@@ -1316,6 +1584,11 @@ export default function CRMReports() {
             .map((area) => {
               const wonCount = area.proposals.filter((p) => p.status === 'Won').length
               const winRate = area.proposalCount > 0 ? Math.round((wonCount / area.proposalCount) * 100) : 0
+              const proposalKey = `thematic-proposals-${area.id}`
+              const proposalPage = getPage(proposalKey)
+              const proposalPageSize = getPageSize(proposalKey)
+              const proposalTotalItems = area.proposals.length
+              const paginatedProposals = area.proposals.slice((proposalPage - 1) * proposalPageSize, proposalPage * proposalPageSize)
               return (
                 <Card key={area.id} className="rounded-xl shadow-sm border bg-white">
                   <Collapsible
@@ -1356,7 +1629,7 @@ export default function CRMReports() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {area.proposals.map((p) => (
+                            {paginatedProposals.map((p) => (
                               <TableRow key={p.id}>
                                 <TableCell className="font-medium">{p.name}</TableCell>
                                 <TableCell>{p.client.name}</TableCell>
@@ -1366,6 +1639,13 @@ export default function CRMReports() {
                             ))}
                           </TableBody>
                         </Table>
+                        <ReportPagination
+                          totalItems={proposalTotalItems}
+                          currentPage={proposalPage}
+                          pageSize={proposalPageSize}
+                          onPageChange={(p) => setPage(proposalKey, p)}
+                          onPageSizeChange={(s) => setPageSize(proposalKey, s)}
+                        />
                       </div>
                     </CollapsibleContent>
                   </Collapsible>
@@ -1385,8 +1665,31 @@ export default function CRMReports() {
 
     const serviceSummary = serviceData.summary
 
+    const servicePage = getPage('service-summary')
+    const servicePageSize = getPageSize('service-summary')
+    const serviceTotalItems = serviceData.data.length
+    const paginatedServiceData = serviceData.data.slice((servicePage - 1) * servicePageSize, servicePage * servicePageSize)
+
+    const handleExportService = () => {
+      const headers = ['Service', 'Proposals', 'Total Value', 'Won Value', 'Win Rate', 'Target', 'Achievement %']
+      const rows = serviceData.data.map((service) => [
+        service.name,
+        String(service.proposalCount),
+        String(service.totalValue),
+        String(service.wonValue),
+        `${service.winRate}%`,
+        String(service.targetAmount),
+        `${service.achievementPct}%`,
+      ])
+      downloadCSV(`eci-crm-service-report-${todayStr}.csv`, headers, rows)
+    }
+
     return (
       <div className="space-y-6">
+        {/* Export Button */}
+        <div className="flex justify-end">
+          <ExportCSVButton onClick={handleExportService} />
+        </div>
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="rounded-xl shadow-sm border bg-white hover:shadow-md transition-shadow">
@@ -1532,76 +1835,81 @@ export default function CRMReports() {
             <CardTitle className="text-base font-semibold text-gray-900">Service Performance</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="max-h-[400px]">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead>Service</TableHead>
-                    <TableHead className="text-center">Proposals</TableHead>
-                    <TableHead className="text-right">Total Value</TableHead>
-                    <TableHead className="text-right">Won Value</TableHead>
-                    <TableHead className="text-center">Win Rate</TableHead>
-                    <TableHead className="text-center">Achievement</TableHead>
-                    <TableHead className="w-[180px]">Target vs Actual</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {serviceData.data.map((service) => (
-                    <TableRow key={service.id} className="hover:bg-muted/30 transition-colors">
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="h-3 w-3 rounded-sm shrink-0" style={{ backgroundColor: service.color }} />
-                          <span className="font-medium">{service.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">{service.proposalCount}</TableCell>
-                      <TableCell className="text-right font-mono text-sm">{formatPKR(service.totalValue)}</TableCell>
-                      <TableCell className="text-right font-mono text-sm text-emerald-600">{formatPKR(service.wonValue)}</TableCell>
-                      <TableCell className="text-center">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead>Service</TableHead>
+                  <TableHead className="text-center">Proposals</TableHead>
+                  <TableHead className="text-right">Total Value</TableHead>
+                  <TableHead className="text-right">Won Value</TableHead>
+                  <TableHead className="text-center">Win Rate</TableHead>
+                  <TableHead className="text-center">Achievement</TableHead>
+                  <TableHead className="w-[180px]">Target vs Actual</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedServiceData.map((service) => (
+                  <TableRow key={service.id} className="hover:bg-muted/30 transition-colors">
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="h-3 w-3 rounded-sm shrink-0" style={{ backgroundColor: service.color }} />
+                        <span className="font-medium">{service.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">{service.proposalCount}</TableCell>
+                    <TableCell className="text-right font-mono text-sm">{formatPKR(service.totalValue)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm text-emerald-600">{formatPKR(service.wonValue)}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${service.winRate >= 50 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : service.winRate > 0 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}
+                      >
+                        {service.winRate}%
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {service.targetAmount > 0 ? (
                         <Badge
                           variant="outline"
-                          className={`text-xs ${service.winRate >= 50 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : service.winRate > 0 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}
+                          className={`text-xs ${service.achievementPct >= 100 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : service.achievementPct >= 50 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'}`}
                         >
-                          {service.winRate}%
+                          {service.achievementPct}%
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {service.targetAmount > 0 ? (
-                          <Badge
-                            variant="outline"
-                            className={`text-xs ${service.achievementPct >= 100 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : service.achievementPct >= 50 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'}`}
-                          >
-                            {service.achievementPct}%
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">No target</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {service.targetAmount > 0 ? (
-                          <div className="space-y-1">
-                            <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all duration-500 ${
-                                  service.achievementPct >= 100 ? 'bg-emerald-500' : service.achievementPct >= 50 ? 'bg-amber-500' : 'bg-red-400'
-                                }`}
-                                style={{ width: `${Math.min(service.achievementPct, 100)}%` }}
-                              />
-                            </div>
-                            <div className="flex justify-between text-[10px] text-muted-foreground">
-                              <span>{formatCompactPKR(service.wonValue)}</span>
-                              <span>{formatCompactPKR(service.targetAmount)}</span>
-                            </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No target</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {service.targetAmount > 0 ? (
+                        <div className="space-y-1">
+                          <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                service.achievementPct >= 100 ? 'bg-emerald-500' : service.achievementPct >= 50 ? 'bg-amber-500' : 'bg-red-400'
+                              }`}
+                              style={{ width: `${Math.min(service.achievementPct, 100)}%` }}
+                            />
                           </div>
-                        ) : (
-                          <div className="h-2.5 bg-gray-100 rounded-full" />
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+                          <div className="flex justify-between text-[10px] text-muted-foreground">
+                            <span>{formatCompactPKR(service.wonValue)}</span>
+                            <span>{formatCompactPKR(service.targetAmount)}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="h-2.5 bg-gray-100 rounded-full" />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <ReportPagination
+              totalItems={serviceTotalItems}
+              currentPage={servicePage}
+              pageSize={servicePageSize}
+              onPageChange={(p) => setPage('service-summary', p)}
+              onPageSizeChange={(s) => setPageSize('service-summary', s)}
+            />
           </CardContent>
         </Card>
 
@@ -1609,63 +1917,77 @@ export default function CRMReports() {
         <div className="space-y-3">
           {serviceData.data
             .filter((s) => s.proposalCount > 0)
-            .map((service) => (
-              <Card key={service.id} className="rounded-xl shadow-sm border bg-white">
-                <Collapsible
-                  open={expandedService[service.id]}
-                  onOpenChange={() => toggleServiceExpand(service.id)}
-                >
-                  <CollapsibleTrigger asChild>
-                    <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors rounded-t-xl">
-                      <div className="flex items-center gap-3">
-                        <div className="h-4 w-4 rounded shrink-0" style={{ backgroundColor: service.color }} />
-                        <span className="font-semibold text-gray-900">{service.name}</span>
-                        <Badge variant="outline" className="text-xs bg-gray-50">
-                          {service.proposalCount} proposals
-                        </Badge>
-                        <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
-                          {formatCompactPKR(service.wonValue)} won
-                        </Badge>
-                        {service.targetAmount > 0 && (
-                          <Badge variant="outline" className={`text-xs ${service.achievementPct >= 100 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                            {service.achievementPct}% of target
+            .map((service) => {
+              const proposalKey = `service-proposals-${service.id}`
+              const proposalPage = getPage(proposalKey)
+              const proposalPageSize = getPageSize(proposalKey)
+              const proposalTotalItems = service.proposals.length
+              const paginatedProposals = service.proposals.slice((proposalPage - 1) * proposalPageSize, proposalPage * proposalPageSize)
+              return (
+                <Card key={service.id} className="rounded-xl shadow-sm border bg-white">
+                  <Collapsible
+                    open={expandedService[service.id]}
+                    onOpenChange={() => toggleServiceExpand(service.id)}
+                  >
+                    <CollapsibleTrigger asChild>
+                      <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors rounded-t-xl">
+                        <div className="flex items-center gap-3">
+                          <div className="h-4 w-4 rounded shrink-0" style={{ backgroundColor: service.color }} />
+                          <span className="font-semibold text-gray-900">{service.name}</span>
+                          <Badge variant="outline" className="text-xs bg-gray-50">
+                            {service.proposalCount} proposals
                           </Badge>
+                          <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
+                            {formatCompactPKR(service.wonValue)} won
+                          </Badge>
+                          {service.targetAmount > 0 && (
+                            <Badge variant="outline" className={`text-xs ${service.achievementPct >= 100 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                              {service.achievementPct}% of target
+                            </Badge>
+                          )}
+                        </div>
+                        {expandedService[service.id] ? (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         )}
                       </div>
-                      {expandedService[service.id] ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </div>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="px-4 pb-4">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Proposal</TableHead>
-                            <TableHead>Client</TableHead>
-                            <TableHead className="text-right">Value</TableHead>
-                            <TableHead>Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {service.proposals.map((p) => (
-                            <TableRow key={p.id}>
-                              <TableCell className="font-medium">{p.name}</TableCell>
-                              <TableCell>{p.client.name}</TableCell>
-                              <TableCell className="text-right font-mono text-sm">{formatPKR(p.value)}</TableCell>
-                              <TableCell>{renderStatusBadge(p.status)}</TableCell>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="px-4 pb-4">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Proposal</TableHead>
+                              <TableHead>Client</TableHead>
+                              <TableHead className="text-right">Value</TableHead>
+                              <TableHead>Status</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </Card>
-            ))}
+                          </TableHeader>
+                          <TableBody>
+                            {paginatedProposals.map((p) => (
+                              <TableRow key={p.id}>
+                                <TableCell className="font-medium">{p.name}</TableCell>
+                                <TableCell>{p.client.name}</TableCell>
+                                <TableCell className="text-right font-mono text-sm">{formatPKR(p.value)}</TableCell>
+                                <TableCell>{renderStatusBadge(p.status)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        <ReportPagination
+                          totalItems={proposalTotalItems}
+                          currentPage={proposalPage}
+                          pageSize={proposalPageSize}
+                          onPageChange={(p) => setPage(proposalKey, p)}
+                          onPageSizeChange={(s) => setPageSize(proposalKey, s)}
+                        />
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </Card>
+              )
+            })}
         </div>
       </div>
     )

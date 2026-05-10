@@ -40,8 +40,13 @@ import {
   CheckCircle2,
   FileJson,
   Shield,
+  Palette,
+  Sun,
+  Moon,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useCRMStore } from "@/lib/store";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -2295,11 +2300,161 @@ function BackupRestoreTab() {
 // Main Settings Component
 // ──────────────────────────────────────────────
 
+// ──────────────────────────────────────────────
+// Theme Switcher Tab
+// ──────────────────────────────────────────────
+
+const THEME_OPTIONS = [
+  {
+    id: 'original' as const,
+    name: 'Classic',
+    description: 'Clean neutral design with emerald accents',
+    preview: {
+      sidebar: 'bg-slate-900',
+      accent: 'bg-emerald-500',
+      accentLight: 'bg-emerald-100',
+      bg: 'bg-slate-50',
+      header: 'bg-white',
+    },
+  },
+  {
+    id: 'eci' as const,
+    name: 'ECI Brand',
+    description: 'Dark navy & red — ECI organizational identity',
+    preview: {
+      sidebar: 'bg-[#1A365D]',
+      accent: 'bg-[#C62828]',
+      accentLight: 'bg-red-100',
+      bg: 'bg-[#F5F5F5]',
+      header: 'bg-white',
+    },
+  },
+];
+
+function ThemeSwitcherTab() {
+  const { theme, setTheme } = useCRMStore();
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/30">
+              <Palette className="size-5 text-violet-600 dark:text-violet-400" />
+            </div>
+            <div>
+              <CardTitle>Theme Selection</CardTitle>
+              <CardDescription>
+                Choose the visual theme for your CRM. Changes apply instantly.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {THEME_OPTIONS.map((option) => {
+              const isActive = theme === option.id;
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => setTheme(option.id)}
+                  className={`relative flex flex-col rounded-xl border-2 p-4 text-left transition-all duration-200 hover:shadow-md ${
+                    isActive
+                      ? 'border-primary ring-2 ring-primary/20 shadow-md'
+                      : 'border-border hover:border-primary/40'
+                  }`}
+                >
+                  {isActive && (
+                    <div className="absolute -right-2 -top-2 flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                      <Check className="size-3.5" />
+                    </div>
+                  )}
+
+                  {/* Mini preview */}
+                  <div className="mb-3 overflow-hidden rounded-lg border">
+                    <div className={`h-6 ${option.preview.header} flex items-center px-2 border-b`}>
+                      <div className="h-1.5 w-8 rounded-full bg-gray-200" />
+                    </div>
+                    <div className="flex">
+                      <div className={`w-10 ${option.preview.sidebar} p-1.5 space-y-1`}>
+                        <div className={`h-1 w-full rounded-full ${isActive && option.id === 'eci' ? 'bg-white/20' : 'bg-white/20'}`} />
+                        <div className={`h-1 w-3/4 rounded-full ${option.preview.accent}/30`} />
+                        <div className="h-1 w-full rounded-full bg-white/10" />
+                        <div className="h-1 w-full rounded-full bg-white/10" />
+                      </div>
+                      <div className={`flex-1 ${option.preview.bg} p-1.5 space-y-1`}>
+                        <div className={`h-1.5 w-2/3 rounded-full bg-gray-300/50`} />
+                        <div className="flex gap-1">
+                          <div className={`h-2 flex-1 rounded ${option.preview.accentLight}`} />
+                          <div className="h-2 flex-1 rounded bg-gray-200/50" />
+                        </div>
+                        <div className={`h-1 w-1/2 rounded-full ${option.preview.accent}/20`} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm">{option.name}</span>
+                      {isActive && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary">
+                          Active
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{option.description}</p>
+                  </div>
+
+                  {/* Color swatches */}
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <div className={`size-4 rounded-full ${option.preview.sidebar} border border-white/20 shadow-sm`} />
+                    <div className={`size-4 rounded-full ${option.preview.accent} border border-white/20 shadow-sm`} />
+                    <div className={`size-4 rounded-full ${option.preview.accentLight} border shadow-sm`} />
+                    <div className={`size-4 rounded-full ${option.preview.bg} border shadow-sm`} />
+                    <div className={`size-4 rounded-full ${option.preview.header} border shadow-sm`} />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Theme Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">About Themes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <div className="flex items-start gap-2">
+              <span className="text-brand mt-0.5">&#10003;</span>
+              <span><strong className="text-foreground">Classic Theme</strong> — A clean, professional look with neutral grays and emerald green accents. Ideal for a modern, minimalist feel.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-brand mt-0.5">&#10003;</span>
+              <span><strong className="text-foreground">ECI Brand Theme</strong> — Features the official ECI identity colors: deep navy blue sidebar and bold red accents, matching the ECI Organizational Profile branding.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-brand mt-0.5">&#10003;</span>
+              <span>Your theme preference is saved automatically and persists across sessions.</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
+// Main Settings Component
+// ──────────────────────────────────────────────
+
 export function CRMSettings() {
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 p-4 md:p-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Poppins, Inter, sans-serif' }}>Settings</h1>
         <p className="text-muted-foreground">
           Manage your CRM configuration, team, and business parameters.
         </p>
@@ -2312,6 +2467,11 @@ export function CRMSettings() {
             <span className="hidden sm:inline">Company Branding</span>
             <span className="sm:hidden">Branding</span>
           </TabsTrigger>
+          <TabsTrigger value="theme" className="gap-1.5 text-xs sm:text-sm">
+            <Palette className="size-4" />
+            <span className="hidden sm:inline">Theme</span>
+            <span className="sm:hidden">Theme</span>
+          </TabsTrigger>
           <TabsTrigger value="team" className="gap-1.5 text-xs sm:text-sm">
             <Users className="size-4" />
             <span className="hidden sm:inline">Team Management</span>
@@ -2320,7 +2480,7 @@ export function CRMSettings() {
           <TabsTrigger value="thematic" className="gap-1.5 text-xs sm:text-sm">
             <Tag className="size-4" />
             <span className="hidden sm:inline">Thematic Areas</span>
-            <span className="sm:hidden">Themes</span>
+            <span className="sm:hidden">Areas</span>
           </TabsTrigger>
           <TabsTrigger value="services" className="gap-1.5 text-xs sm:text-sm">
             <Briefcase className="size-4" />
@@ -2340,6 +2500,10 @@ export function CRMSettings() {
 
         <TabsContent value="branding">
           <CompanyBrandingTab />
+        </TabsContent>
+
+        <TabsContent value="theme">
+          <ThemeSwitcherTab />
         </TabsContent>
 
         <TabsContent value="team">
