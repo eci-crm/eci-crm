@@ -119,3 +119,36 @@ Stage Summary:
 - Client import duplicate check now uses PostgreSQL `mode: 'insensitive'` for proper case-insensitive matching
 - Services, proposals, logo, and scrolling all verified working
 - Zero remaining SQLite references in source code
+
+---
+Task ID: 9
+Agent: Main
+Task: Migrate ECI CRM from SQLite to Neon PostgreSQL - fix data loss issue on Vercel
+
+Work Log:
+- Identified root cause of data loss: Prisma schema was using `provider = "sqlite"` despite Neon being linked on Vercel
+- The `DATABASE_URL` on Vercel was set to SQLite path (`file:./db/custom.db`), and the `DIRECT_URL` had the Neon connection string but was never used
+- The `db.ts` had a SQLite-specific Vercel workaround that copied the database to `/tmp` on every cold start — data was lost on each deployment
+- Changed `prisma/schema.prisma`: `provider = "postgresql"`, added `directUrl = env("DIRECT_URL")`
+- Rewrote `src/lib/db.ts`: removed all SQLite-specific code (Vercel /tmp workaround, file copying)
+- Updated `.env` with Neon PostgreSQL connection strings for both DATABASE_URL and DIRECT_URL
+- Ran `npx prisma db push` to create all tables in Neon PostgreSQL
+- Verified existing data in Neon: 13 Clients, 20 Proposals, 4 Team Members, 6 Thematic Areas, 5 Settings
+- Seeded 6 Services and Business Targets into Neon (these were missing)
+- Fixed Vercel environment variables: deleted old SQLite DATABASE_URL, created new one pointing to Neon PostgreSQL
+- Created `start-dev.sh` wrapper script to handle local dev environment with correct DATABASE_URL
+- Pushed to GitHub (commit 1b5d3cd)
+- Deployed to Vercel production: https://my-project-sigma-ruby-33.vercel.app
+- Verified ALL APIs working on production with Neon data:
+  - Services: 6 ECI services
+  - Clients: 13 (IRC, UNDP, PSDF, Care International, etc.)
+  - Proposals: 20 (In Process: 6, In Evaluation: 12, Won: 2)
+  - Dashboard: Total business PKR 58,696,000
+  - Settings: ECI CRM branding with logo
+  - Thematic Areas: 6 areas
+
+Stage Summary:
+- **CRITICAL FIX**: Data was being lost because the app was using SQLite (ephemeral on Vercel) instead of Neon PostgreSQL
+- Neon PostgreSQL is now properly connected: DATABASE_URL and DIRECT_URL both point to Neon
+- All 20 proposals, 13 clients, and other data are PERSISTENT in Neon and will NOT be lost on redeployment
+- Production deployment verified working with real data
