@@ -862,7 +862,8 @@ ${additionalContext}`
           token: process.env.AI_TOKEN,
         }
         // Constructor is typed as private in the SDK's .d.ts but accepts config at runtime
-        const zai = new (ZAI as any)(zaiConfig) as InstanceType<typeof ZAI>
+        const ZaiClass = ZAI as any // eslint-disable-line @typescript-eslint/no-explicit-any
+        const zai = new ZaiClass(zaiConfig)
 
         const sdkResponse = await withTimeout(
           zai.chat.completions.create({ messages }),
