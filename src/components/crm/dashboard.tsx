@@ -1196,7 +1196,6 @@ export default function CRMDashboard() {
                     />
                     <Legend
                       wrapperStyle={{ fontSize: '12px' }}
-                      iconType="rounded"
                     />
                     <Bar dataKey="Target" fill={isECITheme ? '#1d4ed8' : '#0d9488'} radius={[6, 6, 0, 0]} maxBarSize={36} />
                     <Bar dataKey="Actual" fill={isECITheme ? '#2563eb' : '#10b981'} radius={[6, 6, 0, 0]} maxBarSize={36} />
