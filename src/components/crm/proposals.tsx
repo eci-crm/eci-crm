@@ -933,8 +933,8 @@ export default function Proposals() {
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 px-6 min-h-0">
-            <div className="space-y-6 pb-4">
+          <ScrollArea className="flex-1 px-6 min-h-0 overflow-hidden">
+            <div className="space-y-6 pb-6">
               {/* ── Basic Info ────────────────────────────────────────── */}
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">

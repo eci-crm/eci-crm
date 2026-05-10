@@ -95,7 +95,6 @@ export function CRMChatbot() {
   const [inputValue, setInputValue] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>(DEFAULT_SUGGESTIONS)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
 
@@ -132,18 +131,24 @@ export function CRMChatbot() {
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     const scrollToBottom = () => {
-      if (messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+      const container = messagesContainerRef.current
+      if (container) {
+        // Direct scrollTop manipulation is more reliable than scrollIntoView
+        container.scrollTop = container.scrollHeight
       }
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-    // Multiple attempts to ensure scroll works after layout
-    requestAnimationFrame(() => {
+    // Use requestAnimationFrame to ensure DOM has updated
+    const rafId = requestAnimationFrame(() => {
       requestAnimationFrame(scrollToBottom)
     })
-    // Fallback timeout for delayed renders
-    const timer = setTimeout(scrollToBottom, 100)
-    return () => clearTimeout(timer)
+    // Fallback timeout for delayed renders (images, async content)
+    const timer = setTimeout(scrollToBottom, 150)
+    const laterTimer = setTimeout(scrollToBottom, 400)
+    return () => {
+      cancelAnimationFrame(rafId)
+      clearTimeout(timer)
+      clearTimeout(laterTimer)
+    }
   }, [messages, sendMessage.isPending])
 
   // Focus input when chat opens
@@ -233,7 +238,11 @@ export function CRMChatbot() {
             </div>
 
             {/* Messages Area */}
-            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 scroll-smooth" style={{ scrollbarGutter: 'stable' }}>
+            <div
+              ref={messagesContainerRef}
+              className="flex-1 overflow-y-auto p-4"
+              style={{ scrollbarWidth: 'thin', scrollbarGutter: 'stable' }}
+            >
               {messages.length === 0 && !sendMessage.isPending ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/30">
@@ -249,9 +258,9 @@ export function CRMChatbot() {
                   {messages.map((msg) => (
                     <motion.div
                       key={msg.id}
-                      initial={{ opacity: 0, y: 6 }}
+                      initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.2 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
                       className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
                     >
                       {/* Avatar */}
@@ -267,13 +276,14 @@ export function CRMChatbot() {
 
                       {/* Message bubble */}
                       <div
-                        className={`max-w-[75%] rounded-2xl px-3.5 py-2.5 ${
+                        className={`max-w-[75%] break-words rounded-2xl px-3.5 py-2.5 ${
                           msg.role === 'user'
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-muted text-foreground'
                         }`}
+                        style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}
                       >
-                        <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                        <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}>{msg.content}</p>
                         <p
                           className={`mt-1 text-[10px] ${
                             msg.role === 'user'
@@ -290,8 +300,9 @@ export function CRMChatbot() {
                   {/* Loading indicator */}
                   {sendMessage.isPending && (
                     <motion.div
-                      initial={{ opacity: 0, y: 6 }}
+                      initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
                       className="flex gap-2"
                     >
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40">
@@ -303,8 +314,7 @@ export function CRMChatbot() {
                     </motion.div>
                   )}
 
-                  {/* Scroll anchor */}
-                  <div ref={messagesEndRef} />
+                  {/* Scroll anchor - scroll is handled via scrollTop on the container */}
                 </div>
               )}
             </div>

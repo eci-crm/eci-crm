@@ -37,6 +37,7 @@ import {
   Percent,
   LayoutGrid,
   Sparkles,
+  SlidersHorizontal,
 } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -219,10 +220,24 @@ const QUARTERS = [
 
 // Years will be fetched dynamically from the API
 const FALLBACK_YEARS = [
+  { value: '2020', label: '2020' },
+  { value: '2021', label: '2021' },
+  { value: '2022', label: '2022' },
+  { value: '2023', label: '2023' },
   { value: '2024', label: '2024' },
   { value: '2025', label: '2025' },
   { value: '2026', label: '2026' },
+  { value: '2027', label: '2027' },
+  { value: '2028', label: '2028' },
 ]
+
+// Category definitions for the pill selector
+const REPORT_CATEGORIES = [
+  { value: 'all', label: 'All Reports', icon: LayoutGrid, color: 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200', activeColor: 'bg-gray-800 text-white border-gray-800 shadow-md' },
+  { value: 'client', label: 'By Client', icon: Users, color: 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100', activeColor: 'bg-blue-600 text-white border-blue-600 shadow-md' },
+  { value: 'service', label: 'By Service', icon: Wrench, color: 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100', activeColor: 'bg-amber-600 text-white border-amber-600 shadow-md' },
+  { value: 'thematic', label: 'By Thematic Area', icon: Layers, color: 'bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100', activeColor: 'bg-purple-600 text-white border-purple-600 shadow-md' },
+] as const
 
 const formatPKR = (value: number) => `₨ ${value.toLocaleString()}`
 
@@ -492,7 +507,7 @@ export default function CRMReports() {
 
   const removeFilter = (key: keyof Filters) => {
     const resetValue = key === 'year' ? currentYear : ''
-    const newFilters = { ...filters, [key]: resetValue }
+    const newFilters = { ...appliedFilters, [key]: resetValue }
     setFilters(newFilters)
     setAppliedFilters(newFilters)
   }
@@ -506,18 +521,79 @@ export default function CRMReports() {
     appliedFilters.month !== '' ||
     appliedFilters.quarter !== ''
 
-  // Category handler - auto-switch tab and apply relevant filter
+  // Category handler - auto-switch tab, clear non-relevant filters, and apply
   const handleCategoryChange = useCallback((category: string) => {
     setReportCategory(category)
+
+    // Build new filters: clear filters unrelated to the chosen category
+    const baseFilters: Filters = {
+      clientId: '',
+      serviceId: '',
+      thematicAreaId: '',
+      startDate: '',
+      endDate: '',
+      month: '',
+      quarter: '',
+      year: currentYear,
+    }
+
     if (category === 'client') {
       setActiveTab('clients')
+      // Keep only client-related filters from current applied filters
+      baseFilters.clientId = appliedFilters.clientId
     } else if (category === 'service') {
       setActiveTab('service')
+      baseFilters.serviceId = appliedFilters.serviceId
     } else if (category === 'thematic') {
       setActiveTab('thematic')
+      baseFilters.thematicAreaId = appliedFilters.thematicAreaId
     }
-    // 'all' stays on current tab
-  }, [])
+    // 'all' stays on current tab and clears category-specific filters
+
+    // Preserve date filters across category switches
+    baseFilters.startDate = appliedFilters.startDate
+    baseFilters.endDate = appliedFilters.endDate
+    baseFilters.month = appliedFilters.month
+    baseFilters.quarter = appliedFilters.quarter
+    baseFilters.year = appliedFilters.year
+
+    setFilters(baseFilters)
+    setAppliedFilters(baseFilters)
+  }, [appliedFilters, currentYear])
+
+  // Compute the active quick date range for highlighting
+  const activeQuickDate = useMemo<'thisMonth' | 'thisQuarter' | 'thisYear' | null>(() => {
+    const now = new Date()
+    const year = String(now.getFullYear())
+    const month = String(now.getMonth())
+    const q = String(Math.floor(now.getMonth() / 3) + 1)
+
+    if (
+      appliedFilters.month === month &&
+      appliedFilters.quarter === '' &&
+      appliedFilters.year === year &&
+      !appliedFilters.startDate &&
+      !appliedFilters.endDate
+    ) return 'thisMonth'
+
+    if (
+      appliedFilters.quarter === q &&
+      appliedFilters.month === '' &&
+      appliedFilters.year === year &&
+      !appliedFilters.startDate &&
+      !appliedFilters.endDate
+    ) return 'thisQuarter'
+
+    if (
+      appliedFilters.year === year &&
+      appliedFilters.month === '' &&
+      appliedFilters.quarter === '' &&
+      !appliedFilters.startDate &&
+      !appliedFilters.endDate
+    ) return 'thisYear'
+
+    return null
+  }, [appliedFilters])
 
   // Quick date range handlers
   const handleQuickDate = useCallback((period: 'thisMonth' | 'thisQuarter' | 'thisYear') => {
@@ -542,40 +618,43 @@ export default function CRMReports() {
   // Dynamic year options
   const yearOptions = useMemo(() => {
     if (availableYears.length > 0) {
-      return availableYears.map((y) => ({ value: String(y), label: String(y) }))
+      // Merge API years with fallback years and sort
+      const fallbackNums = FALLBACK_YEARS.map((y) => Number(y.value))
+      const merged = Array.from(new Set([...availableYears, ...fallbackNums])).sort((a, b) => a - b)
+      return merged.map((y) => ({ value: String(y), label: String(y) }))
     }
     return FALLBACK_YEARS
   }, [availableYears])
 
-  // Active filter badges
+  // Active filter badges with enhanced visual info
   const activeFilterBadges = useMemo(() => {
-    const badges: { key: keyof Filters; label: string }[] = []
+    const badges: { key: keyof Filters; label: string; color: string; icon: React.ComponentType<{ className?: string }> }[] = []
 
     if (appliedFilters.clientId) {
       const client = clientsList.find((c) => c.id === appliedFilters.clientId)
-      if (client) badges.push({ key: 'clientId', label: `Client: ${client.name}` })
+      if (client) badges.push({ key: 'clientId', label: client.name, color: 'bg-blue-50 text-blue-700 border-blue-200', icon: Users })
     }
     if (appliedFilters.serviceId) {
       const service = services.find((s) => s.id === appliedFilters.serviceId)
-      if (service) badges.push({ key: 'serviceId', label: `Service: ${service.name}` })
+      if (service) badges.push({ key: 'serviceId', label: service.name, color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Wrench })
     }
     if (appliedFilters.thematicAreaId) {
       const area = thematicAreas.find((ta) => ta.id === appliedFilters.thematicAreaId)
-      if (area) badges.push({ key: 'thematicAreaId', label: `Thematic: ${area.name}` })
+      if (area) badges.push({ key: 'thematicAreaId', label: area.name, color: 'bg-purple-50 text-purple-700 border-purple-200', icon: Layers })
     }
     if (appliedFilters.startDate) {
-      badges.push({ key: 'startDate', label: `From: ${appliedFilters.startDate}` })
+      badges.push({ key: 'startDate', label: `From: ${appliedFilters.startDate}`, color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: Calendar })
     }
     if (appliedFilters.endDate) {
-      badges.push({ key: 'endDate', label: `To: ${appliedFilters.endDate}` })
+      badges.push({ key: 'endDate', label: `To: ${appliedFilters.endDate}`, color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: Calendar })
     }
     if (appliedFilters.month !== '') {
       const monthObj = MONTHS.find((m) => m.value === appliedFilters.month)
-      if (monthObj) badges.push({ key: 'month', label: monthObj.label })
+      if (monthObj) badges.push({ key: 'month', label: monthObj.label, color: 'bg-teal-50 text-teal-700 border-teal-200', icon: Calendar })
     }
     if (appliedFilters.quarter !== '') {
       const quarterObj = QUARTERS.find((q) => q.value === appliedFilters.quarter)
-      if (quarterObj) badges.push({ key: 'quarter', label: quarterObj.label })
+      if (quarterObj) badges.push({ key: 'quarter', label: quarterObj.label, color: 'bg-orange-50 text-orange-700 border-orange-200', icon: Calendar })
     }
 
     return badges
@@ -1602,94 +1681,128 @@ export default function CRMReports() {
           </div>
         </div>
 
+        {/* ── Category Quick-Select (Pill Buttons) ─────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-semibold text-gray-700">View:</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {REPORT_CATEGORIES.map((cat) => {
+              const Icon = cat.icon
+              const isActive = reportCategory === cat.value
+              return (
+                <button
+                  key={cat.value}
+                  onClick={() => handleCategoryChange(cat.value)}
+                  className={`
+                    inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
+                    border transition-all duration-200 cursor-pointer
+                    ${isActive ? cat.activeColor : cat.color}
+                  `}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{cat.label}</span>
+                  {isActive && cat.value !== 'all' && (
+                    <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-white/70 animate-pulse" />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* ── Active Filters Indicator ──────────────────────────────────── */}
+        {hasActiveFilters && activeFilterBadges.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 shadow-sm">
+            <Filter className="h-4 w-4 text-amber-600 shrink-0" />
+            <span className="text-sm font-semibold text-amber-800">Filtered by</span>
+            <span className="text-xs text-amber-600 bg-amber-100 rounded-full px-2 py-0.5 font-medium">
+              {activeFilterBadges.length} {activeFilterBadges.length === 1 ? 'filter' : 'filters'}
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5 ml-1">
+              {activeFilterBadges.map((badge) => {
+                const BadgeIcon = badge.icon
+                return (
+                  <Badge
+                    key={badge.key}
+                    variant="outline"
+                    className={`${badge.color} gap-1.5 px-2.5 py-1 text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity border`}
+                    onClick={() => removeFilter(badge.key)}
+                  >
+                    <BadgeIcon className="h-3 w-3" />
+                    {badge.label}
+                    <X className="h-3 w-3 ml-0.5" />
+                  </Badge>
+                )
+              })}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-amber-700 hover:text-red-600 hover:bg-amber-100 ml-auto px-2 font-medium"
+              onClick={clearFilters}
+            >
+              Clear all
+            </Button>
+          </div>
+        )}
+
         {/* ── Filter Bar ─────────────────────────────────────────────── */}
         <Card className="rounded-xl shadow-sm border bg-white">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-gray-700">Filters</span>
-              {hasActiveFilters && (
-                <Badge variant="secondary" className="text-xs">
-                  Active
-                </Badge>
+            {/* Quick Date Range Buttons */}
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs font-semibold text-gray-600 mr-1">Quick Range:</span>
+              {([
+                { key: 'thisMonth' as const, label: 'This Month' },
+                { key: 'thisQuarter' as const, label: 'This Quarter' },
+                { key: 'thisYear' as const, label: 'This Year' },
+              ]).map((qd) => (
+                <Button
+                  key={qd.key}
+                  variant={activeQuickDate === qd.key ? 'default' : 'outline'}
+                  size="sm"
+                  className={`h-8 text-xs gap-1.5 font-medium transition-all ${
+                    activeQuickDate === qd.key
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                      : 'hover:border-emerald-300 hover:text-emerald-700'
+                  }`}
+                  onClick={() => handleQuickDate(qd.key)}
+                >
+                  <Sparkles className="h-3 w-3" />
+                  {qd.label}
+                </Button>
+              ))}
+              {activeQuickDate && (
+                <button
+                  onClick={() => {
+                    const newFilters = { ...filters, month: '', quarter: '', startDate: '', endDate: '' }
+                    setFilters(newFilters)
+                    setAppliedFilters(newFilters)
+                  }}
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-red-500 ml-1 cursor-pointer transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                  Reset date
+                </button>
               )}
             </div>
 
-            {/* Quick Date Range Buttons */}
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <span className="text-xs font-medium text-muted-foreground mr-1">Quick:</span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={() => handleQuickDate('thisMonth')}
-              >
-                <Sparkles className="h-3 w-3" />
-                This Month
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={() => handleQuickDate('thisQuarter')}
-              >
-                <Sparkles className="h-3 w-3" />
-                This Quarter
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={() => handleQuickDate('thisYear')}
-              >
-                <Sparkles className="h-3 w-3" />
-                This Year
-              </Button>
-            </div>
-
-            {/* Category Filter + Row 1: Client, Service, Thematic Area */}
+            {/* Row 1: Client, Service, Thematic Area, Year */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Category</label>
-                <Select value={reportCategory} onValueChange={handleCategoryChange}>
-                  <SelectTrigger className="h-9 text-sm w-full">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        <LayoutGrid className="h-3 w-3 shrink-0 text-muted-foreground" />
-                        <span>All</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="client">
-                      <div className="flex items-center gap-2">
-                        <Users className="h-3 w-3 shrink-0 text-muted-foreground" />
-                        <span>By Client</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="service">
-                      <div className="flex items-center gap-2">
-                        <Wrench className="h-3 w-3 shrink-0 text-muted-foreground" />
-                        <span>By Service</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="thematic">
-                      <div className="flex items-center gap-2">
-                        <Layers className="h-3 w-3 shrink-0 text-muted-foreground" />
-                        <span>By Thematic Area</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Client</label>
                 <Select
                   value={filters.clientId || '__all__'}
-                  onValueChange={(v) => setFilters((f) => ({ ...f, clientId: v === '__all__' ? '' : v }))}
+                  onValueChange={(v) => {
+                    const newFilters = { ...filters, clientId: v === '__all__' ? '' : v }
+                    setFilters(newFilters)
+                    setAppliedFilters(newFilters)
+                  }}
                 >
-                  <SelectTrigger className="h-9 text-sm w-full">
+                  <SelectTrigger className={`h-9 text-sm w-full ${appliedFilters.clientId ? 'border-blue-300 bg-blue-50/50' : ''}`}>
                     <SelectValue placeholder="All Clients" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1709,9 +1822,13 @@ export default function CRMReports() {
                 <label className="text-xs font-medium text-muted-foreground">Service</label>
                 <Select
                   value={filters.serviceId || '__all__'}
-                  onValueChange={(v) => setFilters((f) => ({ ...f, serviceId: v === '__all__' ? '' : v }))}
+                  onValueChange={(v) => {
+                    const newFilters = { ...filters, serviceId: v === '__all__' ? '' : v }
+                    setFilters(newFilters)
+                    setAppliedFilters(newFilters)
+                  }}
                 >
-                  <SelectTrigger className="h-9 text-sm w-full">
+                  <SelectTrigger className={`h-9 text-sm w-full ${appliedFilters.serviceId ? 'border-amber-300 bg-amber-50/50' : ''}`}>
                     <SelectValue placeholder="All Services" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1731,9 +1848,13 @@ export default function CRMReports() {
                 <label className="text-xs font-medium text-muted-foreground">Thematic Area</label>
                 <Select
                   value={filters.thematicAreaId || '__all__'}
-                  onValueChange={(v) => setFilters((f) => ({ ...f, thematicAreaId: v === '__all__' ? '' : v }))}
+                  onValueChange={(v) => {
+                    const newFilters = { ...filters, thematicAreaId: v === '__all__' ? '' : v }
+                    setFilters(newFilters)
+                    setAppliedFilters(newFilters)
+                  }}
                 >
-                  <SelectTrigger className="h-9 text-sm w-full">
+                  <SelectTrigger className={`h-9 text-sm w-full ${appliedFilters.thematicAreaId ? 'border-purple-300 bg-purple-50/50' : ''}`}>
                     <SelectValue placeholder="All Thematic Areas" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1749,9 +1870,31 @@ export default function CRMReports() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Year</label>
+                <Select
+                  value={filters.year}
+                  onValueChange={(v) => {
+                    const newFilters = { ...filters, year: v }
+                    setFilters(newFilters)
+                    setAppliedFilters(newFilters)
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-sm w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {yearOptions.map((y) => (
+                      <SelectItem key={y.value} value={y.value}>
+                        {y.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            {/* Row 2: From Date, To Date, Month, Quarter, Year, Apply/Clear */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {/* Row 2: From Date, To Date, Month, Quarter, Apply/Clear */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">From</label>
                 <Input
@@ -1807,25 +1950,7 @@ export default function CRMReports() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Year</label>
-                <Select
-                  value={filters.year}
-                  onValueChange={(v) => setFilters((f) => ({ ...f, year: v }))}
-                >
-                  <SelectTrigger className="h-9 text-sm w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {yearOptions.map((y) => (
-                      <SelectItem key={y.value} value={y.value}>
-                        {y.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-transparent">Action</label>
+                <label className="text-xs font-medium text-muted-foreground">Actions</label>
                 <div className="flex gap-1.5">
                   <Button
                     size="sm"
@@ -1846,55 +1971,39 @@ export default function CRMReports() {
                 </div>
               </div>
             </div>
-
-            {/* Active Filter Badges */}
-            {hasActiveFilters && activeFilterBadges.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-gray-100">
-                <span className="text-xs text-muted-foreground mr-1">Active:</span>
-                {activeFilterBadges.map((badge) => (
-                  <Badge
-                    key={badge.key}
-                    variant="secondary"
-                    className="text-xs gap-1 pr-1 cursor-pointer hover:bg-red-50 hover:text-red-600 transition-colors"
-                    onClick={() => removeFilter(badge.key)}
-                  >
-                    {badge.label}
-                    <X className="h-3 w-3" />
-                  </Badge>
-                ))}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-xs text-muted-foreground hover:text-destructive px-2"
-                  onClick={clearFilters}
-                >
-                  Clear all
-                </Button>
-              </div>
-            )}
           </CardContent>
         </Card>
 
         {/* ── Tabs ───────────────────────────────────────────────────── */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={(tab) => {
+          setActiveTab(tab)
+          // Sync category with tab if user clicks a tab directly
+          if (tab === 'clients' && reportCategory !== 'all' && reportCategory !== 'client') {
+            setReportCategory('all')
+          } else if (tab === 'service' && reportCategory !== 'all' && reportCategory !== 'service') {
+            setReportCategory('all')
+          } else if (tab === 'thematic' && reportCategory !== 'all' && reportCategory !== 'thematic') {
+            setReportCategory('all')
+          }
+        }}>
           <TabsList className="bg-white border shadow-sm rounded-xl h-auto p-1.5 gap-1">
-            <TabsTrigger value="clients" className="rounded-lg text-xs sm:text-sm gap-1.5 px-3 py-2">
+            <TabsTrigger value="clients" className="rounded-lg text-xs sm:text-sm gap-1.5 px-3 py-2 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Clients</span>
             </TabsTrigger>
-            <TabsTrigger value="proposals" className="rounded-lg text-xs sm:text-sm gap-1.5 px-3 py-2">
+            <TabsTrigger value="proposals" className="rounded-lg text-xs sm:text-sm gap-1.5 px-3 py-2 data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700">
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Proposals</span>
             </TabsTrigger>
-            <TabsTrigger value="summary" className="rounded-lg text-xs sm:text-sm gap-1.5 px-3 py-2">
+            <TabsTrigger value="summary" className="rounded-lg text-xs sm:text-sm gap-1.5 px-3 py-2 data-[state=active]:bg-amber-50 data-[state=active]:text-amber-700">
               <TrendingUp className="h-4 w-4" />
               <span className="hidden sm:inline">Summary</span>
             </TabsTrigger>
-            <TabsTrigger value="thematic" className="rounded-lg text-xs sm:text-sm gap-1.5 px-3 py-2">
+            <TabsTrigger value="thematic" className="rounded-lg text-xs sm:text-sm gap-1.5 px-3 py-2 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700">
               <Layers className="h-4 w-4" />
               <span className="hidden sm:inline">Thematic</span>
             </TabsTrigger>
-            <TabsTrigger value="service" className="rounded-lg text-xs sm:text-sm gap-1.5 px-3 py-2">
+            <TabsTrigger value="service" className="rounded-lg text-xs sm:text-sm gap-1.5 px-3 py-2 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-700">
               <Wrench className="h-4 w-4" />
               <span className="hidden sm:inline">Service</span>
             </TabsTrigger>

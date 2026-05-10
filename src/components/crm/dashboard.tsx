@@ -599,11 +599,17 @@ export default function CRMDashboard() {
     return `${format(start, 'MMM dd')} – ${format(end, 'MMM dd, yyyy')}`
   }, [activePeriod, customStartDate, customEndDate, computedDateRange])
 
+  // KPI title suffix — shows active period name when not full year
+  const kpiPeriodSuffix = activePeriod !== 'thisYear' ? ` (${PERIOD_LABELS[activePeriod]})` : ''
+
+  // Whether we're viewing a filtered (non-default) period
+  const isFilteredPeriod = activePeriod !== 'thisYear'
+
   // ─── Loading skeleton ──────────────────────────────────────────────────
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100/80 p-4 md:p-6 lg:p-8 space-y-6">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/80 p-4 md:p-6 lg:p-8 space-y-6">
         <Skeleton className="h-36 rounded-2xl" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
@@ -625,8 +631,8 @@ export default function CRMDashboard() {
 
   if (isError || !dashboard) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100/80 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full rounded-2xl shadow-lg border-0">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/80 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full rounded-2xl shadow-xl border-0 bg-white/90 backdrop-blur-sm ring-1 ring-gray-900/[0.03]">
           <CardContent className="p-8 text-center">
             <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
             <h2 className="text-lg font-semibold text-gray-900 mb-2">
@@ -657,21 +663,38 @@ export default function CRMDashboard() {
       <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto">
 
         {/* ═══════════════ HERO HEADER ═══════════════ */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 shadow-lg">
+        <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 shadow-lg transition-all duration-500 ${isFilteredPeriod ? 'ring-2 ring-amber-300/50 shadow-amber-200/30' : ''}`}>
           {/* Decorative shapes */}
           <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
           <div className="absolute bottom-0 left-1/3 w-56 h-56 bg-white/5 rounded-full translate-y-1/2" />
+          {/* Filtered period glow overlay */}
+          {isFilteredPeriod && (
+            <div className="absolute inset-0 bg-gradient-to-r from-amber-400/10 via-transparent to-amber-400/10 pointer-events-none" />
+          )}
 
           <div className="relative p-6 md:p-8 space-y-5">
             {/* Top row: Title + Year selector + Last updated */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-                  Dashboard
-                </h1>
-                <p className="text-emerald-100 mt-1 text-sm md:text-base">
-                  Fiscal Year {selectedYear} — {periodSubtitle}
-                </p>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                    Dashboard
+                  </h1>
+                  {isFilteredPeriod && (
+                    <Badge className="bg-amber-400/90 text-amber-900 border-0 text-[10px] font-bold px-2.5 py-0.5 h-6 shadow-sm animate-in fade-in slide-in-from-right-2 duration-300">
+                      {PERIOD_LABELS[activePeriod]}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="text-emerald-100 text-sm md:text-base font-medium">
+                    FY {selectedYear}
+                  </span>
+                  <span className="text-emerald-200/60">•</span>
+                  <span className={`text-sm md:text-base font-semibold ${isFilteredPeriod ? 'text-amber-200' : 'text-emerald-100'}`}>
+                    {periodSubtitle}
+                  </span>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 {/* Year selector */}
@@ -754,58 +777,96 @@ export default function CRMDashboard() {
             </div>
 
             {/* Date range quick picks */}
-            <div className="flex flex-wrap items-center gap-2">
-              {(['thisWeek', 'thisMonth', 'thisQuarter', 'thisYear', 'custom'] as DatePeriod[]).map((period) => (
-                <Button
-                  key={period}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handlePeriodChange(period)}
-                  className={`
-                    h-8 px-3.5 rounded-lg text-xs font-medium transition-all duration-200
-                    ${activePeriod === period
-                      ? 'bg-white/25 text-white border border-white/30 shadow-sm backdrop-blur-sm'
-                      : 'bg-white/8 text-emerald-100 border border-transparent hover:bg-white/15 hover:text-white'
-                    }
-                  `}
-                >
-                  {PERIOD_LABELS[period]}
-                </Button>
-              ))}
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {(['thisWeek', 'thisMonth', 'thisQuarter', 'thisYear', 'custom'] as DatePeriod[]).map((period) => (
+                  <Button
+                    key={period}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handlePeriodChange(period)}
+                    className={`
+                      h-8 px-3.5 rounded-lg text-xs font-medium transition-all duration-300
+                      ${activePeriod === period
+                        ? 'bg-white/30 text-white border border-white/40 shadow-md backdrop-blur-sm scale-105'
+                        : 'bg-white/8 text-emerald-100 border border-transparent hover:bg-white/15 hover:text-white hover:scale-105'
+                      }
+                    `}
+                  >
+                    {PERIOD_LABELS[period]}
+                  </Button>
+                ))}
+              </div>
 
-              {/* Custom date inputs */}
+              {/* Custom date inputs — enhanced UX */}
               {activePeriod === 'custom' && (
-                <div className="flex items-center gap-2 ml-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                  <Input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="h-8 w-36 bg-white/15 border-white/25 text-white text-xs rounded-lg backdrop-blur-sm placeholder:text-emerald-200/60 focus:ring-1 focus:ring-white/30 focus:border-white/40 [color-scheme:dark]"
-                    placeholder="Start"
-                  />
-                  <span className="text-emerald-200 text-xs">→</span>
-                  <Input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="h-8 w-36 bg-white/15 border-white/25 text-white text-xs rounded-lg backdrop-blur-sm placeholder:text-emerald-200/60 focus:ring-1 focus:ring-white/30 focus:border-white/40 [color-scheme:dark]"
-                    placeholder="End"
-                  />
+                <div className="flex flex-wrap items-end gap-3 animate-in fade-in slide-in-from-top-2 duration-300 bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-emerald-200 uppercase tracking-wider">Start Date</label>
+                    <Input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="h-9 w-40 bg-white/20 border-white/30 text-white text-sm rounded-lg backdrop-blur-sm placeholder:text-emerald-200/60 focus:ring-2 focus:ring-amber-300/50 focus:border-amber-300/50 [color-scheme:dark] transition-all duration-200"
+                      placeholder="Start"
+                    />
+                  </div>
+                  <div className="flex items-center pb-2">
+                    <span className="text-emerald-200 text-lg font-light">→</span>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-emerald-200 uppercase tracking-wider">End Date</label>
+                    <Input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="h-9 w-40 bg-white/20 border-white/30 text-white text-sm rounded-lg backdrop-blur-sm placeholder:text-emerald-200/60 focus:ring-2 focus:ring-amber-300/50 focus:border-amber-300/50 [color-scheme:dark] transition-all duration-200"
+                      placeholder="End"
+                    />
+                  </div>
+                  {customStartDate && customEndDate && (
+                    <div className="flex items-center pb-2">
+                      <Badge className="bg-amber-400/90 text-amber-900 border-0 text-[10px] font-bold px-2.5 h-6">
+                        {format(new Date(customStartDate), 'MMM dd')} – {format(new Date(customEndDate), 'MMM dd')}
+                      </Badge>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </div>
 
+        {/* ═══════════════ ACTIVE PERIOD INDICATOR ═══════════════ */}
+        {isFilteredPeriod && (
+          <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-3 rounded-xl bg-amber-50/80 border border-amber-200/60 backdrop-blur-sm px-4 py-2.5 shadow-sm">
+              <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-xs font-medium text-amber-800">
+                Viewing data for <span className="font-bold">{PERIOD_LABELS[activePeriod]}</span>
+                {activePeriod !== 'custom' && (
+                  <span className="text-amber-600"> ({periodSubtitle})</span>
+                )}
+              </span>
+              <button
+                onClick={() => handlePeriodChange('thisYear')}
+                className="ml-auto text-[10px] font-semibold text-amber-700 hover:text-amber-900 bg-amber-100/80 hover:bg-amber-200/80 px-2.5 py-1 rounded-md transition-all duration-200"
+              >
+                Reset to Full Year
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ═══════════════ KPI CARDS ROW ═══════════════ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Total Business */}
-          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/80 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden">
+          <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden ring-1 ring-gray-900/[0.03]">
             <div className="h-1 w-full bg-gradient-to-r from-emerald-400 to-emerald-600" />
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
                 <div className="space-y-1.5">
-                  <p className="text-sm font-medium text-muted-foreground">Total Business</p>
+                  <p className="text-sm font-medium text-muted-foreground">Total Business{kpiPeriodSuffix}</p>
                   <p className="text-3xl font-bold text-gray-900 tracking-tight">
                     <AnimatedValue value={dashboard.totalBusiness} />
                   </p>
@@ -827,13 +888,13 @@ export default function CRMDashboard() {
           </Card>
 
           {/* Target Achievement */}
-          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/80 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden">
+          <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden ring-1 ring-gray-900/[0.03]">
             <div className="h-1 w-full bg-gradient-to-r from-teal-400 to-teal-600" />
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
                 <div className="space-y-1.5">
                   <p className="text-sm font-medium text-muted-foreground">
-                    {isFullYear ? 'Target Achievement' : 'Period Target Achievement'}
+                    Target Achievement{kpiPeriodSuffix}
                   </p>
                   <p className="text-3xl font-bold text-gray-900 tracking-tight">
                     {dashboard.targetVsActual.percentageAchieved}%
@@ -869,13 +930,13 @@ export default function CRMDashboard() {
           </Card>
 
           {/* Monthly Progress */}
-          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/80 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden">
+          <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden ring-1 ring-gray-900/[0.03]">
             <div className="h-1 w-full bg-gradient-to-r from-amber-400 to-amber-500" />
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
                 <div className="space-y-1.5">
                   <p className="text-sm font-medium text-muted-foreground">
-                    {isFullYear ? 'Monthly Progress' : 'Period Progress'}
+                    {isFullYear ? 'Monthly Progress' : `Progress${kpiPeriodSuffix}`}
                   </p>
                   <p className="text-3xl font-bold text-gray-900 tracking-tight">
                     {displayedMonthData ? formatCompactPKR(displayedMonthData.actual) : '₨ 0'}
@@ -899,13 +960,13 @@ export default function CRMDashboard() {
           </Card>
 
           {/* Proposal Pipeline */}
-          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/80 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden">
+          <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden ring-1 ring-gray-900/[0.03]">
             <div className="h-1 w-full bg-gradient-to-r from-purple-400 to-purple-600" />
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
                 <div className="space-y-1.5">
                   <p className="text-sm font-medium text-muted-foreground">
-                    {isFullYear ? 'Proposal Pipeline' : `Pipeline (${periodSubtitle})`}
+                    Proposal Pipeline{kpiPeriodSuffix}
                   </p>
                   <p className="text-3xl font-bold text-gray-900 tracking-tight">
                     {wonCount}
@@ -941,7 +1002,7 @@ export default function CRMDashboard() {
         {/* ═══════════════ QUICK STATS ROW ═══════════════ */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Avg Proposal Value */}
-          <Card className="rounded-xl border shadow-none bg-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+          <Card className="rounded-xl border-0 shadow-sm bg-white/80 backdrop-blur-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ring-1 ring-gray-900/[0.03]">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
@@ -958,7 +1019,7 @@ export default function CRMDashboard() {
           </Card>
 
           {/* Conversion Rate */}
-          <Card className="rounded-xl border shadow-none bg-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+          <Card className="rounded-xl border-0 shadow-sm bg-white/80 backdrop-blur-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ring-1 ring-gray-900/[0.03]">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-lg bg-teal-50 flex items-center justify-center shrink-0">
@@ -975,7 +1036,7 @@ export default function CRMDashboard() {
           </Card>
 
           {/* Avg Days to Win */}
-          <Card className="rounded-xl border shadow-none bg-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+          <Card className="rounded-xl border-0 shadow-sm bg-white/80 backdrop-blur-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ring-1 ring-gray-900/[0.03]">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
@@ -992,7 +1053,7 @@ export default function CRMDashboard() {
           </Card>
 
           {/* Pipeline Value */}
-          <Card className="rounded-xl border shadow-none bg-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+          <Card className="rounded-xl border-0 shadow-sm bg-white/80 backdrop-blur-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ring-1 ring-gray-900/[0.03]">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-lg bg-purple-50 flex items-center justify-center shrink-0">
@@ -1012,7 +1073,7 @@ export default function CRMDashboard() {
         {/* ═══════════════ CHARTS SECTION (2x2) ═══════════════ */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Target vs Actual — Monthly Bar Chart */}
-          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+          <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm ring-1 ring-gray-900/[0.03] hover:shadow-lg transition-all duration-300">
             <CardHeader className="pb-2 pt-5 px-5">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold text-gray-900">
@@ -1047,9 +1108,11 @@ export default function CRMDashboard() {
                       formatter={(value: number) => formatPKR(value)}
                       contentStyle={{
                         borderRadius: '12px',
-                        border: '1px solid #e2e8f0',
-                        boxShadow: '0 8px 16px -4px rgb(0 0 0 / 0.1)',
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        boxShadow: '0 12px 24px -6px rgb(0 0 0 / 0.12), 0 0 0 1px rgb(0 0 0 / 0.04)',
                         fontSize: '12px',
+                        backdropFilter: 'blur(12px)',
+                        background: 'rgba(255,255,255,0.85)',
                       }}
                     />
                     <Legend
@@ -1065,7 +1128,7 @@ export default function CRMDashboard() {
           </Card>
 
           {/* Proposal Pipeline Funnel */}
-          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+          <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm ring-1 ring-gray-900/[0.03] hover:shadow-lg transition-all duration-300">
             <CardHeader className="pb-2 pt-5 px-5">
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-lg bg-purple-100 flex items-center justify-center">
@@ -1148,7 +1211,7 @@ export default function CRMDashboard() {
           </Card>
 
           {/* Revenue Trend — Area Chart */}
-          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+          <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm ring-1 ring-gray-900/[0.03] hover:shadow-lg transition-all duration-300">
             <CardHeader className="pb-2 pt-5 px-5">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold text-gray-900">
@@ -1216,7 +1279,7 @@ export default function CRMDashboard() {
           </Card>
 
           {/* Service Distribution — Horizontal Bar */}
-          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+          <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm ring-1 ring-gray-900/[0.03] hover:shadow-lg transition-all duration-300">
             <CardHeader className="pb-2 pt-5 px-5">
               <CardTitle className="text-base font-semibold text-gray-900">
                 Service Distribution
@@ -1281,7 +1344,7 @@ export default function CRMDashboard() {
         </div>
 
         {/* ═══════════════ RECENT ACTIVITY — HORIZONTAL ═══════════════ */}
-        <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+        <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm ring-1 ring-gray-900/[0.03] hover:shadow-lg transition-all duration-300">
           <CardHeader className="pb-2 pt-5 px-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1298,7 +1361,7 @@ export default function CRMDashboard() {
             {(dashboard.recentProposals || []).length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
                 {(dashboard.recentProposals || []).map((p) => (
-                  <div key={p.id} className="rounded-xl bg-gray-50/80 p-4 space-y-2 hover:bg-gray-100/80 transition-colors">
+                  <div key={p.id} className="rounded-xl bg-white/60 backdrop-blur-sm p-4 space-y-2 hover:bg-white/80 transition-all duration-200 ring-1 ring-gray-900/[0.03] hover:shadow-sm">
                     <div className="flex items-center justify-between">
                       <Badge
                         variant="outline"
@@ -1329,7 +1392,7 @@ export default function CRMDashboard() {
         {/* ═══════════════ BOTTOM SECTION ═══════════════ */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Top Clients */}
-          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+          <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm ring-1 ring-gray-900/[0.03] hover:shadow-lg transition-all duration-300">
             <CardHeader className="pb-2 pt-5 px-5">
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-lg bg-emerald-100 flex items-center justify-center">
@@ -1376,7 +1439,7 @@ export default function CRMDashboard() {
           </Card>
 
           {/* Team Leaderboard */}
-          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+          <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm ring-1 ring-gray-900/[0.03] hover:shadow-lg transition-all duration-300">
             <CardHeader className="pb-2 pt-5 px-5">
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-lg bg-amber-100 flex items-center justify-center">
@@ -1443,7 +1506,7 @@ export default function CRMDashboard() {
           </Card>
 
           {/* Upcoming Deadlines — Timeline */}
-          <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+          <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm ring-1 ring-gray-900/[0.03] hover:shadow-lg transition-all duration-300">
             <CardHeader className="pb-2 pt-5 px-5">
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-lg bg-red-100 flex items-center justify-center">
@@ -1516,7 +1579,7 @@ export default function CRMDashboard() {
         </div>
 
         {/* ═══════════════ QUARTERLY PROGRESS ═══════════════ */}
-        <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+        <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm ring-1 ring-gray-900/[0.03] hover:shadow-lg transition-all duration-300">
           <CardHeader className="pb-2 pt-5 px-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1536,7 +1599,7 @@ export default function CRMDashboard() {
                 const isOverAchieved = pct >= 100
 
                 return (
-                  <div key={q.quarter} className="rounded-xl bg-gray-50/80 p-4 space-y-2">
+                  <div key={q.quarter} className="rounded-xl bg-white/60 backdrop-blur-sm p-4 space-y-2 ring-1 ring-gray-900/[0.03] hover:shadow-sm transition-all duration-200">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-gray-800">{q.quarter}</span>
                       <Badge
@@ -1608,7 +1671,7 @@ export default function CRMDashboard() {
         </Card>
 
         {/* ═══════════════ PROPOSAL STATUS PIE ═══════════════ */}
-        <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-white to-gray-50/50">
+        <Card className="rounded-2xl border-0 shadow-md bg-gradient-to-br from-white/95 to-gray-50/70 backdrop-blur-sm ring-1 ring-gray-900/[0.03] hover:shadow-lg transition-all duration-300">
           <CardHeader className="pb-2 pt-5 px-5">
             <CardTitle className="text-base font-semibold text-gray-900">
               Proposal Status Distribution
