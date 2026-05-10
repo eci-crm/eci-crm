@@ -439,9 +439,9 @@ export function CRMChatbot() {
                         }`}
                         style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}
                       >
-                        <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}>
+                        <div className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}>
                           {formatMessageContent(msg.content)}
-                        </p>
+                        </div>
                         <p
                           className={`mt-1 text-[10px] ${
                             msg.role === 'user'
