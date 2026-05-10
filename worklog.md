@@ -52,3 +52,36 @@ Stage Summary:
 - Priority 3 (direct fetch) serves as a last resort fallback
 - All LLM calls have a 30-second timeout to prevent server hanging
 - The ai-proxy route now supports configurable target URL for Vercel deployments
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix CRM Assistant for Vercel deployment - smart fallback + deployment
+
+Work Log:
+- Discovered that the z-ai API (172.25.136.193:8080) is an internal sandbox IP, NOT accessible from Vercel
+- Tested FC function URLs (Alibaba Cloud Function Compute) - the sandbox uses a WebSocket-only FC function that doesn't support HTTP triggers
+- The Caddy gateway (port 81) serves the preview panel but is NOT accessible via public HTTP
+- Verified the Vercel deployment works with Neon PostgreSQL (database IS accessible from Vercel)
+- Previous "working" AI responses on Vercel were actually from sandbox sessions (shared Neon DB)
+- Implemented SMART FALLBACK for when AI API is unreachable:
+  - Detects user query topic (dashboard, deadlines, targets, clients, services, team, etc.)
+  - Returns relevant CRM data sections from the already-fetched crmSummary
+  - Shows a note: "AI-powered insights are currently unavailable"
+  - Previously showed a generic error message; now provides actual CRM data
+- Increased LLM timeout from 30s to 45s for large CRM context
+- Added maxDuration=60 for Vercel serverless function
+- Added z-ai-web-dev-sdk to serverExternalPackages in next.config
+- Started ai-proxy mini-service on port 3030 for sandbox proxy support
+- Deployed to GitHub (eci-crm/eci-crm) and Vercel (my-project-sigma-ruby-33.vercel.app)
+- Verified Vercel deployment: chatbot returns CRM data on Vercel via smart fallback
+
+Stage Summary:
+- CRM Assistant AI bot works FULLY in sandbox (with AI-powered responses)
+- CRM Assistant provides SMART DATA FALLBACK on Vercel (CRM data without AI analysis)
+- The 3-priority LLM approach works correctly:
+  - Priority 1 (ZAI with env vars) works in sandbox, times out on Vercel (expected)
+  - Priority 2 (ZAI.create) works in sandbox, fails on Vercel (expected)
+  - Priority 3 (direct fetch) works in sandbox, fails on Vercel (expected)
+  - Smart fallback provides relevant CRM data on Vercel when all LLM approaches fail
+- For full AI capabilities on Vercel, a public AI API endpoint would need to be configured
