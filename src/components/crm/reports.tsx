@@ -1380,7 +1380,7 @@ export default function CRMReports() {
                       tickFormatter={(v) => formatCompactPKR(v)}
                     />
                     <Tooltip formatter={(value: number) => formatPKR(value)} contentStyle={CHART_TOOLTIP_STYLE} />
-                    <Legend wrapperStyle={{ fontSize: '12px' }} iconType="rounded" />
+                    <Legend wrapperStyle={{ fontSize: '12px' }}  />
                     <Bar dataKey="Won" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
                     <Bar dataKey="Target" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
                   </BarChart>
@@ -1526,7 +1526,7 @@ export default function CRMReports() {
                       tickFormatter={(v) => formatCompactPKR(v)}
                     />
                     <Tooltip formatter={(value: number) => formatPKR(value)} contentStyle={CHART_TOOLTIP_STYLE} />
-                    <Legend wrapperStyle={{ fontSize: '12px' }} iconType="rounded" />
+                    <Legend wrapperStyle={{ fontSize: '12px' }}  />
                     <Bar dataKey="Total" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
                     <Bar dataKey="Won" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
                   </BarChart>
