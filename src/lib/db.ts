@@ -1,6 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { execSync } from 'child_process'
-import { existsSync, copyFileSync, mkdirSync } from 'fs'
+import { existsSync, copyFileSync } from 'fs'
 import { join } from 'path'
 
 const globalForPrisma = globalThis as unknown as {

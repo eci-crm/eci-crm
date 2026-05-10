@@ -108,6 +108,15 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
+    // Check for related proposals first
+    const proposalCount = await db.proposal.count({ where: { clientId: id } })
+    if (proposalCount > 0) {
+      return NextResponse.json(
+        { error: `Cannot delete client: ${proposalCount} proposal(s) are linked to this client. Remove or reassign them first.` },
+        { status: 409 }
+      )
+    }
+
     await db.client.delete({ where: { id } })
 
     return NextResponse.json({ success: true })

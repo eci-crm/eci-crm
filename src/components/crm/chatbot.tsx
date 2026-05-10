@@ -77,6 +77,7 @@ function LoadingDots() {
 
 function formatMessageTime(dateStr: string): string {
   const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return ''
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffMin = Math.floor(diffMs / 60000)

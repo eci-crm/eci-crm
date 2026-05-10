@@ -160,40 +160,42 @@ export async function PUT(request: NextRequest) {
       remarks,
       deadline,
       submissionDate,
-      thematicAreaIds = [],
-      serviceIds = [],
+      thematicAreaIds,
+      serviceIds,
     } = body
 
-    // Delete existing thematic areas and services, then recreate
-    await db.proposalThematicArea.deleteMany({ where: { proposalId: id } })
-    await db.proposalService.deleteMany({ where: { proposalId: id } })
+    // Build update data only from explicitly provided fields to prevent data loss
+    const data: Record<string, unknown> = {}
+    if (name !== undefined) data.name = name
+    if (rfpNumber !== undefined) data.rfpNumber = rfpNumber
+    if (clientId !== undefined) data.clientId = clientId
+    if (assignedMemberId !== undefined) data.assignedMemberId = assignedMemberId || null
+    if (value !== undefined) data.value = value
+    if (status !== undefined) data.status = status
+    if (winningChances !== undefined) data.winningChances = winningChances
+    if (focalPerson !== undefined) data.focalPerson = focalPerson
+    if (followUpDate !== undefined) data.followUpDate = followUpDate ? new Date(followUpDate) : null
+    if (remarks !== undefined) data.remarks = remarks
+    if (deadline !== undefined) data.deadline = deadline ? new Date(deadline) : null
+    if (submissionDate !== undefined) data.submissionDate = submissionDate ? new Date(submissionDate) : null
+
+    // Only delete/recreate relations if explicitly provided in the request
+    if (thematicAreaIds !== undefined) {
+      await db.proposalThematicArea.deleteMany({ where: { proposalId: id } })
+      data.thematicAreas = {
+        create: thematicAreaIds.map((thematicAreaId: string) => ({ thematicAreaId })),
+      }
+    }
+    if (serviceIds !== undefined) {
+      await db.proposalService.deleteMany({ where: { proposalId: id } })
+      data.services = {
+        create: serviceIds.map((serviceId: string) => ({ serviceId })),
+      }
+    }
 
     const proposal = await db.proposal.update({
       where: { id },
-      data: {
-        name,
-        rfpNumber: rfpNumber || '',
-        clientId,
-        assignedMemberId: assignedMemberId || null,
-        value: value ?? 0,
-        status: status || 'In Process',
-        winningChances: winningChances || '',
-        focalPerson: focalPerson || '',
-        followUpDate: followUpDate ? new Date(followUpDate) : null,
-        remarks: remarks || '',
-        deadline: deadline ? new Date(deadline) : null,
-        submissionDate: submissionDate ? new Date(submissionDate) : null,
-        thematicAreas: {
-          create: thematicAreaIds.map((thematicAreaId: string) => ({
-            thematicAreaId,
-          })),
-        },
-        services: {
-          create: serviceIds.map((serviceId: string) => ({
-            serviceId,
-          })),
-        },
-      },
+      data,
       include: {
         client: true,
         assignedMember: true,

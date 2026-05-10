@@ -72,66 +72,68 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Backup data is required' }, { status: 400 })
     }
 
-    // Restore in order respecting foreign key constraints
-    // First, clear existing data in reverse dependency order
-    await db.chatMessage.deleteMany()
-    await db.activityLog.deleteMany()
-    await db.notification.deleteMany()
-    await db.setting.deleteMany()
-    await db.resource.deleteMany()
-    await db.resourceFolder.deleteMany()
-    await db.proposalThematicArea.deleteMany()
-    await db.proposalService.deleteMany()
-    await db.proposal.deleteMany()
-    await db.businessTarget.deleteMany()
-    await db.service.deleteMany()
-    await db.thematicArea.deleteMany()
-    await db.teamMember.deleteMany()
-    await db.client.deleteMany()
+    // Wrap restore in a transaction so if any createMany fails, original data isn't lost
+    await db.$transaction(async (tx) => {
+      // First, clear existing data in reverse dependency order
+      await tx.chatMessage.deleteMany()
+      await tx.activityLog.deleteMany()
+      await tx.notification.deleteMany()
+      await tx.setting.deleteMany()
+      await tx.resource.deleteMany()
+      await tx.resourceFolder.deleteMany()
+      await tx.proposalThematicArea.deleteMany()
+      await tx.proposalService.deleteMany()
+      await tx.proposal.deleteMany()
+      await tx.businessTarget.deleteMany()
+      await tx.service.deleteMany()
+      await tx.thematicArea.deleteMany()
+      await tx.teamMember.deleteMany()
+      await tx.client.deleteMany()
 
-    // Then restore data in dependency order
-    if (data.clients?.length) {
-      await db.client.createMany({ data: data.clients })
-    }
-    if (data.teamMembers?.length) {
-      await db.teamMember.createMany({ data: data.teamMembers })
-    }
-    if (data.thematicAreas?.length) {
-      await db.thematicArea.createMany({ data: data.thematicAreas })
-    }
-    if (data.services?.length) {
-      await db.service.createMany({ data: data.services })
-    }
-    if (data.proposals?.length) {
-      await db.proposal.createMany({ data: data.proposals })
-    }
-    if (data.proposalThematicAreas?.length) {
-      await db.proposalThematicArea.createMany({ data: data.proposalThematicAreas })
-    }
-    if (data.proposalServices?.length) {
-      await db.proposalService.createMany({ data: data.proposalServices })
-    }
-    if (data.businessTargets?.length) {
-      await db.businessTarget.createMany({ data: data.businessTargets })
-    }
-    if (data.resourceFolders?.length) {
-      await db.resourceFolder.createMany({ data: data.resourceFolders })
-    }
-    if (data.resources?.length) {
-      await db.resource.createMany({ data: data.resources })
-    }
-    if (data.settings?.length) {
-      await db.setting.createMany({ data: data.settings })
-    }
-    if (data.notifications?.length) {
-      await db.notification.createMany({ data: data.notifications })
-    }
-    if (data.activityLogs?.length) {
-      await db.activityLog.createMany({ data: data.activityLogs })
-    }
-    if (data.chatMessages?.length) {
-      await db.chatMessage.createMany({ data: data.chatMessages })
-    }
+      // Then restore data in dependency order
+      if (data.clients?.length) {
+        await tx.client.createMany({ data: data.clients })
+      }
+      if (data.teamMembers?.length) {
+        await tx.teamMember.createMany({ data: data.teamMembers })
+      }
+      if (data.thematicAreas?.length) {
+        await tx.thematicArea.createMany({ data: data.thematicAreas })
+      }
+      if (data.services?.length) {
+        await tx.service.createMany({ data: data.services })
+      }
+      if (data.proposals?.length) {
+        await tx.proposal.createMany({ data: data.proposals })
+      }
+      if (data.proposalThematicAreas?.length) {
+        await tx.proposalThematicArea.createMany({ data: data.proposalThematicAreas })
+      }
+      if (data.proposalServices?.length) {
+        await tx.proposalService.createMany({ data: data.proposalServices })
+      }
+      if (data.businessTargets?.length) {
+        await tx.businessTarget.createMany({ data: data.businessTargets })
+      }
+      if (data.resourceFolders?.length) {
+        await tx.resourceFolder.createMany({ data: data.resourceFolders })
+      }
+      if (data.resources?.length) {
+        await tx.resource.createMany({ data: data.resources })
+      }
+      if (data.settings?.length) {
+        await tx.setting.createMany({ data: data.settings })
+      }
+      if (data.notifications?.length) {
+        await tx.notification.createMany({ data: data.notifications })
+      }
+      if (data.activityLogs?.length) {
+        await tx.activityLog.createMany({ data: data.activityLogs })
+      }
+      if (data.chatMessages?.length) {
+        await tx.chatMessage.createMany({ data: data.chatMessages })
+      }
+    })
 
     return NextResponse.json({ success: true, message: 'Backup restored successfully' })
   } catch (error) {

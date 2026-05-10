@@ -291,19 +291,31 @@ export default function CRMReports() {
   // Fetch services for filter dropdown
   const { data: services = [] } = useQuery<Service[]>({
     queryKey: ['services'],
-    queryFn: () => fetch('/api/services').then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch('/api/services')
+      if (!r.ok) throw new Error('Failed to fetch services')
+      return r.json()
+    },
   })
 
   // Fetch clients for filter dropdown
   const { data: clientsList = [] } = useQuery<ClientOption[]>({
     queryKey: ['clients-list'],
-    queryFn: () => fetch('/api/clients').then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch('/api/clients')
+      if (!r.ok) throw new Error('Failed to fetch clients')
+      return r.json()
+    },
   })
 
   // Fetch thematic areas for filter dropdown
   const { data: thematicAreas = [] } = useQuery<ThematicAreaOption[]>({
     queryKey: ['thematic-areas-list'],
-    queryFn: () => fetch('/api/thematic-areas').then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch('/api/thematic-areas')
+      if (!r.ok) throw new Error('Failed to fetch thematic areas')
+      return r.json()
+    },
   })
 
   // Build query params from applied filters
@@ -1018,7 +1030,7 @@ export default function CRMReports() {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {format(new Date(proposal.createdAt), 'MMM dd, yyyy')}
+                        {(() => { try { return proposal.createdAt ? format(new Date(proposal.createdAt), 'MMM dd, yyyy') : '—' } catch { return '—' } })()}
                       </TableCell>
                     </TableRow>
                   ))}

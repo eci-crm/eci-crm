@@ -240,7 +240,7 @@ async function handleSummaryReport(startDate: Date, endDate: Date, year: number,
     const monthEnd = new Date(year, m + 1, 0, 23, 59, 59, 999)
 
     const monthTarget = targets
-      .filter((t) => t.month === m)
+      .filter((t) => t.month === m + 1)
       .reduce((sum, t) => sum + t.amount, 0)
 
     const monthProposalWhere: Record<string, unknown> = {

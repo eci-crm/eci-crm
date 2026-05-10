@@ -27,6 +27,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Settings array is required' }, { status: 400 })
     }
 
+    // Validate each setting has a valid key and value
+    for (const setting of settings) {
+      if (!setting.key || typeof setting.key !== 'string' || setting.key.trim() === '') {
+        return NextResponse.json({ error: 'Each setting must have a valid non-empty string key' }, { status: 400 })
+      }
+      if (setting.value === undefined || setting.value === null) {
+        return NextResponse.json({ error: `Setting '${setting.key}' must have a value` }, { status: 400 })
+      }
+    }
+
     const results = []
     for (const setting of settings) {
       const result = await db.setting.upsert({
@@ -55,6 +65,16 @@ export async function PUT(request: NextRequest) {
       settings = body.settings
     } else {
       return NextResponse.json({ error: 'Settings array is required' }, { status: 400 })
+    }
+
+    // Validate each setting has a valid key and value
+    for (const setting of settings) {
+      if (!setting.key || typeof setting.key !== 'string' || setting.key.trim() === '') {
+        return NextResponse.json({ error: 'Each setting must have a valid non-empty string key' }, { status: 400 })
+      }
+      if (setting.value === undefined || setting.value === null) {
+        return NextResponse.json({ error: `Setting '${setting.key}' must have a value` }, { status: 400 })
+      }
     }
 
     const results = []

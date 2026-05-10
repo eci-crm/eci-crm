@@ -739,13 +739,12 @@ Important guidelines:
     return NextResponse.json(assistantMessage)
   } catch (error) {
     console.error('Error in chat:', error)
-    // Return a fallback response so the UI doesn't break
-    const fallbackMessage = await db.chatMessage.create({
-      data: {
-        role: 'assistant',
-        content: 'I apologize, but I encountered an error processing your request. Please try again later.',
-      },
+    // Return a fallback response without DB access to avoid double-fault when DB is down
+    return NextResponse.json({
+      id: `fallback-${Date.now()}`,
+      role: 'assistant',
+      content: 'I apologize, but I encountered an error. Please try again later.',
+      createdAt: new Date().toISOString(),
     })
-    return NextResponse.json(fallbackMessage)
   }
 }

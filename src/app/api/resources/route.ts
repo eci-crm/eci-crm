@@ -176,6 +176,18 @@ export async function PUT(request: NextRequest) {
         if (moveFolderId === id) {
           return NextResponse.json({ error: 'Cannot move a folder into itself' }, { status: 400 })
         }
+        // Check for circular reference: is moveFolderId a descendant of id?
+        if (moveFolderId) {
+          const allFolders = await db.resourceFolder.findMany()
+          let current: string | null = moveFolderId
+          while (current) {
+            if (current === id) {
+              return NextResponse.json({ error: 'Cannot move a folder into its own subfolder' }, { status: 400 })
+            }
+            const folder = allFolders.find((f) => f.id === current)
+            current = folder?.parentId ?? null
+          }
+        }
         const folder = await db.resourceFolder.update({
           where: { id },
           data: { parentId: moveFolderId || null },
@@ -219,7 +231,15 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (type === 'folder') {
-      // Cascade delete will handle children and resources
+      // Check for subfolders first - cannot delete non-empty folder
+      const subfolderCount = await db.resourceFolder.count({ where: { parentId: id } })
+      if (subfolderCount > 0) {
+        return NextResponse.json(
+          { error: 'Cannot delete folder: it contains subfolders. Delete or move them first.' },
+          { status: 409 }
+        )
+      }
+      // Resources will have folderId set to null via onDelete: SetNull
       await db.resourceFolder.delete({ where: { id } })
       return NextResponse.json({ success: true })
     }

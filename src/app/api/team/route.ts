@@ -81,7 +81,13 @@ export async function PUT(request: NextRequest) {
 
     const data: Record<string, unknown> = {}
     if (name !== undefined) data.name = name
-    if (email !== undefined) data.email = email
+    if (email !== undefined) {
+      const existing = await db.teamMember.findFirst({ where: { email, NOT: { id } } })
+      if (existing) {
+        return NextResponse.json({ error: 'Email already in use' }, { status: 409 })
+      }
+      data.email = email
+    }
     if (role !== undefined) data.role = role
     if (password !== undefined) data.password = password
     if (active !== undefined) data.isActive = active
@@ -114,6 +120,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
+    // Unassign from proposals first, then delete
+    await db.proposal.updateMany({ where: { assignedMemberId: id }, data: { assignedMemberId: null } })
     await db.teamMember.delete({ where: { id } })
 
     return NextResponse.json({ success: true })

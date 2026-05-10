@@ -769,7 +769,7 @@ export default function CRMDashboard() {
                   </div>
                 )}
                 {/* Last updated pill */}
-                <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-emerald-100 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/15">
+                <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-emerald-100 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/15" suppressHydrationWarning>
                   <Clock className="h-3 w-3" />
                   {format(new Date(), 'MMM dd, HH:mm')}
                 </div>

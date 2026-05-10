@@ -57,6 +57,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { toast } from 'sonner'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -307,14 +308,19 @@ export default function CRMClients() {
   }
 
   const downloadTemplate = async () => {
-    const res = await fetch('/api/clients/import')
-    const blob = await res.blob()
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'clients_template.csv'
-    a.click()
-    window.URL.revokeObjectURL(url)
+    try {
+      const res = await fetch('/api/clients/import')
+      if (!res.ok) throw new Error('Failed to download template')
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'clients_template.csv'
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Failed to download template')
+    }
   }
 
   const hasActiveFilters = search || filterStatus !== 'all'
@@ -510,7 +516,7 @@ export default function CRMClients() {
                         </span>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
-                        {format(parseISO(client.createdAt), 'MMM dd, yyyy')}
+                        {(() => { try { return client.createdAt ? format(parseISO(client.createdAt), 'MMM dd, yyyy') : '—' } catch { return '—' } })()}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

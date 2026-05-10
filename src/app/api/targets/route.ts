@@ -93,13 +93,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Targets array is required' }, { status: 400 })
     }
 
+    // Deduplicate years to prevent data loss from duplicate entries
+    const uniqueYears = [...new Set(targets.map((t) => t.year))]
+
+    // Delete existing targets for all unique years at once
+    await db.businessTarget.deleteMany({
+      where: { year: { in: uniqueYears } },
+    })
+
     const results = []
 
     for (const target of targets) {
       const { year, annualTarget, monthlyOverrides, serviceTargets } = target
-
-      // Delete existing targets for this year
-      await db.businessTarget.deleteMany({ where: { year } })
 
       // Create annual target (no serviceId, no month)
       if (annualTarget > 0) {

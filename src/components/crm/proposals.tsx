@@ -482,14 +482,19 @@ export default function Proposals() {
   }
 
   const downloadTemplate = async () => {
-    const res = await fetch('/api/proposals/import')
-    const blob = await res.blob()
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'proposals_template.csv'
-    a.click()
-    window.URL.revokeObjectURL(url)
+    try {
+      const res = await fetch('/api/proposals/import')
+      if (!res.ok) throw new Error('Failed to download template')
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'proposals_template.csv'
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch {
+      // Silently fail - user can retry
+    }
   }
 
   // ── Form Helpers ─────────────────────────────────────────────────────────
