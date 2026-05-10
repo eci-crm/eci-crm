@@ -1,6 +1,5 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
-import ZAI from 'z-ai-web-dev-sdk'
 
 // ─── CRM Summary Cache ───────────────────────────────────────────────────────
 
@@ -819,36 +818,99 @@ export async function POST(request: NextRequest) {
 ${crmSummary}
 ${additionalContext}`
 
-    // Use z-ai-web-dev-sdk LLM with retry logic
-    const zai = await ZAI.create()
+    // Call LLM with dual approach: SDK (sandbox) or direct fetch (Vercel/production)
+    let assistantContent: string | null = null
 
-    let response
-    let lastError: unknown = null
+    // Build messages array for both approaches
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      ...conversationHistory,
+    ]
 
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        response = await zai.chat.completions.create({
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt,
-            },
-            ...conversationHistory,
-          ],
-        })
-        break // Success — exit retry loop
-      } catch (sdkError) {
-        lastError = sdkError
-        console.error(`LLM SDK call failed (attempt ${attempt + 1}/2):`, sdkError)
-        if (attempt === 0) {
-          // Brief pause before retry
-          await new Promise(resolve => setTimeout(resolve, 500))
+    // Approach 1: Try z-ai-web-dev-sdk (works in sandbox where .z-ai-config exists)
+    try {
+      const ZAI = (await import('z-ai-web-dev-sdk')).default
+      const zai = await ZAI.create()
+
+      let sdkResponse: Awaited<ReturnType<typeof zai.chat.completions.create>> | null = null
+      let sdkError: unknown = null
+
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          sdkResponse = await zai.chat.completions.create({ messages })
+          break
+        } catch (err) {
+          sdkError = err
+          console.error(`LLM SDK call failed (attempt ${attempt + 1}/2):`, err)
+          if (attempt === 0) await new Promise(r => setTimeout(r, 500))
         }
+      }
+
+      if (sdkResponse?.choices?.[0]?.message?.content) {
+        assistantContent = sdkResponse.choices[0].message.content
+      } else if (sdkError) {
+        console.error('SDK failed after retries, trying direct fetch:', sdkError)
+      }
+    } catch (sdkInitError) {
+      // SDK init failed (no .z-ai-config file) — fall through to direct fetch
+      console.log('z-ai-web-dev-sdk not available, using direct fetch approach')
+    }
+
+    // Approach 2: Direct fetch using environment variables (for Vercel/production)
+    if (!assistantContent) {
+      const aiBaseUrl = process.env.AI_API_BASE_URL
+      const aiApiKey = process.env.AI_API_KEY || 'Z.ai'
+      const aiChatId = process.env.AI_CHAT_ID
+      const aiUserId = process.env.AI_USER_ID
+      const aiToken = process.env.AI_TOKEN
+
+      if (aiBaseUrl) {
+        const url = `${aiBaseUrl}/chat/completions`
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${aiApiKey}`,
+          'X-Z-AI-From': 'Z',
+        }
+        if (aiChatId) headers['X-Chat-Id'] = aiChatId
+        if (aiUserId) headers['X-User-Id'] = aiUserId
+        if (aiToken) headers['X-Token'] = aiToken
+
+        let fetchError: unknown = null
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const fetchResponse = await fetch(url, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ messages, thinking: { type: 'disabled' } }),
+            })
+
+            if (!fetchResponse.ok) {
+              const errorBody = await fetchResponse.text()
+              throw new Error(`AI API request failed with status ${fetchResponse.status}: ${errorBody}`)
+            }
+
+            const data = await fetchResponse.json()
+            if (data.choices?.[0]?.message?.content) {
+              assistantContent = data.choices[0].message.content
+              break
+            }
+          } catch (err) {
+            fetchError = err
+            console.error(`Direct fetch AI call failed (attempt ${attempt + 1}/2):`, err)
+            if (attempt === 0) await new Promise(r => setTimeout(r, 500))
+          }
+        }
+
+        if (!assistantContent && fetchError) {
+          console.error('Direct fetch also failed:', fetchError)
+        }
+      } else {
+        console.log('No AI_API_BASE_URL env var set — direct fetch not available')
       }
     }
 
-    if (!response) {
-      console.error('LLM SDK call failed after 2 attempts:', lastError)
+    if (!assistantContent) {
+      console.error('All LLM approaches failed — returning fallback response')
       // Save fallback response to DB so it persists in chat history
       const fallbackMessage = await db.chatMessage.create({
         data: {
@@ -858,8 +920,6 @@ ${additionalContext}`
       })
       return NextResponse.json(fallbackMessage)
     }
-
-    const assistantContent = response.choices?.[0]?.message?.content || 'I apologize, but I could not generate a response. Please try again.'
 
     // Save assistant response
     const assistantMessage = await db.chatMessage.create({
