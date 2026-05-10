@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
  * The API key, chat ID, token, and user ID are injected from environment variables.
  */
 
-const ZAI_BASE_URL = 'http://172.25.136.193:8080/v1'
+const ZAI_BASE_URL = process.env.AI_PROXY_TARGET_URL || 'http://172.25.136.193:8080/v1'
 
 export async function POST(request: NextRequest) {
   try {

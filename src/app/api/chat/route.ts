@@ -1,6 +1,9 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 
+// Increase Vercel serverless function timeout for this route (requires Pro plan for >10s)
+export const maxDuration = 60
+
 // ─── CRM Summary Cache ───────────────────────────────────────────────────────
 
 let summaryCache: { data: string; timestamp: number } | null = null
@@ -818,49 +821,82 @@ export async function POST(request: NextRequest) {
 ${crmSummary}
 ${additionalContext}`
 
-    // Call LLM with dual approach: SDK (sandbox) or direct fetch (Vercel/production)
+    // Call LLM with priority-based approach:
+    //   Priority 1: new ZAI(config) with env vars (works on both sandbox and Vercel)
+    //   Priority 2: ZAI.create() auto-config from .z-ai-config file (sandbox fallback)
+    //   Priority 3: Direct fetch to AI_API_BASE_URL (last resort)
     let assistantContent: string | null = null
 
-    // Build messages array for both approaches
+    // Build messages array for all approaches
     const messages = [
       { role: 'system' as const, content: systemPrompt },
       ...conversationHistory,
     ]
 
-    // Approach 1: Try z-ai-web-dev-sdk (works in sandbox where .z-ai-config exists)
+    // Helper: call LLM with a 45-second timeout to prevent server hanging
+    // Vercel Hobby has 10s default function timeout; Pro has 60s
+    const LLM_TIMEOUT_MS = 45000
+    function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+      return Promise.race([
+        promise,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`LLM call timed out after ${ms}ms`)), ms)
+        ),
+      ])
+    }
+
+    // ── Priority 1: new ZAI(config) with explicit environment variables ────────
+    // This works on both sandbox AND Vercel because config is passed directly,
+    // not read from a file. The env vars can be set in Vercel dashboard.
     try {
       const ZAI = (await import('z-ai-web-dev-sdk')).default
-      const zai = await ZAI.create()
-
-      let sdkResponse: Awaited<ReturnType<typeof zai.chat.completions.create>> | null = null
-      let sdkError: unknown = null
-
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          sdkResponse = await zai.chat.completions.create({ messages })
-          break
-        } catch (err) {
-          sdkError = err
-          console.error(`LLM SDK call failed (attempt ${attempt + 1}/2):`, err)
-          if (attempt === 0) await new Promise(r => setTimeout(r, 500))
-        }
+      const zaiConfig = {
+        baseUrl: process.env.AI_API_BASE_URL || 'http://172.25.136.193:8080/v1',
+        apiKey: process.env.AI_API_KEY || 'Z.ai',
+        chatId: process.env.AI_CHAT_ID,
+        userId: process.env.AI_USER_ID,
+        token: process.env.AI_TOKEN,
       }
+      // Constructor is typed as private in the SDK's .d.ts but accepts config at runtime
+      const zai = new (ZAI as any)(zaiConfig) as InstanceType<typeof ZAI>
+
+      const sdkResponse = await withTimeout(
+        zai.chat.completions.create({ messages }),
+        LLM_TIMEOUT_MS
+      )
 
       if (sdkResponse?.choices?.[0]?.message?.content) {
         assistantContent = sdkResponse.choices[0].message.content
-      } else if (sdkError) {
-        console.error('SDK failed after retries, trying direct fetch:', sdkError)
+        console.log('LLM call succeeded via Priority 1: new ZAI(config) with env vars')
       }
-    } catch (sdkInitError) {
-      // SDK init failed (no .z-ai-config file) — fall through to direct fetch
-      console.log('z-ai-web-dev-sdk not available, using direct fetch approach')
+    } catch (p1Error) {
+      console.log('Priority 1 (new ZAI with env vars) failed:', p1Error instanceof Error ? p1Error.message : p1Error)
     }
 
-    // Approach 2: Direct fetch using environment variables (for Vercel/production)
+    // ── Priority 2: ZAI.create() auto-config from .z-ai-config file ───────────
+    // This only works in the sandbox where a .z-ai-config file exists
     if (!assistantContent) {
-      // AI_API_BASE_URL can point to:
-      // 1. A public AI API (e.g., OpenAI-compatible endpoint)
-      // 2. The sandbox's /api/ai-proxy endpoint (e.g., https://your-app.vercel.app/api/ai-proxy?XTransformPort=3000)
+      try {
+        const ZAI = (await import('z-ai-web-dev-sdk')).default
+        const zai = await ZAI.create()
+
+        const sdkResponse = await withTimeout(
+          zai.chat.completions.create({ messages }),
+          LLM_TIMEOUT_MS
+        )
+
+        if (sdkResponse?.choices?.[0]?.message?.content) {
+          assistantContent = sdkResponse.choices[0].message.content
+          console.log('LLM call succeeded via Priority 2: ZAI.create() auto-config')
+        }
+      } catch (p2Error) {
+        console.log('Priority 2 (ZAI.create auto-config) failed:', p2Error instanceof Error ? p2Error.message : p2Error)
+      }
+    }
+
+    // ── Priority 3: Direct fetch to AI_API_BASE_URL ────────────────────────────
+    // Last resort: make a raw HTTP request to the AI API endpoint
+    if (!assistantContent) {
       const aiBaseUrl = process.env.AI_API_BASE_URL
       const aiApiKey = process.env.AI_API_KEY || 'Z.ai'
       const aiChatId = process.env.AI_CHAT_ID
@@ -878,37 +914,31 @@ ${additionalContext}`
         if (aiUserId) headers['X-User-Id'] = aiUserId
         if (aiToken) headers['X-Token'] = aiToken
 
-        let fetchError: unknown = null
-        for (let attempt = 0; attempt < 2; attempt++) {
-          try {
-            const fetchResponse = await fetch(url, {
+        try {
+          const fetchResponse = await withTimeout(
+            fetch(url, {
               method: 'POST',
               headers,
               body: JSON.stringify({ messages, thinking: { type: 'disabled' } }),
-            })
+            }),
+            LLM_TIMEOUT_MS
+          )
 
-            if (!fetchResponse.ok) {
-              const errorBody = await fetchResponse.text()
-              throw new Error(`AI API request failed with status ${fetchResponse.status}: ${errorBody}`)
-            }
-
-            const data = await fetchResponse.json()
-            if (data.choices?.[0]?.message?.content) {
-              assistantContent = data.choices[0].message.content
-              break
-            }
-          } catch (err) {
-            fetchError = err
-            console.error(`Direct fetch AI call failed (attempt ${attempt + 1}/2):`, err)
-            if (attempt === 0) await new Promise(r => setTimeout(r, 500))
+          if (!fetchResponse.ok) {
+            const errorBody = await fetchResponse.text()
+            throw new Error(`AI API request failed with status ${fetchResponse.status}: ${errorBody}`)
           }
-        }
 
-        if (!assistantContent && fetchError) {
-          console.error('Direct fetch also failed:', fetchError)
+          const data = await fetchResponse.json()
+          if (data.choices?.[0]?.message?.content) {
+            assistantContent = data.choices[0].message.content
+            console.log('LLM call succeeded via Priority 3: direct fetch')
+          }
+        } catch (p3Error) {
+          console.error('Priority 3 (direct fetch) failed:', p3Error instanceof Error ? p3Error.message : p3Error)
         }
       } else {
-        console.log('No AI_API_BASE_URL env var set — direct fetch not available')
+        console.log('No AI_API_BASE_URL env var set — Priority 3 (direct fetch) not available')
       }
     }
 
