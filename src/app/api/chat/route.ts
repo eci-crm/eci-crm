@@ -943,12 +943,47 @@ ${additionalContext}`
     }
 
     if (!assistantContent) {
-      console.error('All LLM approaches failed — returning fallback response')
+      console.error('All LLM approaches failed — returning smart fallback response')
+      // Generate a smart fallback response using the CRM data we already fetched
+      const lowerMsg = message.toLowerCase()
+      let fallbackContent = ''
+
+      if (lowerMsg.includes('dashboard') || lowerMsg.includes('summary') || lowerMsg.includes('overview') || lowerMsg === 'hi' || lowerMsg === 'hello') {
+        fallbackContent = `Here's your current CRM dashboard summary:\n\n${crmSummary.split('\n').filter(l => l.trim()).slice(0, 20).join('\n')}\n\n💡 *Note: AI-powered insights are currently unavailable. Showing raw CRM data instead.*`
+      } else if (lowerMsg.includes('deadline') || lowerMsg.includes('updue') || lowerMsg.includes('upcoming')) {
+        const deadlineSection = crmSummary.match(/## Upcoming Deadlines[\s\S]*?(?=##|$)/)?.[0]
+        fallbackContent = deadlineSection
+          ? `${deadlineSection}\n\n💡 *Note: AI-powered analysis is currently unavailable.*`
+          : 'No upcoming deadlines found in the next 7 days.\n\n💡 *Note: AI-powered analysis is currently unavailable.*'
+      } else if (lowerMsg.includes('target') || lowerMsg.includes('goal') || lowerMsg.includes('progress')) {
+        const targetSection = crmSummary.match(/## Future Targets[\s\S]*?(?=##|$)/)?.[0]
+        const targetLine = crmSummary.match(/- Annual Target.*$/m)?.[0]
+        const remainingLine = crmSummary.match(/- Remaining to Target.*$/m)?.[0]
+        fallbackContent = `${targetLine || ''}\n${remainingLine || ''}\n\n${targetSection || ''}\n\n💡 *Note: AI-powered projections are currently unavailable.*`
+      } else if (lowerMsg.includes('client') || lowerMsg.includes('customer')) {
+        const clientLines = crmSummary.match(/- Total Clients.*$/m)?.[0]
+        const topClients = crmSummary.match(/## Top Clients[\s\S]*?(?=##|$)/)?.[0]
+        fallbackContent = `${clientLines || ''}\n\n${topClients || ''}\n\n💡 *Note: AI-powered insights are currently unavailable.*`
+      } else if (lowerMsg.includes('win') || lowerMsg.includes('rate') || lowerMsg.includes('success')) {
+        const winRateLine = crmSummary.match(/- Overall Win Rate.*$/m)?.[0]
+        const yearWinRate = crmSummary.match(/- Win Rate \(.*$/m)?.[0]
+        fallbackContent = `${winRateLine || ''}\n${yearWinRate || ''}\n\n💡 *Note: AI-powered analysis is currently unavailable.*`
+      } else if (lowerMsg.includes('service') || lowerMsg.includes('revenue') || lowerMsg.includes('business')) {
+        const serviceSection = crmSummary.match(/## Services[\s\S]*?(?=##|$)/)?.[0]
+        const wonLine = crmSummary.match(/- Total Business Won.*$/m)?.[0]
+        fallbackContent = `${wonLine || ''}\n\n${serviceSection || ''}\n\n💡 *Note: AI-powered insights are currently unavailable.*`
+      } else if (lowerMsg.includes('team') || lowerMsg.includes('member') || lowerMsg.includes('performance')) {
+        const teamSection = crmSummary.match(/## Team Members[\s\S]*?(?=##|$)/)?.[0]
+        fallbackContent = `${teamSection || 'No team member data available.'}\n\n💡 *Note: AI-powered analysis is currently unavailable.*`
+      } else {
+        fallbackContent = `I'm currently unable to connect to the AI service. Here's a summary of your CRM data:\n\n${crmSummary.split('\n').filter(l => l.trim()).slice(0, 15).join('\n')}\n\n💡 *Ask about specific topics like deadlines, targets, clients, or team performance for more details.*`
+      }
+
       // Save fallback response to DB so it persists in chat history
       const fallbackMessage = await db.chatMessage.create({
         data: {
           role: 'assistant',
-          content: 'I\'m sorry, I\'m having trouble connecting to the AI service right now. Please try again in a moment. If the issue persists, contact your system administrator.',
+          content: fallbackContent,
         },
       })
       return NextResponse.json(fallbackMessage)
