@@ -1112,7 +1112,7 @@ export default function Proposals() {
                         <SelectValue placeholder="Select chances" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {WINNING_CHANCES_OPTIONS.map((opt) => (
                           <SelectItem key={opt} value={opt}>
                             {opt}
