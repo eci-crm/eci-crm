@@ -1048,7 +1048,7 @@ export default function Proposals() {
                       Client <span className="text-destructive">*</span>
                     </Label>
                     <Select
-                      value={formData.clientId}
+                      value={formData.clientId || undefined}
                       onValueChange={(val) => setFormData((prev) => ({ ...prev, clientId: val }))}
                     >
                       <SelectTrigger className="w-full">
@@ -1103,7 +1103,7 @@ export default function Proposals() {
                   <div className="space-y-1.5">
                     <Label>Winning Chances</Label>
                     <Select
-                      value={formData.winningChances}
+                      value={formData.winningChances || undefined}
                       onValueChange={(val) =>
                         setFormData((prev) => ({ ...prev, winningChances: val }))
                       }
@@ -1135,7 +1135,7 @@ export default function Proposals() {
                   <div className="space-y-1.5">
                     <Label>Assigned Member</Label>
                     <Select
-                      value={formData.assignedMemberId}
+                      value={formData.assignedMemberId || undefined}
                       onValueChange={(val) =>
                         setFormData((prev) => ({ ...prev, assignedMemberId: val }))
                       }

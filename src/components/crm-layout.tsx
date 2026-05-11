@@ -43,6 +43,7 @@ import {
 import { useCRMStore } from '@/lib/store'
 import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { ErrorBoundary } from '@/components/error-boundary'
 import { CRMNotifications } from '@/components/crm/notifications'
 import { CRMChatbot } from '@/components/crm/chatbot'
 import CRMClients from '@/components/crm/clients'
@@ -418,21 +419,21 @@ export function CRMLayout() {
               transition={{ duration: 0.2, ease: 'easeOut' }}
             >
               {currentPage === 'dashboard' ? (
-                <CRMDashboard />
+                <ErrorBoundary><CRMDashboard /></ErrorBoundary>
               ) : currentPage === 'clients' ? (
-                <CRMClients />
+                <ErrorBoundary><CRMClients /></ErrorBoundary>
               ) : currentPage === 'proposals' ? (
-                <CRMProposals />
+                <ErrorBoundary><CRMProposals /></ErrorBoundary>
               ) : currentPage === 'calendar' ? (
-                <CRMCalendar />
+                <ErrorBoundary><CRMCalendar /></ErrorBoundary>
               ) : currentPage === 'reports' ? (
-                <CRMReports />
+                <ErrorBoundary><CRMReports /></ErrorBoundary>
               ) : currentPage === 'resources' ? (
-                <CRMResources />
+                <ErrorBoundary><CRMResources /></ErrorBoundary>
               ) : currentPage === 'settings' ? (
-                <CRMSettings />
+                <ErrorBoundary><CRMSettings /></ErrorBoundary>
               ) : (
-                <CRMDashboard />
+                <ErrorBoundary><CRMDashboard /></ErrorBoundary>
               )}
             </motion.div>
           </AnimatePresence>

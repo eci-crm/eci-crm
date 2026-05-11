@@ -597,7 +597,7 @@ function TeamManagementTab() {
   const openEdit = (member: TeamMember) => {
     setFormName(member.name);
     setFormEmail(member.email);
-    setFormRole(member.role);
+    setFormRole(member.role || "Member");
     setFormPassword("");
     setEditMember(member);
   };
@@ -643,7 +643,7 @@ function TeamManagementTab() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="add-role">Role</Label>
-                  <Select value={formRole} onValueChange={setFormRole}>
+                  <Select value={formRole || undefined} onValueChange={setFormRole}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
@@ -762,7 +762,7 @@ function TeamManagementTab() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-role">Role</Label>
-              <Select value={formRole} onValueChange={setFormRole}>
+              <Select value={formRole || undefined} onValueChange={setFormRole}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -2484,7 +2484,7 @@ function AIConfigTab() {
       const mdl = settings.find((s) => s.key === "ai_model");
       const enabled = settings.find((s) => s.key === "ai_enabled");
 
-      if (provider) setAiProvider(provider.value);
+      if (provider?.value) setAiProvider(provider.value);
       if (key) setApiKey(key.value);
       if (url) setBaseUrl(url.value);
       if (mdl) setModel(mdl.value);
@@ -2670,7 +2670,7 @@ function AIConfigTab() {
           {/* Provider Selection */}
           <div className="space-y-2">
             <Label htmlFor="ai-provider">AI Provider</Label>
-            <Select value={aiProvider} onValueChange={(val) => {
+            <Select value={aiProvider || undefined} onValueChange={(val) => {
               setAiProvider(val);
               if (val === "zai-glm") {
                 setBaseUrl("https://api.z.ai/api/paas/v4");
